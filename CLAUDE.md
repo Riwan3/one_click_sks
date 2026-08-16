@@ -199,4 +199,12 @@ Kalau ada 1 komponen dipakai di banyak page dengan variasi kecil (misal beda war
 
 ---
 
+## 12. Git Workflow
+
+- Setelah selesai ngoding (fitur/fix sudah jalan dan lolos checklist di atas), **commit lalu push ke GitHub**.
+- Commit message **singkat, padat, jelas** — satu baris, present tense, langsung ke intinya (contoh: `fix: validasi form login`, `feat: tambah halaman index product`). Hindari deskripsi panjang bertele-tele.
+- Jangan gabung banyak perubahan tidak berhubungan dalam satu commit — pisah per fitur/fix biar history gampang ditelusuri.
+
+---
+
 **Ringkas prinsipnya:** kode secukupnya, jelas maksudnya, tidak duplikasi, dan gampang di-scale oleh orang lain yang baca setelah kita.

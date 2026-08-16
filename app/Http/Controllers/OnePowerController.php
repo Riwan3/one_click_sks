@@ -31,13 +31,7 @@ class OnePowerController extends Controller
         $seed = $month * 31 + $year;
 
         return Inertia::render('OnePower/Dashboard', [
-            'user' => [
-                'displayName' => session('dummy_user', 'Guest User'),
-                'username' => session('dummy_username', '00000'),
-                'jabatan' => 'Data Analyst',
-                'unit' => 'MASTER',
-                'foto' => null,
-            ],
+            'user' => $this->currentUser(),
             'notifCounts' => [
                 'signature' => 2,
                 'notification' => 3,

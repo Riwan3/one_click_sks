@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { Line, Bar } from 'vue-chartjs';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -67,6 +67,10 @@ const topOperatorsOptions = {
     ...baseOptions,
     indexAxis: 'y',
 };
+
+const activeTab = ref('hm');
+
+const comingSoonLabel = computed(() => (activeTab.value === 'kehadiran' ? 'Kehadiran' : 'Deviasi'));
 </script>
 
 <template>
@@ -87,37 +91,43 @@ const topOperatorsOptions = {
         </div>
 
         <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <DashboardTabs />
+            <DashboardTabs :active-tab="activeTab" @tab-selected="activeTab = $event" />
             <MonthYearFilter :filters="filters" />
         </div>
 
-        <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatCard label="Total HM (Bulan Ini)" :value="stats.totalHm.toLocaleString('id-ID')" color="primary" />
-            <StatCard label="Rata-rata HM" :value="stats.avgHm.toLocaleString('id-ID')" color="warning" />
-            <StatCard label="Operator Aktif" :value="stats.activeOperators.toLocaleString('id-ID')" color="success" />
-            <StatCard label="Total Data" :value="stats.totalRecords.toLocaleString('id-ID')" color="danger" />
-        </div>
+        <template v-if="activeTab === 'hm'">
+            <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StatCard label="Total HM (Bulan Ini)" :value="stats.totalHm.toLocaleString('id-ID')" color="primary" />
+                <StatCard label="Rata-rata HM" :value="stats.avgHm.toLocaleString('id-ID')" color="warning" />
+                <StatCard label="Operator Aktif" :value="stats.activeOperators.toLocaleString('id-ID')" color="success" />
+                <StatCard label="Total Data" :value="stats.totalRecords.toLocaleString('id-ID')" color="danger" />
+            </div>
 
-        <div class="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <h6 class="mb-3 text-sm font-bold text-slate-700">Tren Hour Meter Harian</h6>
-                <div class="h-[250px]">
-                    <Line :data="trendChartData" :options="baseOptions" />
+            <div class="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <h6 class="mb-3 text-sm font-bold text-slate-700">Tren Hour Meter Harian</h6>
+                    <div class="h-[250px]">
+                        <Line :data="trendChartData" :options="baseOptions" />
+                    </div>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <h6 class="mb-3 text-sm font-bold text-slate-700">Tren HM Bulanan (Tahun {{ filters.tahun }})</h6>
+                    <div class="h-[250px]">
+                        <Bar :data="yearlyChartData" :options="baseOptions" />
+                    </div>
                 </div>
             </div>
+
             <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <h6 class="mb-3 text-sm font-bold text-slate-700">Tren HM Bulanan (Tahun {{ filters.tahun }})</h6>
-                <div class="h-[250px]">
-                    <Bar :data="yearlyChartData" :options="baseOptions" />
+                <h6 class="mb-3 text-sm font-bold text-slate-700">10 Operator dengan HM Tertinggi</h6>
+                <div class="h-[300px]">
+                    <Bar :data="topOperatorsChartData" :options="topOperatorsOptions" />
                 </div>
             </div>
-        </div>
+        </template>
 
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h6 class="mb-3 text-sm font-bold text-slate-700">10 Operator dengan HM Tertinggi</h6>
-            <div class="h-[300px]">
-                <Bar :data="topOperatorsChartData" :options="topOperatorsOptions" />
-            </div>
+        <div v-else class="rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+            {{ comingSoonLabel }} belum tersedia — masih dalam tahap pengembangan.
         </div>
     </AppLayout>
 </template>

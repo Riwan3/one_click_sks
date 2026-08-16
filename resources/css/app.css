@@ -13,3 +13,9 @@
         display: none !important;
     }
 }
+
+/* Matikan icon reveal/clear password bawaan Edge/Chromium — sudah ada toggle custom di komponennya */
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+    display: none;
+}
