@@ -2,8 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
+use App\Http\Resources\UserResource;
+use App\Models\User;
+use App\Services\UserService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -13,9 +19,8 @@ class OneCoreController extends Controller
 
     private const PER_PAGE = 10;
 
-    /**
-     * Dummy data — ganti dengan query database begitu backend One-Core siap.
-     */
+    public function __construct(private UserService $userService) {}
+
     public function dashboard(Request $request): Response
     {
         if (! $request->session()->get('one_core_unlocked')) {
@@ -29,16 +34,7 @@ class OneCoreController extends Controller
         $search = trim((string) $request->string('search'));
         $page = max(1, (int) $request->integer('page', 1));
 
-        $users = collect($this->dummyUsers())
-            ->when($search !== '', fn ($rows) => $rows->filter(
-                fn (array $row) => Str::contains(strtolower($row['username']), strtolower($search))
-                    || Str::contains(strtolower($row['name']), strtolower($search))
-            ))
-            ->values();
-
-        $total = $users->count();
-        $lastPage = max(1, (int) ceil($total / self::PER_PAGE));
-        $page = min($page, $lastPage);
+        $users = $this->userService->paginate($search, $page, self::PER_PAGE);
 
         return Inertia::render('OneCore/Dashboard', [
             'user' => $this->currentUser(),
@@ -49,16 +45,69 @@ class OneCoreController extends Controller
             ],
             'menu' => config('one_core_menu'),
             'search' => $search,
-            'users' => $users->slice(($page - 1) * self::PER_PAGE, self::PER_PAGE)->values()->all(),
+            'users' => UserResource::collection($users->items())->resolve(),
             'pagination' => [
-                'currentPage' => $page,
-                'lastPage' => $lastPage,
-                'total' => $total,
+                'currentPage' => $users->currentPage(),
+                'lastPage' => $users->lastPage(),
+                'total' => $users->total(),
             ],
         ]);
     }
 
-    public function unlock(Request $request): \Illuminate\Http\RedirectResponse
+    public function create(): Response
+    {
+        return Inertia::render('OneCore/Users/Create', [
+            'user' => $this->currentUser(),
+            'notifCounts' => ['signature' => 2, 'notification' => 3, 'message' => 1],
+            'menu' => config('one_core_menu'),
+            'roles' => $this->roleOptions(),
+        ]);
+    }
+
+    public function store(StoreUserRequest $request): RedirectResponse
+    {
+        $this->userService->create($request->validated());
+
+        return redirect('/one-core')->with('success', 'User baru berhasil ditambahkan.');
+    }
+
+    public function edit(User $user): Response
+    {
+        return Inertia::render('OneCore/Users/Edit', [
+            'user' => $this->currentUser(),
+            'notifCounts' => ['signature' => 2, 'notification' => 3, 'message' => 1],
+            'menu' => config('one_core_menu'),
+            'roles' => $this->roleOptions(),
+            'targetUser' => new UserResource($user),
+        ]);
+    }
+
+    public function update(UpdateUserRequest $request, User $user): RedirectResponse
+    {
+        $this->userService->update($user, $request->validated());
+
+        return redirect('/one-core')->with('success', 'Data user berhasil diperbarui.');
+    }
+
+    public function destroy(User $user): RedirectResponse
+    {
+        if ($user->username === 'admin') {
+            return redirect('/one-core')->with('error', 'Akun admin tidak bisa dihapus.');
+        }
+
+        $this->userService->delete($user);
+
+        return redirect('/one-core')->with('success', 'User berhasil dihapus.');
+    }
+
+    public function resetPassword(User $user): RedirectResponse
+    {
+        $this->userService->resetPasswordToDefault($user);
+
+        return redirect('/one-core')->with('success', 'Password berhasil direset ke default (NRP).');
+    }
+
+    public function unlock(Request $request): RedirectResponse
     {
         $request->validate(['password' => 'required|string']);
 
@@ -73,28 +122,18 @@ class OneCoreController extends Controller
         return redirect('/one-core');
     }
 
-    public function lock(Request $request): \Illuminate\Http\RedirectResponse
+    public function lock(Request $request): RedirectResponse
     {
         $request->session()->forget('one_core_unlocked');
 
         return redirect('/one-core');
     }
 
-    private function dummyUsers(): array
+    private function roleOptions(): array
     {
-        $names = ['Ahmad Fauzi', 'Budi Santoso', 'Candra Wijaya', 'Dedi Kurniawan', 'Eko Prasetyo', 'Fajar Nugroho', 'Gilang Ramadhan', 'Hendra Saputra', 'Irfan Hakim', 'Joko Susilo', 'Wahyu Ananda', 'Yusuf Maulana', 'Zaki Ramadhan', 'Putri Amelia', 'Sari Wulandari'];
-        $jabatans = ['Operator', 'Group Leader', 'Data Analyst', 'Admin Produksi', 'Pimpinan', 'Helper', 'Trafficman'];
-        $units = ['Pit A', 'Pit B', 'Workshop', 'MASTER', 'Front Loading'];
-        $roles = ['admin', 'pimpinan', 'group leader', 'helper', 'trafficman', 'tamu', 'operator'];
-
-        return collect(range(0, count($names) - 1))->map(fn (int $index) => [
-            'id' => $index + 1,
-            'username' => $index === 0 ? 'admin' : (string) (10000 + $index),
-            'name' => $names[$index],
-            'jabatan' => $jabatans[$index % count($jabatans)],
-            'unit' => $units[$index % count($units)],
-            'role' => $index === 0 ? 'admin' : $roles[$index % count($roles)],
-            'passwordStatus' => $index % 3 === 0 ? 'custom' : 'default',
-        ])->all();
+        return array_map(
+            fn (UserRole $role) => ['value' => $role->value, 'label' => $role->label()],
+            UserRole::cases()
+        );
     }
 }

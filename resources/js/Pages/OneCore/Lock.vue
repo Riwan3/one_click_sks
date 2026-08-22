@@ -26,14 +26,14 @@ const handleSubmit = () => {
     <div class="flex min-h-screen items-center justify-center p-5" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
         <div class="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-800/75 p-9 text-center shadow-2xl backdrop-blur-xl">
             <div
-                class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-[0_0_0_8px_rgba(2,132,199,0.15)]"
+                class="mx-auto mb-5 flex h-16 w-16 animate-pulse items-center justify-center rounded-2xl text-white shadow-[0_0_0_8px_rgba(2,132,199,0.15)]"
                 style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);"
             >
                 <ShieldLock class="h-7 w-7" />
             </div>
 
             <h1 class="mb-1.5 text-lg font-bold text-white">Otorisasi Keamanan</h1>
-            <p class="mb-6 text-sm text-slate-400">Masukkan password otorisasi untuk mengakses data pengguna.</p>
+            <p class="mb-6 text-sm text-slate-400">Halaman ini berisi pengaturan sensitif akun pengguna. Masukkan password otorisasi khusus untuk memverifikasi identitas.</p>
 
             <div v-if="error" class="mb-4 flex items-center justify-center gap-2 rounded-xl bg-red-500/10 px-3 py-2.5 text-sm font-semibold text-red-400">
                 <TriangleAlert class="h-4 w-4 shrink-0" />
@@ -65,6 +65,8 @@ const handleSubmit = () => {
                     Buka Akses
                 </button>
             </form>
+
+            <a href="/portal" class="mt-5 inline-block text-sm text-slate-500 hover:text-slate-300">← Kembali ke Dashboard</a>
         </div>
     </div>
 </template>

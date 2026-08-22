@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\OneAcademyController;
 use App\Http\Controllers\OneAdminController;
@@ -28,11 +29,26 @@ Route::get('/portal/aktivity', [PortalController::class, 'aktivity'])->name('mob
 Route::get('/portal/profil', [PortalController::class, 'profil'])->name('mobile.profil');
 
 Route::get('/one-power', [OnePowerController::class, 'dashboard'])->name('one-power.dashboard');
+Route::get('/one-power/employees', [EmployeeController::class, 'index'])->name('one-power.employees.index');
+Route::get('/one-power/employees/inactive', [EmployeeController::class, 'inactive'])->name('one-power.employees.inactive');
+Route::get('/one-power/employees/create', [EmployeeController::class, 'create'])->name('one-power.employees.create');
+Route::post('/one-power/employees', [EmployeeController::class, 'store'])->name('one-power.employees.store');
+Route::get('/one-power/employees/{employee}/edit', [EmployeeController::class, 'edit'])->name('one-power.employees.edit');
+Route::put('/one-power/employees/{employee}', [EmployeeController::class, 'update'])->name('one-power.employees.update');
+Route::delete('/one-power/employees/{employee}', [EmployeeController::class, 'destroy'])->name('one-power.employees.destroy');
+Route::post('/one-power/employees/{employee}/status', [EmployeeController::class, 'setStatus'])->name('one-power.employees.status');
+
 Route::get('/one-academy', [OneAcademyController::class, 'dashboard'])->name('one-academy.dashboard');
 
 Route::get('/one-core', [OneCoreController::class, 'dashboard'])->name('one-core.dashboard');
 Route::post('/one-core/unlock', [OneCoreController::class, 'unlock'])->name('one-core.unlock');
 Route::post('/one-core/lock', [OneCoreController::class, 'lock'])->name('one-core.lock');
+Route::get('/one-core/users/create', [OneCoreController::class, 'create'])->name('one-core.users.create');
+Route::post('/one-core/users', [OneCoreController::class, 'store'])->name('one-core.users.store');
+Route::get('/one-core/users/{user}/edit', [OneCoreController::class, 'edit'])->name('one-core.users.edit');
+Route::put('/one-core/users/{user}', [OneCoreController::class, 'update'])->name('one-core.users.update');
+Route::delete('/one-core/users/{user}', [OneCoreController::class, 'destroy'])->name('one-core.users.destroy');
+Route::post('/one-core/users/{user}/reset-password', [OneCoreController::class, 'resetPassword'])->name('one-core.users.reset-password');
 
 Route::get('/one-dms', [OneDmsController::class, 'dashboard'])->name('one-dms.dashboard');
 

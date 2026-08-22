@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { Lock, UserPlus, FileUp, Search } from '@lucide/vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/ui/Pagination.vue';
@@ -17,7 +17,6 @@ const props = defineProps({
 });
 
 const searchInput = ref(props.search);
-const rows = ref(props.users.map((row) => ({ ...row })));
 const passwordRow = ref(null);
 
 const submitSearch = () => {
@@ -28,12 +27,13 @@ const handleLock = () => {
     router.post('/one-core/lock');
 };
 
-// TODO: kirim ke backend begitu logic reset password siap.
-const resetPassword = ({ id }) => {
-    const target = rows.value.find((row) => row.id === id);
-    if (target) {
-        target.passwordStatus = 'default';
-    }
+const handleDelete = (row) => {
+    if (! confirm(`Hapus user "${row.name}"?`)) return;
+    router.delete(`/one-core/users/${row.id}`, { preserveScroll: true });
+};
+
+const resetPassword = (row) => {
+    router.post(`/one-core/users/${row.id}/reset-password`, {}, { preserveScroll: true });
     passwordRow.value = null;
 };
 </script>
@@ -57,9 +57,9 @@ const resetPassword = ({ id }) => {
                 <button type="button" title="Segera hadir" class="flex cursor-not-allowed items-center gap-1.5 rounded-lg bg-emerald-500/50 px-3 py-2 text-sm font-bold text-white">
                     <FileUp class="h-4 w-4" /> Import
                 </button>
-                <button type="button" title="Segera hadir" class="flex cursor-not-allowed items-center gap-1.5 rounded-lg bg-blue-500/50 px-3 py-2 text-sm font-bold text-white">
+                <Link href="/one-core/users/create" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600">
                     <UserPlus class="h-4 w-4" /> Tambah User
-                </button>
+                </Link>
             </div>
         </div>
 
@@ -76,7 +76,7 @@ const resetPassword = ({ id }) => {
             <button type="submit" class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-600">Cari User</button>
         </form>
 
-        <UserTable :users="rows" @show-password="(row) => (passwordRow = row)" />
+        <UserTable :users="users" @show-password="(row) => (passwordRow = row)" @delete="handleDelete" />
 
         <div class="mt-4">
             <Pagination

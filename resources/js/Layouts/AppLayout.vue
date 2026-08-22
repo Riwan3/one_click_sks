@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import Sidebar from './Partials/Sidebar.vue';
 import Topbar from './Partials/Topbar.vue';
+import FlashMessage from '@/Components/ui/FlashMessage.vue';
 
 defineProps({
     user: { type: Object, required: true },
@@ -35,6 +36,7 @@ const toggleSidebar = () => {
             <Topbar :user="user" :notif-counts="notifCounts" :collapsed="collapsed" @toggle-sidebar="toggleSidebar" />
 
             <main class="p-4 pt-[84px] lg:p-6 lg:pt-[92px] print:p-0">
+                <FlashMessage />
                 <slot />
             </main>
         </div>

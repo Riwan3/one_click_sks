@@ -1,11 +1,12 @@
 <script setup>
+import { Link } from '@inertiajs/vue3';
 import { Pencil, Trash2, KeyRound } from '@lucide/vue';
 
 defineProps({
     users: { type: Array, required: true },
 });
 
-const emit = defineEmits(['show-password']);
+const emit = defineEmits(['show-password', 'delete']);
 
 const roleBadge = {
     admin: 'bg-red-100 text-red-700',
@@ -41,7 +42,10 @@ const badgeFor = (role) => roleBadge[role] ?? 'bg-slate-100 text-slate-600';
                     <td class="px-4 py-3 align-middle font-semibold text-slate-700">{{ row.username }}</td>
                     <td class="px-4 py-3 align-middle text-slate-700">{{ row.name }}</td>
                     <td class="px-4 py-3 align-middle text-slate-500">{{ row.jabatan }}</td>
-                    <td class="px-4 py-3 align-middle text-slate-500">{{ row.unit }}</td>
+                    <td class="px-4 py-3 align-middle">
+                        <div class="text-slate-600">{{ row.unit }}</div>
+                        <div class="text-xs text-slate-400">{{ row.lokasi }}</div>
+                    </td>
                     <td class="px-4 py-3 align-middle">
                         <span :class="['rounded-full px-2.5 py-1 text-xs font-semibold capitalize', badgeFor(row.role)]">{{ row.role }}</span>
                     </td>
@@ -60,14 +64,15 @@ const badgeFor = (role) => roleBadge[role] ?? 'bg-slate-100 text-slate-600';
                     </td>
                     <td class="px-4 py-3 align-middle">
                         <div class="flex gap-1.5">
-                            <button type="button" title="Edit (segera hadir)" class="flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 text-amber-500">
+                            <Link :href="`/one-core/users/${row.id}/edit`" title="Edit" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-amber-500 hover:bg-amber-50">
                                 <Pencil class="h-3.5 w-3.5" />
-                            </button>
+                            </Link>
                             <button
                                 v-if="row.username !== 'admin'"
                                 type="button"
-                                title="Hapus (segera hadir)"
-                                class="flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 text-red-500"
+                                title="Hapus"
+                                class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-red-500 hover:bg-red-50"
+                                @click="emit('delete', row)"
                             >
                                 <Trash2 class="h-3.5 w-3.5" />
                             </button>

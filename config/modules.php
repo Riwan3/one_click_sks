@@ -14,5 +14,6 @@ return [
         ['key' => 'one-setting', 'title' => 'One-Setting', 'desc' => 'Pengaturan setting manpower, setting fleet, setting manpower V2, setting fleet V2, monitoring setting manpower, kesiapan operator, & daily ATR.', 'icon' => 'Settings', 'theme' => 'setting'],
         ['key' => 'one-admin', 'title' => 'One-Admin', 'desc' => 'Administrasi departemen, database personal karyawan, dokumen admin, monitoring RKB, monitoring workorder, monitoring BA H7, manpower order, & stok opname.', 'icon' => 'FolderClosed', 'theme' => 'admin'],
         ['key' => 'one-procedure', 'title' => 'One-Procedure', 'desc' => 'Kelola prosedur operasional, activity, dan evaluasi prosedur.', 'icon' => 'FileText', 'theme' => 'procedure'],
+        ['key' => 'one-coal', 'title' => 'One-Coal', 'desc' => 'Modul baru One-Coal, segera hadir.', 'icon' => 'Gem', 'theme' => 'coal'],
     ],
 ];

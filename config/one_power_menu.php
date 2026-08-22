@@ -5,8 +5,8 @@
  */
 return [
     ['label' => 'Dashboard', 'icon' => 'LayoutGrid', 'href' => '/one-power'],
-    ['label' => 'Data Karyawan', 'icon' => 'Users', 'href' => null],
-    ['label' => 'Karyawan Nonaktif', 'icon' => 'UserX', 'href' => null],
+    ['label' => 'Data Karyawan', 'icon' => 'Users', 'href' => '/one-power/employees'],
+    ['label' => 'Karyawan Nonaktif', 'icon' => 'UserX', 'href' => '/one-power/employees/inactive'],
     [
         'label' => 'Mpp', 'icon' => 'FileBarChart2', 'children' => [
             ['label' => 'Actual MPP Master', 'icon' => 'FileSpreadsheet', 'href' => null],
