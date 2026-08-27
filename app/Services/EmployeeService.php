@@ -7,8 +7,6 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class EmployeeService
 {
-    public function __construct(private UserService $userService) {}
-
     public function paginate(?string $search, ?string $jabatan, bool $onlyInactive, int $page, int $perPage): LengthAwarePaginator
     {
         return Employee::query()
@@ -31,17 +29,12 @@ class EmployeeService
 
     public function create(array $data): Employee
     {
-        $employee = Employee::create($data);
-        $this->userService->syncFromEmployee($employee);
-
-        return $employee;
+        return Employee::create($data);
     }
 
     public function update(Employee $employee, array $data): Employee
     {
-        $previousUsername = $employee->nrp;
         $employee->update($data);
-        $this->userService->syncFromEmployee($employee, $previousUsername);
 
         return $employee;
     }

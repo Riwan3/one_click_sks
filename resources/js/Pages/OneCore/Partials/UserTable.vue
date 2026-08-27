@@ -1,23 +1,17 @@
 <script setup>
-import { Link } from '@inertiajs/vue3';
-import { Pencil, Trash2, KeyRound } from '@lucide/vue';
+import { router } from '@inertiajs/vue3';
+import { KeyRound } from '@lucide/vue';
 
 defineProps({
     users: { type: Array, required: true },
+    roles: { type: Array, required: true },
 });
 
-const emit = defineEmits(['show-password', 'delete']);
+const emit = defineEmits(['show-password']);
 
-const roleBadge = {
-    admin: 'bg-red-100 text-red-700',
-    pimpinan: 'bg-emerald-100 text-emerald-700',
-    'group leader': 'bg-blue-100 text-blue-700',
-    helper: 'bg-sky-100 text-sky-700',
-    trafficman: 'bg-amber-100 text-amber-700',
-    tamu: 'bg-slate-800 text-white',
+const changeRole = (row, event) => {
+    router.put(`/one-core/users/${row.id}/role`, { role: event.target.value }, { preserveScroll: true });
 };
-
-const badgeFor = (role) => roleBadge[role] ?? 'bg-slate-100 text-slate-600';
 </script>
 
 <template>
@@ -31,12 +25,11 @@ const badgeFor = (role) => roleBadge[role] ?? 'bg-slate-100 text-slate-600';
                     <th class="px-4 py-3 font-semibold">Unit / Lokasi</th>
                     <th class="px-4 py-3 font-semibold">Role Akses</th>
                     <th class="px-4 py-3 font-semibold">Password</th>
-                    <th class="px-4 py-3 font-semibold">Aksi</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-if="users.length === 0">
-                    <td colspan="7" class="px-4 py-8 text-center text-slate-400">Tidak ada user yang cocok dengan pencarian.</td>
+                    <td colspan="6" class="px-4 py-8 text-center text-slate-400">Tidak ada user yang cocok dengan pencarian.</td>
                 </tr>
                 <tr v-for="row in users" :key="row.id" class="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
                     <td class="px-4 py-3 align-middle font-semibold text-slate-700">{{ row.username }}</td>
@@ -47,7 +40,13 @@ const badgeFor = (role) => roleBadge[role] ?? 'bg-slate-100 text-slate-600';
                         <div class="text-xs text-slate-400">{{ row.lokasi }}</div>
                     </td>
                     <td class="px-4 py-3 align-middle">
-                        <span :class="['rounded-full px-2.5 py-1 text-xs font-semibold capitalize', badgeFor(row.role)]">{{ row.role }}</span>
+                        <select
+                            :value="row.role"
+                            class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold capitalize outline-none focus:border-blue-500"
+                            @change="changeRole(row, $event)"
+                        >
+                            <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
+                        </select>
                     </td>
                     <td class="px-4 py-3 align-middle">
                         <button
@@ -61,22 +60,6 @@ const badgeFor = (role) => roleBadge[role] ?? 'bg-slate-100 text-slate-600';
                             <KeyRound class="h-3.5 w-3.5" />
                             {{ row.passwordStatus === 'custom' ? 'Custom' : 'Default' }}
                         </button>
-                    </td>
-                    <td class="px-4 py-3 align-middle">
-                        <div class="flex gap-1.5">
-                            <Link :href="`/one-core/users/${row.id}/edit`" title="Edit" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-amber-500 hover:bg-amber-50">
-                                <Pencil class="h-3.5 w-3.5" />
-                            </Link>
-                            <button
-                                v-if="row.username !== 'admin'"
-                                type="button"
-                                title="Hapus"
-                                class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-red-500 hover:bg-red-50"
-                                @click="emit('delete', row)"
-                            >
-                                <Trash2 class="h-3.5 w-3.5" />
-                            </button>
-                        </div>
                     </td>
                 </tr>
             </tbody>

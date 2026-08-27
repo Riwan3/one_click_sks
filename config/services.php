@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'spdk' => [
+        'url' => env('SPDK_API_URL'),
+        'key' => env('SPDK_API_KEY'),
+        'timeout' => env('SPDK_TIMEOUT', 30),
+    ],
+
 ];

@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateEmployeeRequest;
 use App\Http\Resources\EmployeeResource;
 use App\Models\Employee;
 use App\Services\EmployeeService;
+use App\Support\MenuAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Enum;
@@ -35,7 +36,7 @@ class EmployeeController extends Controller
         return Inertia::render('OnePower/Employees/Create', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
-            'menu' => config('one_power_menu'),
+            'menu' => MenuAccess::forConfig('one_power_menu'),
             'statuses' => $this->statusOptions(),
         ]);
     }
@@ -52,7 +53,7 @@ class EmployeeController extends Controller
         return Inertia::render('OnePower/Employees/Edit', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
-            'menu' => config('one_power_menu'),
+            'menu' => MenuAccess::forConfig('one_power_menu'),
             'statuses' => $this->statusOptions(),
             'targetEmployee' => new EmployeeResource($employee),
         ]);
@@ -96,7 +97,7 @@ class EmployeeController extends Controller
         return Inertia::render('OnePower/Employees/Index', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
-            'menu' => config('one_power_menu'),
+            'menu' => MenuAccess::forConfig('one_power_menu'),
             'search' => $search,
             'jabatan' => $jabatan,
             'jabatanOptions' => $this->employeeService->jabatanOptions(),

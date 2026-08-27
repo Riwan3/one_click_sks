@@ -2,18 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Auth;
+
 abstract class Controller
 {
     /**
-     * Data user yang sedang login — dummy dari session, ganti dengan auth()->user() begitu backend auth siap.
+     * Data user yang sedang login. Jabatan diambil dari Employee (data HR) kalau
+     * akun tertaut ke employee, fallback ke kolom jabatan/unit milik User sendiri.
      */
     protected function currentUser(): array
     {
+        $user = Auth::user()->loadMissing('employee');
+
         return [
-            'displayName' => session('dummy_user', 'Guest User'),
-            'username' => session('dummy_username', '00000'),
-            'jabatan' => session('dummy_jabatan', 'Data Analyst'),
-            'unit' => session('dummy_unit', 'MASTER'),
+            'displayName' => $user->name,
+            'username' => $user->username,
+            'jabatan' => $user->employee?->jabatan_ss6 ?? $user->jabatan,
+            'unit' => $user->employee?->unit ?? $user->unit,
             'foto' => null,
         ];
     }

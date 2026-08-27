@@ -1,79 +1,49 @@
 <?php
 
 /**
- * Menu sidebar One-Power — dummy, href null berarti halamannya belum dibuat.
+ * Menu sidebar One-Power — href null berarti halamannya belum dibuat.
+ * menu_key wajib unik dalam file ini (dipakai untuk role menu permission).
  */
 return [
-    ['label' => 'Dashboard', 'icon' => 'LayoutGrid', 'href' => '/one-power'],
-    ['label' => 'Data Karyawan', 'icon' => 'Users', 'href' => '/one-power/employees'],
-    ['label' => 'Karyawan Nonaktif', 'icon' => 'UserX', 'href' => '/one-power/employees/inactive'],
+    ['menu_key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'LayoutGrid', 'href' => '/one-power'],
+    ['menu_key' => 'data-karyawan', 'label' => 'Data Karyawan', 'icon' => 'Users', 'href' => '/one-power/employees'],
+    ['menu_key' => 'karyawan-nonaktif', 'label' => 'Data Karyawan Non-Aktif', 'icon' => 'UserX', 'href' => '/one-power/employees/inactive'],
+    ['menu_key' => 'mpp-departemen', 'label' => 'MPP Departement', 'icon' => 'FileBarChart2', 'href' => '/one-power/mpp-departemen'],
     [
-        'label' => 'Mpp', 'icon' => 'FileBarChart2', 'children' => [
-            ['label' => 'Actual MPP Master', 'icon' => 'FileSpreadsheet', 'href' => null],
-            ['label' => 'MPP (Manpower Planning)', 'icon' => 'FileBarChart', 'href' => null],
+        'menu_key' => 'roster', 'label' => 'Roster', 'icon' => 'CalendarRange', 'children' => [
+            ['menu_key' => 'roster-departemen', 'label' => 'Roster Departement', 'icon' => 'Users', 'href' => '/one-power/roster-departemen'],
+            ['menu_key' => 'roster-personal', 'label' => 'Roster Personal', 'icon' => 'CalendarRange', 'href' => '/one-power/roster-personal'],
         ],
     ],
     [
-        'label' => 'Roster', 'icon' => 'CalendarRange', 'children' => [
-            ['label' => 'Roster Bulanan / Harian', 'icon' => 'CalendarRange', 'href' => null],
-            ['label' => 'Roster Dept Produksi', 'icon' => 'Users', 'href' => null],
+        'menu_key' => 'personal-data-operator', 'label' => 'Personal Data Operator', 'icon' => 'Contact', 'children' => [
+            ['menu_key' => 'personal-data-hm', 'label' => 'HM', 'icon' => 'Gauge', 'href' => '/one-power/personal-data/hm'],
+            ['menu_key' => 'personal-data-attendance', 'label' => 'Attendance', 'icon' => 'CalendarCheck', 'href' => '/one-power/personal-data/attendance'],
+            ['menu_key' => 'personal-data-mpr', 'label' => 'Manpower Performance Report', 'icon' => 'BarChart2', 'href' => '/one-power/personal-data/mpr'],
+        ],
+    ],
+    ['menu_key' => 'mor', 'label' => 'MOR', 'icon' => 'BarChart', 'href' => '/one-power/mor'],
+    ['menu_key' => 'quartal-operator-report', 'label' => 'Quartal Operator Report', 'icon' => 'CalendarDays', 'href' => '/one-power/quartal-operator-report'],
+    [
+        'menu_key' => 'deviasi-operator', 'label' => 'Deviasi Operator', 'icon' => 'UserRoundX', 'children' => [
+            ['menu_key' => 'izin-karyawan', 'label' => 'Izin Karyawan', 'icon' => 'UserRoundX', 'href' => '/one-power/deviasi-operator/izin-karyawan'],
+            ['menu_key' => 'operator-unfit', 'label' => 'Data Unfit Karyawan', 'icon' => 'HeartPulse', 'href' => '/one-power/deviasi-operator/unfit'],
         ],
     ],
     [
-        'label' => 'Personal Data Operator', 'icon' => 'Contact', 'children' => [
-            ['label' => 'HM', 'icon' => 'Gauge', 'href' => '/one-power'],
-            ['label' => 'Attendance', 'icon' => 'CalendarCheck', 'href' => null],
-            ['label' => 'MPR', 'icon' => 'BarChart2', 'href' => null],
-            ['label' => 'Kimper', 'icon' => 'Eye', 'href' => null],
-            ['label' => 'Attendance V2', 'icon' => 'CalendarClock', 'href' => null],
-        ],
-    ],
-    ['label' => 'Mor', 'icon' => 'BarChart', 'href' => null],
-    ['label' => 'Quartal Operator Report', 'icon' => 'CalendarDays', 'href' => null],
-    [
-        'label' => 'Deviasi Operator', 'icon' => 'UserRoundX', 'children' => [
-            ['label' => 'Izin Karyawan', 'icon' => 'UserRoundX', 'href' => null],
-            ['label' => 'Operator Unfit', 'icon' => 'HeartPulse', 'href' => null],
+        'menu_key' => 'pembinaan', 'label' => 'Pembinaan', 'icon' => 'ShieldCheck', 'children' => [
+            ['menu_key' => 'berita-acara', 'label' => 'Berita Acara', 'href' => '/one-power/pembinaan/berita-acara'],
+            ['menu_key' => 'coaching-counseling', 'label' => 'Coaching & Counseling', 'href' => '/one-power/pembinaan/coaching-counseling'],
+            ['menu_key' => 'pakta-integritas', 'label' => 'Pakta Integritas', 'href' => '/one-power/pembinaan/pakta-integritas'],
+            ['menu_key' => 'sk-pembinaan', 'label' => 'SK Pembinaan & Sanksi Pelubangan', 'href' => '/one-power/pembinaan/sk-pembinaan'],
+            ['menu_key' => 'surat-peringatan', 'label' => 'Surat Peringatan', 'href' => '/one-power/pembinaan/surat-peringatan'],
+            ['menu_key' => 'surat-teguran', 'label' => 'Surat Teguran', 'href' => '/one-power/pembinaan/surat-teguran'],
+            ['menu_key' => 'pemanggilan-karyawan', 'label' => 'Pemanggilan Karyawan', 'href' => '/one-power/pembinaan/pemanggilan-karyawan'],
         ],
     ],
     [
-        'label' => 'Kpi', 'icon' => 'TrendingUp', 'children' => [
-            ['label' => 'MP', 'href' => null],
-            ['label' => 'OPD', 'href' => null],
-            ['label' => 'FRONT', 'href' => null],
-            ['label' => 'DISPOSAL', 'href' => null],
-            ['label' => 'DEWATERING', 'href' => null],
-            ['label' => 'COAL', 'href' => null],
-            ['label' => 'HRM', 'href' => null],
-            ['label' => 'Penilaian GL', 'href' => null],
-        ],
-    ],
-    [
-        'label' => 'Pembinaan', 'icon' => 'ShieldCheck', 'children' => [
-            ['label' => 'Berita Acara', 'href' => null],
-            ['label' => 'Coaching & Counseling', 'href' => null],
-            ['label' => 'Interview Fatigue', 'href' => null],
-            ['label' => 'Pakta Integritas', 'href' => null],
-            ['label' => 'Pemulangan Karyawan', 'href' => null],
-            ['label' => 'SK Pembinaan', 'href' => null],
-            ['label' => 'Surat Peringatan', 'href' => null],
-            ['label' => 'Surat Teguran', 'href' => null],
-            ['label' => 'Validasi Istirahat', 'href' => null],
-            ['label' => 'Pemanggilan Karyawan', 'href' => null],
-        ],
-    ],
-    [
-        'label' => 'Coaching Clinic', 'icon' => 'Lightbulb', 'children' => [
-            ['label' => 'Dashboard V1', 'href' => null],
-            ['label' => 'Dashboard V2', 'href' => null],
-            ['label' => 'Progress Monitoring', 'href' => null],
-            ['label' => 'Laporan', 'href' => null],
-            [
-                'label' => 'Master Coach', 'children' => [
-                    ['label' => 'Tahapan', 'href' => null],
-                    ['label' => 'Materi', 'href' => null],
-                ],
-            ],
+        'menu_key' => 'coaching-clinic', 'label' => 'Coaching Clinic', 'icon' => 'Lightbulb', 'children' => [
+            ['menu_key' => 'coaching-clinic-data', 'label' => 'Data Coaching Karyawan (Coaching Clinic V1)', 'href' => '/one-power/coaching-clinic'],
         ],
     ],
 ];

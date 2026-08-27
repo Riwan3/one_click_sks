@@ -1,12 +1,13 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
-import { BadgeCheck, Eye, Settings, UserCheck, UserRoundX } from '@lucide/vue';
+import { UserCheck, UserRoundX } from '@lucide/vue';
+import { moduleIcons } from '@/utils/moduleTheme';
 
 defineProps({
     shortcuts: { type: Array, required: true },
 });
 
-const icons = { Eye, UserCheck, Settings, UserRoundX, BadgeCheck };
+const icons = { ...moduleIcons, UserCheck, UserRoundX };
 </script>
 
 <template>

@@ -6,11 +6,14 @@ enum UserRole: string
 {
     case Admin = 'admin';
     case Pimpinan = 'pimpinan';
-    case GroupLeader = 'group leader';
+    case GroupLeader = 'group-leader';
     case Helper = 'helper';
     case Trafficman = 'trafficman';
     case Tamu = 'tamu';
     case Operator = 'operator';
+    case Medic = 'medic';
+    case Security = 'security';
+    case Management = 'management';
 
     public function label(): string
     {
@@ -22,6 +25,9 @@ enum UserRole: string
             self::Trafficman => 'Trafficman',
             self::Tamu => 'Tamu',
             self::Operator => 'Operator',
+            self::Medic => 'Medic',
+            self::Security => 'Security',
+            self::Management => 'Management',
         };
     }
 

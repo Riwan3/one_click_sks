@@ -16,7 +16,7 @@ class UserResource extends JsonResource
             'jabatan' => $this->jabatan,
             'unit' => $this->unit,
             'lokasi' => $this->lokasi,
-            'role' => $this->role->value,
+            'role' => $this->role,
             'passwordStatus' => $this->isDefaultPassword() ? 'default' : 'custom',
         ];
     }

@@ -30,6 +30,16 @@ class Employee extends Model
         ];
     }
 
+    public function user()
+    {
+        return $this->hasOne(User::class);
+    }
+
+    public function operatorUnfitRecords()
+    {
+        return $this->hasMany(OperatorUnfit::class, 'nrp', 'nrp');
+    }
+
     public function scopeSearch(Builder $query, ?string $keyword): Builder
     {
         if (! $keyword) {

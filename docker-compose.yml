@@ -1,0 +1,189 @@
+version: '3.9'
+
+# Production Docker Compose Setup for OneClick Laravel 13
+# Services: Laravel App, PostgreSQL, Redis, Nginx, Queue Worker
+
+services:
+  # ===== Laravel Application (PHP-FPM) =====
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oneclick_app
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - LOG_LEVEL=info
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE:-oneclick}
+      - DB_USERNAME=${DB_USERNAME:-oneclick}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=cookie
+      - QUEUE_CONNECTION=redis
+    volumes:
+      - ./:/app
+      - ./storage/logs:/app/storage/logs
+      - ./storage/framework:/app/storage/framework
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - oneclick
+
+  # ===== PostgreSQL Database =====
+  postgres:
+    image: postgres:16-alpine
+    container_name: oneclick_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-oneclick}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: ${DB_DATABASE:-oneclick}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-backup:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-oneclick}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oneclick
+
+  # ===== Redis Cache & Session Store =====
+  redis:
+    image: redis:7-alpine
+    container_name: oneclick_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - oneclick
+
+  # ===== Nginx Web Server =====
+  nginx:
+    image: nginx:alpine
+    container_name: oneclick_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/app
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/ssl:/etc/nginx/ssl:ro
+      - ./public:/app/public:ro
+    depends_on:
+      - app
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - oneclick
+
+  # ===== Queue Worker (Laravel) =====
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oneclick_queue
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - LOG_LEVEL=info
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE:-oneclick}
+      - DB_USERNAME=${DB_USERNAME:-oneclick}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+    volumes:
+      - ./:/app
+      - ./storage/logs:/app/storage/logs
+    depends_on:
+      app:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+    networks:
+      - oneclick
+
+  # ===== Scheduler (Laravel) =====
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oneclick_scheduler
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - LOG_LEVEL=info
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE:-oneclick}
+      - DB_USERNAME=${DB_USERNAME:-oneclick}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+    volumes:
+      - ./:/app
+      - ./storage/logs:/app/storage/logs
+    depends_on:
+      app:
+        condition: service_healthy
+    command: /bin/sh -c "while true; do php artisan schedule:run >> /app/storage/logs/scheduler.log 2>&1; sleep 60; done"
+    networks:
+      - oneclick
+
+# ===== Networks =====
+networks:
+  oneclick:
+    driver: bridge
+
+# ===== Volumes =====
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\MenuAccess;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -38,7 +39,7 @@ class OneReportingController extends Controller
                 'notification' => 3,
                 'message' => 1,
             ],
-            'menu' => config('one_reporting_menu'),
+            'menu' => MenuAccess::forConfig('one_reporting_menu'),
             'filters' => [
                 'tanggal' => $tanggal,
                 'shift' => $shift,

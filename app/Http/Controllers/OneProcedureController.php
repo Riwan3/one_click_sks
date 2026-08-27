@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\MenuAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -48,7 +49,7 @@ class OneProcedureController extends Controller
                 'notification' => 3,
                 'message' => 1,
             ],
-            'menu' => config('one_procedure_menu'),
+            'menu' => MenuAccess::forConfig('one_procedure_menu'),
             'search' => $search,
             'stats' => $this->statsFrom($rows->all()),
             'rows' => $rows->slice(($page - 1) * self::PER_PAGE, self::PER_PAGE)->values()->all(),

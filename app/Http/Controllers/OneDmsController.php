@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\MenuAccess;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -39,7 +40,7 @@ class OneDmsController extends Controller
                 'notification' => 3,
                 'message' => 1,
             ],
-            'menu' => config('one_dms_menu'),
+            'menu' => MenuAccess::forConfig('one_dms_menu'),
             'filters' => [
                 'tanggal' => $tanggal,
                 'shift' => $shift,

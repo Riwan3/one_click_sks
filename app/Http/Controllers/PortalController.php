@@ -2,7 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
+use App\Models\RoleModuleAccess;
+use App\Models\RolePermission;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -11,17 +17,25 @@ class PortalController extends Controller
     private const BULAN_INDONESIA = ['January' => 'Januari', 'February' => 'Februari', 'March' => 'Maret', 'April' => 'April', 'May' => 'Mei', 'June' => 'Juni', 'July' => 'Juli', 'August' => 'Agustus', 'September' => 'September', 'October' => 'Oktober', 'November' => 'November', 'December' => 'Desember'];
 
     /**
-     * Dummy data — ganti dengan query database begitu backend siap.
+     * Titik masuk setelah login. Kalau role punya landing_path (diatur admin di
+     * One-Core > Role & Akses), langsung diarahkan ke situ. Selain itu mengikuti
+     * pengaturan is_mobile: Home Portal atau dashboard mobile.
      */
-    public function index(): Response
+    public function index(): Response|RedirectResponse
     {
-        $jabatan = session('dummy_jabatan');
+        $role = Auth::user()->role;
 
-        if (in_array($jabatan, ['Group Leader', 'Operator'], true)) {
-            return $this->mobileHome($jabatan);
+        $landingPath = Role::where('code', $role)->value('landing_path');
+        if ($landingPath) {
+            return redirect($landingPath);
+        }
+
+        if (RolePermission::isMobile($role)) {
+            return $this->mobileHome($this->authJabatan() ?? $role, $role);
         }
 
         $now = Carbon::now();
+        $modules = $this->allowedModules($role);
 
         return Inertia::render('Portal/Index', [
             'user' => $this->currentUser(),
@@ -31,7 +45,7 @@ class PortalController extends Controller
                 'jam' => $now->format('H:i'),
                 'shift' => $now->hour >= 6 && $now->hour < 18 ? 'Shift Pagi' : 'Shift Malam',
             ],
-            'modules' => config('modules.list'),
+            'modules' => $modules,
             'announcements' => $this->dummyAnnouncements(),
             'rewards' => $this->dummyRewards(),
             'quickAccess' => $this->dummyQuickAccess(),
@@ -44,9 +58,10 @@ class PortalController extends Controller
     }
 
     /**
-     * Dummy data — beranda khusus role Group Leader & Operator, ganti dengan query database begitu backend siap.
+     * Beranda mobile untuk role non-Home Portal. Daftar shortcut modul mengikuti
+     * akses yang diatur admin di One-Core > Role & Akses (RoleModuleAccess).
      */
-    private function mobileHome(string $jabatan): Response
+    private function mobileHome(string $jabatan, string $role): Response
     {
         $isOperator = $jabatan === 'Operator';
 
@@ -60,7 +75,7 @@ class PortalController extends Controller
             'tanggal' => now()->format('d M Y'),
             'roster' => $isOperator ? 'N' : '-',
             'shift' => $isOperator ? 'N' : null,
-            'unitKerja' => $isOperator ? 'MASTER '.session('dummy_unit') : null,
+            'unitKerja' => $isOperator ? 'MASTER '.$this->authUnit() : null,
             'speakUp' => $isOperator ? [
                 'label' => 'Password Speak Up Check Point · Shift 2',
                 'title' => 'Bekerja Harus Sesuai Prosedur',
@@ -68,16 +83,26 @@ class PortalController extends Controller
                 'label' => 'Password Speak Up Check Point · Shift 1',
                 'title' => 'PPA Jadi Nomor Satu',
             ],
-            'shortcuts' => $isOperator ? [] : [
-                ['label' => 'Dashboard ICC', 'icon' => 'Eye', 'href' => '/one-dms', 'active' => true],
-                ['label' => 'Dashboard Kehadiran', 'icon' => 'UserCheck', 'href' => '/one-power', 'active' => false],
-                ['label' => 'Dashboard HM', 'icon' => 'Settings', 'href' => '/one-power', 'active' => false],
-                ['label' => 'Dashboard Deviasi', 'icon' => 'UserRoundX', 'href' => '/one-power', 'active' => false],
-                ['label' => 'Dashboard GMP', 'icon' => 'BadgeCheck', 'href' => '/one-gmp', 'active' => false],
-            ],
+            'shortcuts' => $this->allowedModules($role)->map(fn (array $module, int $i) => [
+                'label' => $module['title'],
+                'icon' => $module['icon'],
+                'href' => "/{$module['key']}",
+                'active' => $i === 0,
+            ])->values(),
             'navItems' => $this->navItemsFor($jabatan),
             'accentClass' => $isOperator ? 'text-[#7B112C]' : 'text-blue-500',
         ]);
+    }
+
+    /**
+     * Modul dari config('modules.list') yang diizinkan untuk role tersebut
+     * (diatur dari One-Core > Role & Akses).
+     */
+    private function allowedModules(string $role): Collection
+    {
+        $allowedKeys = RoleModuleAccess::allowedModuleKeys($role);
+
+        return collect(config('modules.list'))->filter(fn (array $module) => $allowedKeys->contains($module['key']))->values();
     }
 
     /**
@@ -85,7 +110,7 @@ class PortalController extends Controller
      */
     public function mobileData(): Response
     {
-        $jabatan = session('dummy_jabatan');
+        $jabatan = $this->authJabatan();
         $isOperator = $jabatan === 'Operator';
         $now = Carbon::now();
 
@@ -137,7 +162,7 @@ class PortalController extends Controller
      */
     public function aktivity(): Response
     {
-        $jabatan = session('dummy_jabatan');
+        $jabatan = $this->authJabatan();
         $isOperator = $jabatan === 'Operator';
 
         return Inertia::render('GroupLeader/Aktivity', [
@@ -164,9 +189,9 @@ class PortalController extends Controller
      */
     public function profil(): Response
     {
-        $jabatan = session('dummy_jabatan');
+        $jabatan = $this->authJabatan();
         $isOperator = $jabatan === 'Operator';
-        $unit = session('dummy_unit');
+        $unit = $this->authUnit();
 
         return Inertia::render('GroupLeader/Profil', [
             'user' => $this->currentUser(),
@@ -177,7 +202,7 @@ class PortalController extends Controller
             ],
             'profile' => [
                 'statusSp' => 'Tidak Ada SP Aktif',
-                'nrp' => session('dummy_username'),
+                'nrp' => Auth::user()->username,
                 'unit' => 'MASTER '.$unit,
                 'lokasi' => 'Monte Support',
                 'atasan' => 'Belum Ada',
@@ -199,9 +224,23 @@ class PortalController extends Controller
     }
 
     /**
+     * Jabatan dari Employee (data HR) kalau akun tertaut ke employee, fallback ke
+     * kolom jabatan milik User sendiri.
+     */
+    private function authJabatan(): ?string
+    {
+        return Auth::user()->loadMissing('employee')->employee?->jabatan_ss6 ?? Auth::user()->jabatan;
+    }
+
+    private function authUnit(): ?string
+    {
+        return Auth::user()->loadMissing('employee')->employee?->unit ?? Auth::user()->unit;
+    }
+
+    /**
      * Item bottom-nav berbeda per role — href null berarti halamannya belum dibuat.
      */
-    private function navItemsFor(string $jabatan): array
+    private function navItemsFor(?string $jabatan): array
     {
         if ($jabatan === 'Operator') {
             return [

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\MenuAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -44,7 +45,7 @@ class OneAcademyController extends Controller
                 'notification' => 3,
                 'message' => 1,
             ],
-            'menu' => config('one_academy_menu'),
+            'menu' => MenuAccess::forConfig('one_academy_menu'),
             'stats' => $this->statsFrom($submissions),
             'filters' => [
                 'search' => $search,

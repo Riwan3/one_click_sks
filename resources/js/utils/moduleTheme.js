@@ -16,7 +16,5 @@ export const moduleThemeStyles = {
     gmp: 'bg-emerald-500/10 text-emerald-500',
     reporting: 'bg-violet-500/10 text-violet-500',
     setting: 'bg-amber-100/50 text-amber-500',
-    admin: 'bg-slate-400/10 text-slate-500',
     procedure: 'bg-emerald-500/10 text-emerald-600',
-    coal: 'bg-slate-700/10 text-slate-700',
 };

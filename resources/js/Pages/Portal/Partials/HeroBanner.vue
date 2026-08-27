@@ -21,7 +21,7 @@ defineProps({
                 <span class="text-blue-500">{{ user.displayName }} 👋</span>
             </h3>
             <p class="max-w-[400px] text-[0.82rem] leading-relaxed text-[#4a6fa5]">
-                {{ user.jabatan.toUpperCase() }} &bull; PT Putra Perkasa Abadi
+                {{ (user.jabatan || '-').toUpperCase() }} &bull; PT Putra Perkasa Abadi
             </p>
 
             <div class="mt-4 flex flex-wrap gap-3">

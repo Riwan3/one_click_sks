@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\MenuAccess;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -52,7 +53,7 @@ class OneGmpController extends Controller
                 'notification' => 3,
                 'message' => 1,
             ],
-            'menu' => config('one_gmp_menu'),
+            'menu' => MenuAccess::forConfig('one_gmp_menu'),
             'filters' => [
                 'gmpType' => $gmpType,
                 'gmpTypeOptions' => self::GMP_TYPES,

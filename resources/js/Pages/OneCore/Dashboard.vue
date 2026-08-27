@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Lock, UserPlus, FileUp, Search } from '@lucide/vue';
+import { Lock, FileUp, Search } from '@lucide/vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/ui/Pagination.vue';
 import UserTable from './Partials/UserTable.vue';
@@ -13,6 +13,7 @@ const props = defineProps({
     menu: { type: Array, required: true },
     search: { type: String, default: '' },
     users: { type: Array, required: true },
+    roles: { type: Array, required: true },
     pagination: { type: Object, required: true },
 });
 
@@ -25,11 +26,6 @@ const submitSearch = () => {
 
 const handleLock = () => {
     router.post('/one-core/lock');
-};
-
-const handleDelete = (row) => {
-    if (! confirm(`Hapus user "${row.name}"?`)) return;
-    router.delete(`/one-core/users/${row.id}`, { preserveScroll: true });
 };
 
 const resetPassword = (row) => {
@@ -46,7 +42,8 @@ const resetPassword = (row) => {
             <div>
                 <h1 class="mb-1 text-xl font-extrabold text-slate-800">Manajemen Pengguna</h1>
                 <p class="m-0 text-sm text-slate-500">
-                    Total ditemukan: <strong class="text-slate-700">{{ pagination.total }}</strong> akun.
+                    Total ditemukan: <strong class="text-slate-700">{{ pagination.total }}</strong> akun. Data karyawan baru otomatis dapat akun login — kelola lewat
+                    <Link href="/one-power/employees" class="font-semibold text-blue-600 hover:underline">Data Karyawan</Link>.
                 </p>
             </div>
 
@@ -57,9 +54,6 @@ const resetPassword = (row) => {
                 <button type="button" title="Segera hadir" class="flex cursor-not-allowed items-center gap-1.5 rounded-lg bg-emerald-500/50 px-3 py-2 text-sm font-bold text-white">
                     <FileUp class="h-4 w-4" /> Import
                 </button>
-                <Link href="/one-core/users/create" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600">
-                    <UserPlus class="h-4 w-4" /> Tambah User
-                </Link>
             </div>
         </div>
 
@@ -76,7 +70,7 @@ const resetPassword = (row) => {
             <button type="submit" class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-600">Cari User</button>
         </form>
 
-        <UserTable :users="users" @show-password="(row) => (passwordRow = row)" @delete="handleDelete" />
+        <UserTable :users="users" :roles="roles" @show-password="(row) => (passwordRow = row)" />
 
         <div class="mt-4">
             <Pagination

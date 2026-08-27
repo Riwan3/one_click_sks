@@ -16,9 +16,12 @@ const props = defineProps({
     dailyTrend: { type: Array, required: true },
     yearlyTrend: { type: Array, required: true },
     topOperators: { type: Array, required: true },
+    attendance: { type: Object, required: true },
+    deviasi: { type: Object, required: true },
 });
 
 const CHART_COLOR = '#006699';
+const DANGER_COLOR = '#dc2626';
 
 const baseOptions = {
     responsive: true,
@@ -63,14 +66,56 @@ const topOperatorsChartData = computed(() => ({
     }],
 }));
 
-const topOperatorsOptions = {
-    ...baseOptions,
-    indexAxis: 'y',
-};
+const topOperatorsOptions = { ...baseOptions, indexAxis: 'y' };
+
+const attendanceTrendChartData = computed(() => ({
+    labels: props.attendance.dailyTrend.map((point) => point.label),
+    datasets: [{
+        data: props.attendance.dailyTrend.map((point) => point.value),
+        borderColor: DANGER_COLOR,
+        backgroundColor: 'rgba(220,38,38,0.05)',
+        borderWidth: 2,
+        tension: 0.3,
+        fill: true,
+        pointRadius: 4,
+    }],
+}));
+
+const topAbsentChartData = computed(() => ({
+    labels: props.attendance.topAbsent.map((point) => point.label),
+    datasets: [{
+        data: props.attendance.topAbsent.map((point) => point.value),
+        backgroundColor: DANGER_COLOR,
+        borderRadius: 4,
+        barThickness: 20,
+    }],
+}));
+
+const topAbsentOptions = { ...baseOptions, indexAxis: 'y' };
+
+const emergencyByMonthChartData = computed(() => ({
+    labels: props.deviasi.emergencyByMonth.map((point) => point.label),
+    datasets: [{
+        data: props.deviasi.emergencyByMonth.map((point) => point.value),
+        backgroundColor: '#f59e0b',
+        borderRadius: 5,
+        barThickness: 20,
+    }],
+}));
+
+const unfitByLokasiChartData = computed(() => ({
+    labels: props.deviasi.unfitByLokasi.map((point) => point.label),
+    datasets: [{
+        data: props.deviasi.unfitByLokasi.map((point) => point.value),
+        backgroundColor: DANGER_COLOR,
+        borderRadius: 4,
+        barThickness: 20,
+    }],
+}));
+
+const unfitByLokasiOptions = { ...baseOptions, indexAxis: 'y' };
 
 const activeTab = ref('hm');
-
-const comingSoonLabel = computed(() => (activeTab.value === 'kehadiran' ? 'Kehadiran' : 'Deviasi'));
 </script>
 
 <template>
@@ -107,7 +152,8 @@ const comingSoonLabel = computed(() => (activeTab.value === 'kehadiran' ? 'Kehad
                 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                     <h6 class="mb-3 text-sm font-bold text-slate-700">Tren Hour Meter Harian</h6>
                     <div class="h-[250px]">
-                        <Line :data="trendChartData" :options="baseOptions" />
+                        <Line v-if="dailyTrend.length" :data="trendChartData" :options="baseOptions" />
+                        <p v-else class="text-sm text-slate-400">Belum ada data untuk periode ini.</p>
                     </div>
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -121,13 +167,136 @@ const comingSoonLabel = computed(() => (activeTab.value === 'kehadiran' ? 'Kehad
             <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <h6 class="mb-3 text-sm font-bold text-slate-700">10 Operator dengan HM Tertinggi</h6>
                 <div class="h-[300px]">
-                    <Bar :data="topOperatorsChartData" :options="topOperatorsOptions" />
+                    <Bar v-if="topOperators.length" :data="topOperatorsChartData" :options="topOperatorsOptions" />
+                    <p v-else class="text-sm text-slate-400">Belum ada data untuk periode ini.</p>
                 </div>
             </div>
         </template>
 
-        <div v-else class="rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-            {{ comingSoonLabel }} belum tersedia — masih dalam tahap pengembangan.
-        </div>
+        <template v-else-if="activeTab === 'kehadiran'">
+            <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StatCard label="Total Data Kehadiran" :value="attendance.stats.totalRecords.toLocaleString('id-ID')" color="primary" />
+                <StatCard label="Hadir" :value="attendance.stats.hadirCount.toLocaleString('id-ID')" color="success" />
+                <StatCard label="Non-Hadir" :value="attendance.stats.nonHadirCount.toLocaleString('id-ID')" color="danger" />
+                <StatCard label="Karyawan Tercatat" :value="attendance.stats.totalEmployees.toLocaleString('id-ID')" color="warning" />
+            </div>
+
+            <div class="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <h6 class="mb-3 text-sm font-bold text-slate-700">Tren Non-Hadir Harian</h6>
+                    <div class="h-[250px]">
+                        <Line v-if="attendance.dailyTrend.length" :data="attendanceTrendChartData" :options="baseOptions" />
+                        <p v-else class="text-sm text-slate-400">Belum ada data untuk periode ini.</p>
+                    </div>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <h6 class="mb-3 text-sm font-bold text-slate-700">10 Karyawan dengan Non-Hadir Terbanyak</h6>
+                    <div class="h-[250px]">
+                        <Bar v-if="attendance.topAbsent.length" :data="topAbsentChartData" :options="topAbsentOptions" />
+                        <p v-else class="text-sm text-slate-400">Belum ada data untuk periode ini.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h6 class="mb-3 text-sm font-bold text-slate-700">Rekap Status Kehadiran</h6>
+                <div v-if="attendance.byStatus.length" class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-left text-xs font-bold uppercase text-slate-500">
+                                <th class="py-2">Status</th>
+                                <th class="py-2 text-right">Jumlah</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in attendance.byStatus" :key="row.label" class="border-b border-slate-100">
+                                <td class="py-2 text-slate-700">{{ row.label }}</td>
+                                <td class="py-2 text-right font-semibold text-slate-800">{{ row.value.toLocaleString('id-ID') }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p v-else class="text-sm text-slate-400">Belum ada data untuk periode ini.</p>
+            </div>
+        </template>
+
+        <template v-else>
+            <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StatCard label="Total Operator Unfit" :value="deviasi.unfitTotal.toLocaleString('id-ID')" color="danger" />
+                <StatCard label="Total Emergency" :value="deviasi.emergencyTotal.toLocaleString('id-ID')" color="warning" />
+                <StatCard label="Emergency Bulan Ini" :value="deviasi.emergencyBulanIni.toLocaleString('id-ID')" color="primary" />
+                <StatCard label="Lokasi Terdampak" :value="deviasi.unfitByLokasi.length.toLocaleString('id-ID')" color="success" />
+            </div>
+
+            <div class="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <h6 class="mb-3 text-sm font-bold text-slate-700">Operator Unfit per Lokasi</h6>
+                    <div class="h-[250px]">
+                        <Bar v-if="deviasi.unfitByLokasi.length" :data="unfitByLokasiChartData" :options="unfitByLokasiOptions" />
+                        <p v-else class="text-sm text-slate-400">Tidak ada operator unfit saat ini.</p>
+                    </div>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <h6 class="mb-3 text-sm font-bold text-slate-700">Tren Emergency 12 Bulan Terakhir</h6>
+                    <div class="h-[250px]">
+                        <Bar :data="emergencyByMonthChartData" :options="baseOptions" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h6 class="mb-3 text-sm font-bold text-slate-700">Daftar Operator Unfit</h6>
+                <div v-if="deviasi.unfitList.length" class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-left text-xs font-bold uppercase text-slate-500">
+                                <th class="py-2">NRP</th>
+                                <th class="py-2">Nama</th>
+                                <th class="py-2">Jabatan</th>
+                                <th class="py-2">Lokasi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in deviasi.unfitList" :key="row.nrp" class="border-b border-slate-100">
+                                <td class="py-2 text-slate-700">{{ row.nrp }}</td>
+                                <td class="py-2 font-semibold text-slate-800">{{ row.nama }}</td>
+                                <td class="py-2 text-slate-600">{{ row.jabatan ?? '-' }}</td>
+                                <td class="py-2 text-slate-600">{{ row.lokasi ?? '-' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p v-else class="text-sm text-slate-400">Tidak ada operator unfit saat ini.</p>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h6 class="mb-3 text-sm font-bold text-slate-700">Pengajuan Emergency Terbaru</h6>
+                <div v-if="deviasi.recentEmergency.length" class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-left text-xs font-bold uppercase text-slate-500">
+                                <th class="py-2">No. Surat</th>
+                                <th class="py-2">Nama</th>
+                                <th class="py-2">NRP</th>
+                                <th class="py-2">Berangkat</th>
+                                <th class="py-2">Kembali</th>
+                                <th class="py-2">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in deviasi.recentEmergency" :key="row.noSurat + row.createdAt" class="border-b border-slate-100">
+                                <td class="py-2 text-slate-700">{{ row.noSurat ?? '-' }}</td>
+                                <td class="py-2 font-semibold text-slate-800">{{ row.nama ?? '-' }}</td>
+                                <td class="py-2 text-slate-600">{{ row.nrp ?? '-' }}</td>
+                                <td class="py-2 text-slate-600">{{ row.tglBerangkat ?? '-' }}</td>
+                                <td class="py-2 text-slate-600">{{ row.tglKembali ?? '-' }}</td>
+                                <td class="py-2 text-slate-600">{{ row.status ?? '-' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p v-else class="text-sm text-slate-400">Belum ada pengajuan emergency.</p>
+            </div>
+        </template>
     </AppLayout>
 </template>
