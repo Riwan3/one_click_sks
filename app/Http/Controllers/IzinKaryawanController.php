@@ -23,12 +23,15 @@ class IzinKaryawanController extends Controller
 
     public function index(Request $request): Response
     {
+        $isAdmin = (bool) $request->user()?->isAdmin();
+
         $filters = [
             'jenis_izin' => trim((string) $request->string('jenis_izin')),
             'search' => trim((string) $request->string('search')),
             'date_from' => trim((string) $request->string('date_from')),
             'date_to' => trim((string) $request->string('date_to')),
             'status' => trim((string) $request->string('status')),
+            'created_by' => $isAdmin ? null : $request->user()?->id,
         ];
         $page = max(1, (int) $request->integer('page', 1));
 
@@ -38,6 +41,7 @@ class IzinKaryawanController extends Controller
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
+            'isAdmin' => $isAdmin,
             'filters' => $filters,
             'izins' => IzinKaryawanResource::collection($izins->items())->resolve(),
             'pagination' => [
@@ -90,6 +94,8 @@ class IzinKaryawanController extends Controller
 
     public function approve(Request $request, IzinKaryawan $izin): RedirectResponse
     {
+        abort_unless($request->user()?->isAdmin(), 403);
+
         $this->izinKaryawanService->approve($izin, $request->user()?->id);
 
         return redirect()->back()->with('success', 'Pengajuan izin disetujui.');
@@ -97,20 +103,27 @@ class IzinKaryawanController extends Controller
 
     public function decline(Request $request, IzinKaryawan $izin): RedirectResponse
     {
+        abort_unless($request->user()?->isAdmin(), 403);
+
         $this->izinKaryawanService->decline($izin, $request->user()?->id);
 
         return redirect()->back()->with('success', 'Pengajuan izin ditolak.');
     }
 
-    public function reset(IzinKaryawan $izin): RedirectResponse
+    public function reset(Request $request, IzinKaryawan $izin): RedirectResponse
     {
+        abort_unless($request->user()?->isAdmin(), 403);
+
         $this->izinKaryawanService->reset($izin);
 
         return redirect()->back()->with('success', 'Status pengajuan izin direset.');
     }
 
-    public function cancel(IzinKaryawan $izin): RedirectResponse
+    public function cancel(Request $request, IzinKaryawan $izin): RedirectResponse
     {
+        $isOwner = $izin->created_by === $request->user()?->id;
+        abort_unless($isOwner || $request->user()?->isAdmin(), 403);
+
         $this->izinKaryawanService->cancel($izin);
 
         return redirect()->back()->with('success', 'Pengajuan izin dibatalkan.');

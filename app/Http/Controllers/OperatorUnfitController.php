@@ -23,6 +23,8 @@ class OperatorUnfitController extends Controller
 
     public function index(Request $request): Response
     {
+        abort_unless($request->user()?->canAccessUnfitData(), 403);
+
         $search = trim((string) $request->string('search'));
         $page = max(1, (int) $request->integer('page', 1));
 
@@ -42,8 +44,10 @@ class OperatorUnfitController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
+        abort_unless($request->user()?->canAccessUnfitData(), 403);
+
         return Inertia::render('OnePower/OperatorUnfit/Create', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
@@ -53,13 +57,17 @@ class OperatorUnfitController extends Controller
 
     public function store(StoreOperatorUnfitRequest $request): RedirectResponse
     {
+        abort_unless($request->user()?->canAccessUnfitData(), 403);
+
         $this->operatorUnfitService->create($request->safe()->except('bukti'), $request->file('bukti'), $request->user()?->id);
 
         return redirect('/one-power/deviasi-operator/unfit')->with('success', 'Data operator unfit berhasil ditambahkan.');
     }
 
-    public function edit(OperatorUnfit $unfit): Response
+    public function edit(Request $request, OperatorUnfit $unfit): Response
     {
+        abort_unless($request->user()?->canAccessUnfitData(), 403);
+
         return Inertia::render('OnePower/OperatorUnfit/Edit', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
@@ -70,13 +78,17 @@ class OperatorUnfitController extends Controller
 
     public function update(UpdateOperatorUnfitRequest $request, OperatorUnfit $unfit): RedirectResponse
     {
+        abort_unless($request->user()?->canAccessUnfitData(), 403);
+
         $this->operatorUnfitService->update($unfit, $request->safe()->except('bukti'), $request->file('bukti'));
 
         return redirect('/one-power/deviasi-operator/unfit')->with('success', 'Data operator unfit berhasil diperbarui.');
     }
 
-    public function destroy(OperatorUnfit $unfit): RedirectResponse
+    public function destroy(Request $request, OperatorUnfit $unfit): RedirectResponse
     {
+        abort_unless($request->user()?->canAccessUnfitData(), 403);
+
         $this->operatorUnfitService->delete($unfit);
 
         return redirect()->back()->with('success', 'Data operator unfit berhasil dihapus.');
@@ -84,6 +96,8 @@ class OperatorUnfitController extends Controller
 
     public function endUnfit(Request $request, OperatorUnfit $unfit): RedirectResponse
     {
+        abort_unless($request->user()?->canAccessUnfitData(), 403);
+
         $request->validate(['tgl_akhir_unfit' => ['nullable', 'date']]);
 
         $this->operatorUnfitService->endUnfit($unfit, $request->string('tgl_akhir_unfit')->toString() ?: null);
@@ -93,6 +107,8 @@ class OperatorUnfitController extends Controller
 
     public function searchEmployee(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->canAccessUnfitData(), 403);
+
         $keyword = trim((string) $request->string('keyword'));
 
         if ($keyword === '') {

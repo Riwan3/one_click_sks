@@ -87,11 +87,14 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/one-power/personal-data/attendance', [AttendanceController::class, 'index'])->name('one-power.attendance.index');
     Route::get('/one-power/personal-data/attendance/search-employee', [AttendanceController::class, 'searchEmployee'])->name('one-power.attendance.search-employee');
+    Route::get('/one-power/personal-data/attendance/template', [AttendanceController::class, 'downloadTemplate'])->name('one-power.attendance.template');
+    Route::post('/one-power/personal-data/attendance/import', [AttendanceController::class, 'import'])->name('one-power.attendance.import');
     Route::post('/one-power/personal-data/attendance', [AttendanceController::class, 'store'])->name('one-power.attendance.store');
     Route::put('/one-power/personal-data/attendance/{attendance}', [AttendanceController::class, 'update'])->name('one-power.attendance.update');
     Route::delete('/one-power/personal-data/attendance/{attendance}', [AttendanceController::class, 'destroy'])->name('one-power.attendance.destroy');
 
     Route::get('/one-power/personal-data/mpr', [ManpowerPerformanceReportController::class, 'index'])->name('one-power.mpr.index');
+    Route::get('/one-power/personal-data/mpr/search-employee', [ManpowerPerformanceReportController::class, 'searchEmployee'])->name('one-power.mpr.search-employee');
     // MPP Departemen Phase 1
     Route::get('/one-power/mpp-departemen', [MppDashboardController::class, 'index'])->name('one-power.mpp-departemen');
 
@@ -127,6 +130,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/one-power/mpp-departemen/export-employee-photos/{id}', [MppReportController::class, 'exportEmployeePhotos'])->name('mpp-report.export-employee-photos');
 
     Route::get('/one-power/quartal-operator-report', [QuartalOperatorReportController::class, 'index'])->name('one-power.quartal-operator-report.index');
+    Route::get('/one-power/quartal-operator-report/template', [QuartalOperatorReportController::class, 'downloadTemplate'])->name('one-power.quartal-operator-report.template');
+    Route::post('/one-power/quartal-operator-report/import', [QuartalOperatorReportController::class, 'import'])->name('one-power.quartal-operator-report.import');
+    Route::post('/one-power/quartal-operator-report/recalculate', [QuartalOperatorReportController::class, 'recalculate'])->name('one-power.quartal-operator-report.recalculate');
 
     // Coaching Clinic & Materi Routes
     Route::resource('/one-power/coaching-clinic', CoachingClinicController::class)->names('coaching-clinic');

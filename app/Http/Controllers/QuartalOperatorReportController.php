@@ -2,53 +2,82 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\MorData;
+use App\Http\Resources\QorPerformaResource;
+use App\Services\QorService;
 use App\Support\MenuAccess;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class QuartalOperatorReportController extends Controller
 {
-    private const QUARTERS = [
-        1 => [1, 2, 3], 2 => [4, 5, 6], 3 => [7, 8, 9], 4 => [10, 11, 12],
-    ];
+    public function __construct(private QorService $qorService) {}
 
     public function index(Request $request): Response
     {
-        $quartal = (int) $request->integer('quartal', ceil(now()->month / 3));
+        $quartal = (int) $request->integer('quartal', (int) ceil(now()->month / 3));
         $quartal = $quartal >= 1 && $quartal <= 4 ? $quartal : 1;
         $tahun = (int) $request->integer('tahun', now()->year);
-        $months = self::QUARTERS[$quartal];
 
-        $items = MorData::query()
-            ->with('employee')
-            ->whereIn('bulan', $months)
-            ->where('tahun', $tahun)
-            ->selectRaw('employee_id, AVG(atr_persen) as avg_atr, AVG(timesheet_persen) as avg_timesheet, AVG(hm_ratio) as avg_hm_ratio, AVG(total_poin) as avg_total_poin')
-            ->groupBy('employee_id')
-            ->orderByDesc('avg_total_poin')
-            ->get()
-            ->map(fn (MorData $row) => [
-                'employeeId' => $row->employee_id,
-                'nrp' => $row->employee?->nrp,
-                'nama' => $row->employee?->name,
-                'avgAtr' => round((float) $row->avg_atr, 1),
-                'avgTimesheet' => round((float) $row->avg_timesheet, 1),
-                'avgHmRatio' => round((float) $row->avg_hm_ratio, 1),
-                'avgTotalPoin' => round((float) $row->avg_total_poin, 1),
-            ]);
+        $ranking = $this->qorService->getBcmRanking($tahun, $quartal);
 
         return Inertia::render('OnePower/QuartalOperatorReport/Index', [
             'user' => $this->currentUser(),
-            'notifCounts' => ['signature' => 2, 'notification' => 3, 'message' => 1],
+            'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
+            'isAdmin' => (bool) $request->user()?->isAdmin(),
             'filters' => [
                 'quartal' => $quartal,
                 'tahun' => $tahun,
                 'years' => range(now()->year - 2, now()->year),
             ],
-            'items' => $items,
+            'ranking' => QorPerformaResource::collection($ranking)->resolve(),
         ]);
+    }
+
+    public function import(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+        ]);
+
+        $result = $this->qorService->importDpr($request->file('file'));
+
+        return redirect()->back()->with(
+            'success',
+            "Berhasil mengimport {$result['imported']} data DPR ({$result['skipped']} baris dilewati). Jalankan Recalculate untuk memperbarui ranking BCM."
+        );
+    }
+
+    public function downloadTemplate(): StreamedResponse
+    {
+        $headers = ['tanggal', 'operator_ex', 'operator_hd', 'loader', 'jarak', 'kode_unit', 'rit', 'total_bcm'];
+
+        return response()->streamDownload(function () use ($headers) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $headers);
+            fclose($file);
+        }, 'qor-dpr-template.csv', [
+            'Content-Type' => 'text/csv; charset=utf-8',
+        ]);
+    }
+
+    public function recalculate(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()?->isAdmin(), 403);
+
+        $tahun = (int) $request->integer('tahun', now()->year);
+        $quartal = (int) $request->integer('quartal', (int) ceil(now()->month / 3));
+
+        $this->qorService->calculateQuarterlyPerforma($tahun, $quartal);
+
+        return redirect()->back()->with('success', 'Ranking BCM kuartal berhasil dihitung ulang.');
+    }
+
+    private function notifCounts(): array
+    {
+        return ['signature' => 2, 'notification' => 3, 'message' => 1];
     }
 }

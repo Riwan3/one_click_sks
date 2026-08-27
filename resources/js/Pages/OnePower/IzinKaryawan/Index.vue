@@ -10,6 +10,7 @@ const props = defineProps({
     user: { type: Object, required: true },
     notifCounts: { type: Object, required: true },
     menu: { type: Array, required: true },
+    isAdmin: { type: Boolean, required: true },
     filters: { type: Object, required: true },
     izins: { type: Array, required: true },
     pagination: { type: Object, required: true },
@@ -86,6 +87,7 @@ const handleDelete = (row) => {
 
         <IzinKaryawanTable
             :izins="izins"
+            :is-admin="isAdmin"
             @approve="handleApprove"
             @decline="handleDecline"
             @reset="handleReset"

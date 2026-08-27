@@ -12,6 +12,7 @@ class IzinKaryawanResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'isOwner' => $this->created_by === $request->user()?->id,
             'jenisIzin' => $this->jenis_izin->value,
             'jenisIzinLabel' => $this->jenis_izin->label(),
             'noSurat' => $this->no_surat,

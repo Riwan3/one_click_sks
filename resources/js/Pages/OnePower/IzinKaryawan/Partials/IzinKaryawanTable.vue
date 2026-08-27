@@ -2,11 +2,14 @@
 import { Link } from '@inertiajs/vue3';
 import { Pencil, Trash2, Check, X, RotateCcw, Ban, Paperclip } from '@lucide/vue';
 
-defineProps({
+const props = defineProps({
     izins: { type: Array, required: true },
+    isAdmin: { type: Boolean, required: true },
 });
 
 const emit = defineEmits(['approve', 'decline', 'reset', 'cancel', 'delete']);
+
+const canCancel = (row) => props.isAdmin || row.isOwner;
 
 const statusBadge = {
     'Awaiting Approval': 'bg-amber-100 text-amber-700',
@@ -69,7 +72,7 @@ const jenisBadge = {
                     <td class="px-4 py-3 align-middle">
                         <div class="flex flex-wrap gap-1.5">
                             <button
-                                v-if="row.status === 'Awaiting Approval'"
+                                v-if="isAdmin && row.status === 'Awaiting Approval'"
                                 type="button"
                                 title="Setujui"
                                 class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-emerald-500 hover:bg-emerald-50"
@@ -78,7 +81,7 @@ const jenisBadge = {
                                 <Check class="h-3.5 w-3.5" />
                             </button>
                             <button
-                                v-if="row.status === 'Awaiting Approval'"
+                                v-if="isAdmin && row.status === 'Awaiting Approval'"
                                 type="button"
                                 title="Tolak"
                                 class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-red-500 hover:bg-red-50"
@@ -87,7 +90,7 @@ const jenisBadge = {
                                 <X class="h-3.5 w-3.5" />
                             </button>
                             <button
-                                v-if="row.status === 'Approved' || row.status === 'Declined'"
+                                v-if="isAdmin && (row.status === 'Approved' || row.status === 'Declined')"
                                 type="button"
                                 title="Reset ke Menunggu"
                                 class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-amber-500 hover:bg-amber-50"
@@ -96,7 +99,7 @@ const jenisBadge = {
                                 <RotateCcw class="h-3.5 w-3.5" />
                             </button>
                             <button
-                                v-if="row.status !== 'Cancelled'"
+                                v-if="canCancel(row) && row.status !== 'Cancelled'"
                                 type="button"
                                 title="Batalkan"
                                 class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"

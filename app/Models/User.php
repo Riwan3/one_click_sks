@@ -73,4 +73,15 @@ class User extends Authenticatable
     {
         return $this->role === 'gl_manpower';
     }
+
+    /**
+     * Akses fitur Data Unfit Karyawan (Operator Unfit) — setara batasan role
+     * di V1 (lihat OperatorUnfitController lama): admin, pimpinan, group
+     * leader, dan medic. Role lain (termasuk operator biasa) tidak boleh
+     * lihat/kelola data unfit sama sekali.
+     */
+    public function canAccessUnfitData(): bool
+    {
+        return in_array($this->role, ['admin', 'pimpinan', 'group-leader', 'medic'], true);
+    }
 }
