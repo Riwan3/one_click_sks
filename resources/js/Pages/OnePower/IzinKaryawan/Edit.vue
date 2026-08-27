@@ -8,6 +8,7 @@ const props = defineProps({
     notifCounts: { type: Object, required: true },
     menu: { type: Array, required: true },
     targetIzin: { type: Object, required: true },
+    isMedic: { type: Boolean, default: false },
 });
 
 const form = useForm({
@@ -48,6 +49,6 @@ const submit = () => form
 
     <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
         <h1 class="mb-5 text-xl font-extrabold text-slate-800">Edit Data Izin Karyawan</h1>
-        <IzinKaryawanForm :form="form" :existing-bukti-url="targetIzin.buktiUrl" :on-submit="submit" />
+        <IzinKaryawanForm :form="form" :existing-bukti-url="targetIzin.buktiUrl" :on-submit="submit" :is-medic="isMedic" />
     </AppLayout>
 </template>

@@ -16,6 +16,7 @@ class StoreMppMasterCategoryRequest extends FormRequest
         return [
             'nama' => ['required', 'string', 'max:255', 'unique:mpp_master_categories,nama' . ($this->route('mpp_master_category') ? ',' . $this->route('mpp_master_category')->id : '')],
             'kode' => ['required', 'string', 'max:100', 'unique:mpp_master_categories,kode' . ($this->route('mpp_master_category') ? ',' . $this->route('mpp_master_category')->id : '')],
+            'kategori_tipe' => ['required', 'in:staff,pengawas'],
             'plan_mp' => ['required', 'integer', 'min:0', 'max:100'],
             'active' => ['nullable', 'boolean'],
         ];
@@ -28,6 +29,8 @@ class StoreMppMasterCategoryRequest extends FormRequest
             'nama.unique' => 'Nama kategori sudah ada.',
             'kode.required' => 'Kode kategori wajib diisi.',
             'kode.unique' => 'Kode kategori sudah ada.',
+            'kategori_tipe.required' => 'Tipe kategori (Staff/Pengawas) wajib dipilih.',
+            'kategori_tipe.in' => 'Tipe kategori harus Staff atau Pengawas.',
             'plan_mp.required' => 'Plan MP wajib diisi.',
             'plan_mp.integer' => 'Plan MP harus berupa angka.',
             'plan_mp.max' => 'Plan MP maksimal 100.',

@@ -38,6 +38,23 @@ class IzinKaryawanService
             ->paginate($perPage, ['*'], 'page', $page);
     }
 
+    /**
+     * All rows matching the list filters, unpaginated — backs the admin-only
+     * CSV export (mirrors V1's export() calling repo->getAll(10000, ...)).
+     */
+    public function allForExport(array $filters): \Illuminate\Support\Collection
+    {
+        return IzinKaryawan::query()
+            ->jenis($filters['jenis_izin'] ?? null)
+            ->status($filters['status'] ?? null)
+            ->search($filters['search'] ?? null)
+            ->createdByUser($filters['created_by'] ?? null)
+            ->dateBetween($filters['date_from'] ?? null, $filters['date_to'] ?? null)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
+    }
+
     public function create(array $data, ?UploadedFile $bukti, ?int $createdBy): IzinKaryawan
     {
         $jenis = IzinJenis::from($data['jenis_izin']);

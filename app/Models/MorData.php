@@ -12,6 +12,7 @@ class MorData extends Model
     protected $fillable = [
         'employee_id',
         'posisi',
+        'gl_name',
         'bulan',
         'tahun',
         'atr_persen',
@@ -38,6 +39,7 @@ class MorData extends Model
         'targt_ob',
         'pembinaan',
         'pembinaan_poin',
+        'ket_pembinaan',
         'jumlah_point',
         'total_poin',
         'ranking',
@@ -65,5 +67,38 @@ class MorData extends Model
     public function scopePeriod(Builder $query, int $bulan, int $tahun): Builder
     {
         return $query->where('bulan', $bulan)->where('tahun', $tahun);
+    }
+
+    /**
+     * PDTY hanya berlaku untuk posisi produksi (hauler & alat berat tertentu).
+     */
+    public function isProduksi(): bool
+    {
+        $posisi = strtoupper((string) $this->posisi);
+
+        foreach (['HAULER', '395', '1250', '2000', '6015', 'HD', '777'] as $needle) {
+            if (str_contains($posisi, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Target pencapaian per kategori, mengikuti aturan V1 (beda untuk produksi vs support).
+     */
+    public function targets(): array
+    {
+        $isProduksi = $this->isProduksi();
+
+        return [
+            'atr' => $isProduksi ? 15 : 25,
+            'timesheet' => 10,
+            'hm' => $isProduksi ? 10 : 20,
+            'fuel' => $isProduksi ? 5 : 15,
+            'pdty' => $isProduksi ? 40 : 0,
+            'pembinaan' => $isProduksi ? 20 : 30,
+        ];
     }
 }

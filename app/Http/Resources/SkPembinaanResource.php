@@ -27,6 +27,8 @@ class SkPembinaanResource extends JsonResource
             'dikeluarkanTanggal' => $this->dikeluarkan_tanggal?->format('Y-m-d'),
             'ttdKaryawan' => $this->ttd_karyawan,
             'ttdAtasan' => $this->ttd_atasan,
+            'ttdPja' => $this->ttd_pja,
+            'ttdHse' => $this->ttd_hse,
             'pengawasId' => $this->pengawas_id,
             'pengawasName' => $this->whenLoaded('pengawas', fn () => $this->pengawas?->name),
             'jenisPelanggaran' => $this->jenis_pelanggaran,

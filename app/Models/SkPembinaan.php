@@ -20,6 +20,8 @@ class SkPembinaan extends Model
         'dikeluarkan_tanggal',
         'ttd_karyawan',
         'ttd_atasan',
+        'ttd_pja',
+        'ttd_hse',
         'pengawas_id',
         'jenis_pelanggaran',
         'lubang',

@@ -101,6 +101,15 @@ class CoachingCounselingController extends Controller
         return redirect()->back()->with('success', 'Coaching & counseling berhasil dihapus.');
     }
 
+    public function show(CoachingCounseling $coachingCounseling): Response
+    {
+        $coachingCounseling->load(['employee', 'coach']);
+
+        return Inertia::render('OnePower/CoachingCounseling/Print', [
+            'item' => new CoachingCounselingResource($coachingCounseling),
+        ]);
+    }
+
     public function searchEmployee(Request $request): JsonResponse
     {
         $keyword = trim((string) $request->string('keyword'));

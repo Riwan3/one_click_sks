@@ -235,7 +235,9 @@ const pickSpdk = (spdk) => {
             </div>
 
             <SignaturePad v-model="form.ttd_karyawan" label="TTD Karyawan" />
-            <SignaturePad v-model="form.ttd_atasan" label="TTD Atasan" />
+            <SignaturePad v-model="form.ttd_atasan" label="TTD Atasan Langsung" />
+            <SignaturePad v-model="form.ttd_pja" label="TTD Perwakilan PJA" />
+            <SignaturePad v-model="form.ttd_hse" label="TTD HSE Operation" />
         </div>
 
         <div class="mt-6 flex justify-end gap-2">

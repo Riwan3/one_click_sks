@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['nama', 'kode', 'plan_mp', 'sort_order', 'active', 'created_by', 'updated_by'])]
+#[Fillable(['nama', 'kode', 'kategori_tipe', 'plan_mp', 'sort_order', 'active', 'created_by', 'updated_by'])]
 class MppMasterCategory extends Model
 {
     use HasFactory, SoftDeletes;
@@ -20,6 +20,16 @@ class MppMasterCategory extends Model
             'plan_mp' => 'integer',
             'sort_order' => 'integer',
         ];
+    }
+
+    public function scopeStaff(Builder $query): Builder
+    {
+        return $query->where('kategori_tipe', 'staff');
+    }
+
+    public function scopePengawas(Builder $query): Builder
+    {
+        return $query->where('kategori_tipe', 'pengawas');
     }
 
     public function creator()

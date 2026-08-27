@@ -1,10 +1,11 @@
 <script setup>
 import { ref } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { BarChart, Plus, Search } from '@lucide/vue';
+import { BarChart, LayoutGrid, Plus, Printer, Search, Table2 } from '@lucide/vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/ui/Pagination.vue';
 import MorDataTable from './Partials/MorDataTable.vue';
+import MorDataCard from './Partials/MorDataCard.vue';
 import MorDataFormModal from './Partials/MorDataFormModal.vue';
 
 const props = defineProps({
@@ -20,10 +21,13 @@ const props = defineProps({
 const searchInput = ref(props.search);
 const monthInput = ref(props.filters.bulan);
 const yearInput = ref(props.filters.tahun);
+const viewMode = ref('card');
 
 const submitFilter = () => {
     router.get('/one-power/mor', { search: searchInput.value, bulan: monthInput.value, tahun: yearInput.value }, { preserveScroll: true, preserveState: true });
 };
+
+const printReport = () => window.print();
 
 const formModalOpen = ref(false);
 const editingRow = ref(null);
@@ -31,6 +35,7 @@ const editingRow = ref(null);
 const blankForm = () => ({
     employee_id: null,
     posisi: '',
+    gl_name: '',
     bulan: props.filters.bulan,
     tahun: props.filters.tahun,
     atr_persen: 0,
@@ -49,8 +54,15 @@ const blankForm = () => ({
     fuel_point: 0,
     fuel_actual: 0,
     fuel_limit: 0,
+    pdty_persen: null,
+    pdty_point: null,
+    act_coal: null,
+    targt_coal: null,
+    act_ob: null,
+    targt_ob: null,
     pembinaan: 0,
     pembinaan_poin: 20,
+    ket_pembinaan: '',
 });
 
 const form = useForm(blankForm());
@@ -67,6 +79,7 @@ const openEdit = (row) => {
     form.defaults({
         employee_id: row.employeeId,
         posisi: row.posisi ?? '',
+        gl_name: row.glName ?? '',
         bulan: row.bulan,
         tahun: row.tahun,
         atr_persen: row.atrPersen,
@@ -85,8 +98,15 @@ const openEdit = (row) => {
         fuel_point: row.fuelPoint,
         fuel_actual: row.fuelActual,
         fuel_limit: row.fuelLimit,
+        pdty_persen: row.pdtyPersen,
+        pdty_point: row.pdtyPoint,
+        act_coal: row.actCoal,
+        targt_coal: row.targtCoal,
+        act_ob: row.actOb,
+        targt_ob: row.targtOb,
         pembinaan: row.pembinaan,
         pembinaan_poin: row.pembinaanPoin,
+        ket_pembinaan: row.ketPembinaan ?? '',
     });
     form.reset();
     formModalOpen.value = true;
@@ -117,7 +137,7 @@ const handleDelete = (row) => {
     <Head title="Monthly Operation Report - OneClick" />
 
     <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
-        <div class="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="mb-5 flex flex-col gap-3 print:hidden lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <h1 class="mb-1 flex items-center gap-2 text-xl font-extrabold text-slate-800">
                     <BarChart class="h-5 w-5 text-blue-500" /> Monthly Operation Report
@@ -126,12 +146,35 @@ const handleDelete = (row) => {
                     Total ditemukan: <strong class="text-slate-700">{{ pagination.total }}</strong> data.
                 </p>
             </div>
-            <button type="button" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600" @click="openCreate">
-                <Plus class="h-4 w-4" /> Tambah Data
-            </button>
+            <div class="flex items-center gap-2">
+                <div class="flex rounded-lg border border-slate-200 bg-white p-1">
+                    <button
+                        type="button"
+                        class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold"
+                        :class="viewMode === 'card' ? 'bg-blue-500 text-white' : 'text-slate-500 hover:bg-slate-50'"
+                        @click="viewMode = 'card'"
+                    >
+                        <LayoutGrid class="h-4 w-4" /> Card View
+                    </button>
+                    <button
+                        type="button"
+                        class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold"
+                        :class="viewMode === 'table' ? 'bg-blue-500 text-white' : 'text-slate-500 hover:bg-slate-50'"
+                        @click="viewMode = 'table'"
+                    >
+                        <Table2 class="h-4 w-4" /> Table View
+                    </button>
+                </div>
+                <button type="button" class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50" @click="printReport">
+                    <Printer class="h-4 w-4" /> Cetak
+                </button>
+                <button type="button" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600" @click="openCreate">
+                    <Plus class="h-4 w-4" /> Tambah Data
+                </button>
+            </div>
         </div>
 
-        <form class="mb-4 flex flex-wrap items-center gap-2" @submit.prevent="submitFilter">
+        <form class="mb-4 flex flex-wrap items-center gap-2 print:hidden" @submit.prevent="submitFilter">
             <select v-model.number="monthInput" class="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
                 <option v-for="(name, num) in filters.monthNames" :key="num" :value="Number(num)">{{ name }}</option>
             </select>
@@ -145,9 +188,16 @@ const handleDelete = (row) => {
             <button type="submit" class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-600">Filter</button>
         </form>
 
-        <MorDataTable :items="items" @edit="openEdit" @delete="handleDelete" />
+        <div v-if="viewMode === 'card'" class="flex flex-col gap-4">
+            <div v-if="items.length === 0" class="rounded-xl border border-dashed border-slate-300 bg-white py-16 text-center text-sm text-slate-400">
+                Belum ada data MOR untuk periode ini.
+            </div>
+            <MorDataCard v-for="row in items" :key="row.id" :row="row" />
+        </div>
 
-        <div class="mt-4">
+        <MorDataTable v-else :items="items" @edit="openEdit" @delete="handleDelete" />
+
+        <div class="mt-4 print:hidden">
             <Pagination
                 :current-page="pagination.currentPage"
                 :last-page="pagination.lastPage"

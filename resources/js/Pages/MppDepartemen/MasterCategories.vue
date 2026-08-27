@@ -28,6 +28,7 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kode</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipe</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan MP</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
@@ -38,6 +39,7 @@
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ index + 1 }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ category.nama }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ category.kode }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 capitalize">{{ category.kategori_tipe }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ category.plan_mp }}%</td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <span
@@ -99,6 +101,16 @@
               >
             </div>
             <div>
+              <label class="block text-sm font-medium text-gray-700">Tipe Kategori</label>
+              <select
+                v-model="form.kategori_tipe"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border px-3 py-2"
+              >
+                <option value="staff">Staff</option>
+                <option value="pengawas">Pengawas</option>
+              </select>
+            </div>
+            <div>
               <label class="block text-sm font-medium text-gray-700">Plan MP (%)</label>
               <input
                 v-model.number="form.plan_mp"
@@ -155,6 +167,7 @@ const editingId = ref(null);
 const form = useForm({
   nama: '',
   kode: '',
+  kategori_tipe: 'staff',
   plan_mp: 100,
   active: true,
 });
@@ -169,6 +182,7 @@ const editCategory = (category) => {
   editingId.value = category.id;
   form.nama = category.nama;
   form.kode = category.kode;
+  form.kategori_tipe = category.kategori_tipe;
   form.plan_mp = category.plan_mp;
   form.active = category.active;
   showModal.value = true;

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Employee;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class EmployeeService
 {
@@ -49,5 +50,25 @@ class EmployeeService
         $employee->update(['status_karyawan' => $status]);
 
         return $employee;
+    }
+
+    public function deleteAllInactive(): int
+    {
+        return Employee::query()->inactiveOnly()->delete();
+    }
+
+    /**
+     * Employees for export, respecting the same search/jabatan/active-inactive
+     * filters as the list view so exporting from a filtered page only exports
+     * what's shown (mirrors V1's export-follows-current-view behaviour).
+     */
+    public function forExport(?string $search, ?string $jabatan, bool $onlyInactive): Collection
+    {
+        return Employee::query()
+            ->search($search)
+            ->jabatan($jabatan)
+            ->when($onlyInactive, fn ($q) => $q->inactiveOnly(), fn ($q) => $q->activeOnly())
+            ->orderBy('name')
+            ->get();
     }
 }

@@ -78,6 +78,10 @@ const handleSubmit = () => emit('submit');
                         <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Posisi</label>
                         <input v-model="form.posisi" type="text" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
                     </div>
+                    <div class="sm:col-span-3">
+                        <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Bapak Asuh (GL)</label>
+                        <input v-model="form.gl_name" type="text" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                    </div>
 
                     <div class="sm:col-span-3 mt-2 border-t border-slate-100 pt-3">
                         <h4 class="text-xs font-bold uppercase text-slate-500">ATR</h4>
@@ -124,11 +128,51 @@ const handleSubmit = () => emit('submit');
                     </div>
 
                     <div class="sm:col-span-3 mt-2 border-t border-slate-100 pt-3">
-                        <h4 class="text-xs font-bold uppercase text-slate-500">Fuel & Pembinaan</h4>
+                        <h4 class="text-xs font-bold uppercase text-slate-500">Fuel</h4>
                     </div>
                     <div>
                         <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Fuel %</label>
                         <input v-model.number="form.fuel_persen" type="number" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Fuel Actual (l/jam)</label>
+                        <input v-model.number="form.fuel_actual" type="number" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Fuel Limit (l/jam)</label>
+                        <input v-model.number="form.fuel_limit" type="number" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                    </div>
+
+                    <div class="sm:col-span-3 mt-2 border-t border-slate-100 pt-3">
+                        <h4 class="text-xs font-bold uppercase text-slate-500">PDTY (khusus posisi produksi)</h4>
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">PDTY %</label>
+                        <input v-model.number="form.pdty_persen" type="number" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Point PDTY</label>
+                        <input v-model.number="form.pdty_point" type="number" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Act. Coal</label>
+                        <input v-model.number="form.act_coal" type="number" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Target Coal</label>
+                        <input v-model.number="form.targt_coal" type="number" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Act. OB</label>
+                        <input v-model.number="form.act_ob" type="number" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Target OB</label>
+                        <input v-model.number="form.targt_ob" type="number" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                    </div>
+
+                    <div class="sm:col-span-3 mt-2 border-t border-slate-100 pt-3">
+                        <h4 class="text-xs font-bold uppercase text-slate-500">Pembinaan</h4>
                     </div>
                     <div>
                         <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Jumlah Pembinaan</label>
@@ -137,6 +181,10 @@ const handleSubmit = () => emit('submit');
                     <div>
                         <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Poin Pembinaan</label>
                         <input v-model.number="form.pembinaan_poin" type="number" step="0.01" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase text-slate-500">Keterangan</label>
+                        <input v-model="form.ket_pembinaan" type="text" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
                     </div>
                 </div>
 

@@ -8,7 +8,12 @@ return [
     ['menu_key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'LayoutGrid', 'href' => '/one-power'],
     ['menu_key' => 'data-karyawan', 'label' => 'Data Karyawan', 'icon' => 'Users', 'href' => '/one-power/employees'],
     ['menu_key' => 'karyawan-nonaktif', 'label' => 'Data Karyawan Non-Aktif', 'icon' => 'UserX', 'href' => '/one-power/employees/inactive'],
-    ['menu_key' => 'mpp-departemen', 'label' => 'MPP Departement', 'icon' => 'FileBarChart2', 'href' => '/one-power/mpp-departemen'],
+    [
+        'menu_key' => 'mpp-departemen', 'label' => 'MPP Departement', 'icon' => 'FileBarChart2', 'children' => [
+            ['menu_key' => 'mpp-departemen-dashboard', 'label' => 'Dashboard', 'icon' => 'LayoutGrid', 'href' => '/one-power/mpp-departemen'],
+            ['menu_key' => 'mpp-departemen-analisis', 'label' => 'Analisis MPP', 'icon' => 'FileBarChart2', 'href' => '/one-power/mpp-departemen/analisis'],
+        ],
+    ],
     [
         'menu_key' => 'roster', 'label' => 'Roster', 'icon' => 'CalendarRange', 'children' => [
             ['menu_key' => 'roster-departemen', 'label' => 'Roster Departement', 'icon' => 'Users', 'href' => '/one-power/roster-departemen'],

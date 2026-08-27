@@ -73,6 +73,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/one-power/employees/inactive', [EmployeeController::class, 'inactive'])->name('one-power.employees.inactive');
     Route::get('/one-power/employees/create', [EmployeeController::class, 'create'])->name('one-power.employees.create');
     Route::post('/one-power/employees', [EmployeeController::class, 'store'])->name('one-power.employees.store');
+    Route::post('/one-power/employees/import', [EmployeeController::class, 'import'])->name('one-power.employees.import');
+    Route::get('/one-power/employees/template', [EmployeeController::class, 'downloadTemplate'])->name('one-power.employees.template');
+    Route::get('/one-power/employees/export', [EmployeeController::class, 'export'])->name('one-power.employees.export');
+    Route::post('/one-power/employees/bulk-delete-inactive', [EmployeeController::class, 'bulkDeleteInactive'])->name('one-power.employees.bulk-delete-inactive');
     Route::get('/one-power/employees/{employee}/edit', [EmployeeController::class, 'edit'])->name('one-power.employees.edit');
     Route::put('/one-power/employees/{employee}', [EmployeeController::class, 'update'])->name('one-power.employees.update');
     Route::delete('/one-power/employees/{employee}', [EmployeeController::class, 'destroy'])->name('one-power.employees.destroy');
@@ -97,6 +101,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/one-power/personal-data/mpr/search-employee', [ManpowerPerformanceReportController::class, 'searchEmployee'])->name('one-power.mpr.search-employee');
     // MPP Departemen Phase 1
     Route::get('/one-power/mpp-departemen', [MppDashboardController::class, 'index'])->name('one-power.mpp-departemen');
+
+    // MPP Departemen - Analisis Staff vs Pengawas (landing/index page)
+    Route::get('/one-power/mpp-departemen/analisis', [MppDepartemenController::class, 'index'])->name('one-power.mpp-departemen.analisis');
+    Route::post('/one-power/mpp-departemen/analisis/target', [MppDepartemenController::class, 'updateTarget'])->name('one-power.mpp-departemen.update-target');
 
     // Master Categories
     Route::resource('one-power/mpp-master-categories', MppMasterCategoryController::class, ['as' => 'mpp'])->names([
@@ -168,6 +176,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/one-power/deviasi-operator/unfit/{unfit}/end', [OperatorUnfitController::class, 'endUnfit'])->name('one-power.operator-unfit.end');
 
     Route::get('/one-power/deviasi-operator/izin-karyawan', [IzinKaryawanController::class, 'index'])->name('one-power.izin-karyawan.index');
+    Route::get('/one-power/deviasi-operator/izin-karyawan/export', [IzinKaryawanController::class, 'export'])->name('one-power.izin-karyawan.export');
     Route::get('/one-power/deviasi-operator/izin-karyawan/search-employee', [IzinKaryawanController::class, 'searchEmployee'])->name('one-power.izin-karyawan.search-employee');
     Route::get('/one-power/deviasi-operator/izin-karyawan/next-surat-number', [IzinKaryawanController::class, 'getNextSuratNumber'])->name('one-power.izin-karyawan.next-surat-number');
     Route::get('/one-power/deviasi-operator/izin-karyawan/create', [IzinKaryawanController::class, 'create'])->name('one-power.izin-karyawan.create');
@@ -200,6 +209,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/one-power/pembinaan/coaching-counseling/{coachingCounseling}/edit', [CoachingCounselingController::class, 'edit'])->name('one-power.coaching-counseling.edit');
     Route::put('/one-power/pembinaan/coaching-counseling/{coachingCounseling}', [CoachingCounselingController::class, 'update'])->name('one-power.coaching-counseling.update');
     Route::delete('/one-power/pembinaan/coaching-counseling/{coachingCounseling}', [CoachingCounselingController::class, 'destroy'])->name('one-power.coaching-counseling.destroy');
+    Route::get('/one-power/pembinaan/coaching-counseling/{coachingCounseling}/print', [CoachingCounselingController::class, 'show'])->name('one-power.coaching-counseling.print');
 
     Route::get('/one-power/pembinaan/interview-fatigue', [FatigueInterviewController::class, 'index'])->name('one-power.fatigue-interview.index');
     Route::get('/one-power/pembinaan/interview-fatigue/search-employee', [FatigueInterviewController::class, 'searchEmployee'])->name('one-power.fatigue-interview.search-employee');

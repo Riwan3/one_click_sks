@@ -23,6 +23,8 @@ const form = useForm({
     dikeluarkan_tanggal: props.targetSkPembinaan.dikeluarkanTanggal ?? '',
     ttd_karyawan: props.targetSkPembinaan.ttdKaryawan ?? '',
     ttd_atasan: props.targetSkPembinaan.ttdAtasan ?? '',
+    ttd_pja: props.targetSkPembinaan.ttdPja ?? '',
+    ttd_hse: props.targetSkPembinaan.ttdHse ?? '',
     pengawas_id: props.targetSkPembinaan.pengawasId,
     pengawasName: props.targetSkPembinaan.pengawasName ?? '',
     jenis_pelanggaran: props.targetSkPembinaan.jenisPelanggaran ?? '',

@@ -10,16 +10,55 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class AttendanceMonthlyRosterService
 {
-    public function paginate(?string $search, ?int $bulan, ?int $tahun, int $page, int $perPage): LengthAwarePaginator
-    {
+    public function paginate(
+        ?string $search,
+        ?int $bulan,
+        ?int $tahun,
+        int $page,
+        int $perPage,
+        ?string $kategori = null,
+        bool $filterLowAtr = false,
+        float $atrThreshold = 95.0
+    ): LengthAwarePaginator {
         return AttendanceMonthlyRoster::query()
             ->with('employee')
             ->search($search)
             ->period($bulan, $tahun)
+            ->kategori($kategori)
+            ->lowAtr($filterLowAtr, $atrThreshold)
             ->orderByDesc('tahun')
             ->orderByDesc('bulan')
             ->orderBy('employee_id')
             ->paginate($perPage, ['*'], 'page', $page);
+    }
+
+    /**
+     * 6 summary stat cards from V1 (views/database/attendance/index.php):
+     * Shift D count, Shift N count, Sakit count, Izin count, Alfa count, and
+     * average ATR% — all computed over the same filtered (search/period/
+     * kategori) period, mirroring V1's AttendanceRepository::getDashboardStats().
+     */
+    public function summaryStats(?string $search, ?int $bulan, ?int $tahun, ?string $kategori = null): array
+    {
+        $query = AttendanceMonthlyRoster::query()
+            ->search($search)
+            ->period($bulan, $tahun)
+            ->kategori($kategori);
+
+        $totals = $query->selectRaw('SUM(d) as total_d, SUM(n) as total_n, SUM(s) as total_s, SUM(i) as total_i, SUM(a) as total_a, SUM(atr_percentage) as total_atr, COUNT(*) as row_count')
+            ->first();
+
+        $rowCount = (int) ($totals->row_count ?? 0);
+        $avgAtr = $rowCount > 0 ? round(((float) $totals->total_atr) / $rowCount, 2) : 0.0;
+
+        return [
+            'total_d' => (int) ($totals->total_d ?? 0),
+            'total_n' => (int) ($totals->total_n ?? 0),
+            'total_s' => (int) ($totals->total_s ?? 0),
+            'total_i' => (int) ($totals->total_i ?? 0),
+            'total_a' => (int) ($totals->total_a ?? 0),
+            'avg_atr' => $avgAtr,
+        ];
     }
 
     public function create(array $data, ?int $createdBy): AttendanceMonthlyRoster

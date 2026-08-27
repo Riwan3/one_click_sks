@@ -16,6 +16,7 @@ class StoreMorDataRequest extends FormRequest
         return [
             'employee_id' => ['required', 'integer', 'exists:employees,id'],
             'posisi' => ['nullable', 'string', 'max:150'],
+            'gl_name' => ['nullable', 'string', 'max:150'],
             'bulan' => ['required', 'integer', 'min:1', 'max:12'],
             'tahun' => ['required', 'integer', 'min:2000'],
             'atr_persen' => ['nullable', 'numeric'],
@@ -30,7 +31,14 @@ class StoreMorDataRequest extends FormRequest
             'fuel_persen' => ['nullable', 'numeric'],
             'fuel_actual' => ['nullable', 'numeric'],
             'fuel_limit' => ['nullable', 'numeric'],
+            'pdty_persen' => ['nullable', 'numeric'],
+            'act_coal' => ['nullable', 'numeric'],
+            'targt_coal' => ['nullable', 'numeric'],
+            'act_ob' => ['nullable', 'numeric'],
+            'targt_ob' => ['nullable', 'numeric'],
             'pembinaan' => ['nullable', 'integer', 'min:0'],
+            'pembinaan_poin' => ['nullable', 'numeric'],
+            'ket_pembinaan' => ['nullable', 'string', 'max:255'],
             'total_poin' => ['nullable', 'numeric'],
             'ranking' => ['nullable', 'integer', 'min:0'],
         ];

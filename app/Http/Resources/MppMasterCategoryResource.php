@@ -13,6 +13,7 @@ class MppMasterCategoryResource extends JsonResource
             'id' => $this->id,
             'nama' => $this->nama,
             'kode' => $this->kode,
+            'kategori_tipe' => $this->kategori_tipe,
             'plan_mp' => $this->plan_mp,
             'sort_order' => $this->sort_order,
             'active' => $this->active,

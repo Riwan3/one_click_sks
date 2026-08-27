@@ -1,6 +1,6 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
-import { Pencil, Trash2 } from '@lucide/vue';
+import { Pencil, Trash2, Printer } from '@lucide/vue';
 
 defineProps({
     items: { type: Array, required: true },
@@ -41,13 +41,18 @@ const emit = defineEmits(['delete']);
                         </span>
                     </td>
                     <td class="px-4 py-3 align-middle">
-                        <div v-if="canManage" class="flex gap-1.5">
-                            <Link :href="`/one-power/pembinaan/coaching-counseling/${row.id}/edit`" title="Edit" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-amber-500 hover:bg-amber-50">
-                                <Pencil class="h-3.5 w-3.5" />
+                        <div class="flex gap-1.5">
+                            <Link :href="`/one-power/pembinaan/coaching-counseling/${row.id}/print`" title="Cetak" target="_blank" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
+                                <Printer class="h-3.5 w-3.5" />
                             </Link>
-                            <button type="button" title="Hapus" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-red-500 hover:bg-red-50" @click="emit('delete', row)">
-                                <Trash2 class="h-3.5 w-3.5" />
-                            </button>
+                            <template v-if="canManage">
+                                <Link :href="`/one-power/pembinaan/coaching-counseling/${row.id}/edit`" title="Edit" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-amber-500 hover:bg-amber-50">
+                                    <Pencil class="h-3.5 w-3.5" />
+                                </Link>
+                                <button type="button" title="Hapus" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-red-500 hover:bg-red-50" @click="emit('delete', row)">
+                                    <Trash2 class="h-3.5 w-3.5" />
+                                </button>
+                            </template>
                         </div>
                     </td>
                 </tr>

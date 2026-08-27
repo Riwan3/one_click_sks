@@ -1,7 +1,7 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { UserPlus, Search } from '@lucide/vue';
+import { UserPlus, Search, FileDown } from '@lucide/vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/ui/Pagination.vue';
 import IzinKaryawanTable from './Partials/IzinKaryawanTable.vue';
@@ -11,6 +11,7 @@ const props = defineProps({
     notifCounts: { type: Object, required: true },
     menu: { type: Array, required: true },
     isAdmin: { type: Boolean, required: true },
+    isMedic: { type: Boolean, default: false },
     filters: { type: Object, required: true },
     izins: { type: Array, required: true },
     pagination: { type: Object, required: true },
@@ -25,6 +26,22 @@ const baseUrl = '/one-power/deviasi-operator/izin-karyawan';
 const submitFilter = () => {
     router.get(baseUrl, { search: searchInput.value, jenis_izin: jenisInput.value, status: statusInput.value }, { preserveScroll: true, preserveState: true });
 };
+
+// V1 renders two separate tables (Izin/Sakit vs Emergency), never merged —
+// distinguished by jenis_izin (see views/database/izin_karyawan/index.php).
+const emergencyIzins = computed(() => props.izins.filter((row) => row.jenisIzin === 'emergency'));
+const izinSakitIzins = computed(() => props.izins.filter((row) => row.jenisIzin !== 'emergency'));
+
+const exportUrl = computed(() => {
+    const params = new URLSearchParams();
+    if (props.filters.jenis_izin) params.set('jenis_izin', props.filters.jenis_izin);
+    if (props.filters.search) params.set('search', props.filters.search);
+    if (props.filters.date_from) params.set('date_from', props.filters.date_from);
+    if (props.filters.date_to) params.set('date_to', props.filters.date_to);
+    if (props.filters.status) params.set('status', props.filters.status);
+    const qs = params.toString();
+    return `${baseUrl}/export${qs ? `?${qs}` : ''}`;
+});
 
 const doAction = (action, row, confirmMsg) => {
     if (confirmMsg && ! confirm(confirmMsg)) return;
@@ -54,9 +71,18 @@ const handleDelete = (row) => {
                 </p>
             </div>
 
-            <Link :href="`${baseUrl}/create`" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600">
-                <UserPlus class="h-4 w-4" /> Ajukan Izin
-            </Link>
+            <div class="flex flex-wrap gap-2">
+                <a
+                    v-if="isAdmin"
+                    :href="exportUrl"
+                    class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700"
+                >
+                    <FileDown class="h-4 w-4" /> Export Data
+                </a>
+                <Link :href="`${baseUrl}/create`" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600">
+                    <UserPlus class="h-4 w-4" /> Ajukan Izin
+                </Link>
+            </div>
         </div>
 
         <form class="mb-4 flex flex-wrap gap-2" @submit.prevent="submitFilter">
@@ -69,7 +95,7 @@ const handleDelete = (row) => {
                     class="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500"
                 >
             </div>
-            <select v-model="jenisInput" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500" @change="submitFilter">
+            <select v-if="!isMedic" v-model="jenisInput" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500" @change="submitFilter">
                 <option value="">-- Semua Jenis --</option>
                 <option value="izin">Izin</option>
                 <option value="sakit">Sakit</option>
@@ -85,15 +111,31 @@ const handleDelete = (row) => {
             <button type="submit" class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-600">Filter</button>
         </form>
 
-        <IzinKaryawanTable
-            :izins="izins"
-            :is-admin="isAdmin"
-            @approve="handleApprove"
-            @decline="handleDecline"
-            @reset="handleReset"
-            @cancel="handleCancel"
-            @delete="handleDelete"
-        />
+        <div v-if="!jenisInput || jenisInput === 'emergency'" class="mb-6">
+            <h2 class="mb-3 flex items-center gap-1.5 text-base font-bold text-slate-800">Data Emergency</h2>
+            <IzinKaryawanTable
+                :izins="emergencyIzins"
+                :is-admin="isAdmin"
+                @approve="handleApprove"
+                @decline="handleDecline"
+                @reset="handleReset"
+                @cancel="handleCancel"
+                @delete="handleDelete"
+            />
+        </div>
+
+        <div v-if="!jenisInput || jenisInput !== 'emergency'">
+            <h2 class="mb-3 flex items-center gap-1.5 text-base font-bold text-slate-800">Data Izin & Sakit</h2>
+            <IzinKaryawanTable
+                :izins="izinSakitIzins"
+                :is-admin="isAdmin"
+                @approve="handleApprove"
+                @decline="handleDecline"
+                @reset="handleReset"
+                @cancel="handleCancel"
+                @delete="handleDelete"
+            />
+        </div>
 
         <div class="mt-4">
             <Pagination

@@ -3,14 +3,15 @@ import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import IzinKaryawanForm from './Partials/IzinKaryawanForm.vue';
 
-defineProps({
+const props = defineProps({
     user: { type: Object, required: true },
     notifCounts: { type: Object, required: true },
     menu: { type: Array, required: true },
+    isMedic: { type: Boolean, default: false },
 });
 
 const form = useForm({
-    jenis_izin: 'izin',
+    jenis_izin: props.isMedic ? 'sakit' : 'izin',
     nama: '',
     nrp: '',
     jabatan: '',
@@ -45,6 +46,6 @@ const submit = () => form.post('/one-power/deviasi-operator/izin-karyawan');
 
     <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
         <h1 class="mb-5 text-xl font-extrabold text-slate-800">Ajukan Izin Karyawan</h1>
-        <IzinKaryawanForm :form="form" :on-submit="submit" />
+        <IzinKaryawanForm :form="form" :on-submit="submit" :is-medic="isMedic" />
     </AppLayout>
 </template>

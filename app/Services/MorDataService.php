@@ -56,6 +56,7 @@ class MorDataService
             + (float) ($data['timesheet_point'] ?? 0)
             + (float) ($data['hm_point'] ?? 0)
             + (float) ($data['fuel_point'] ?? 0)
+            + (float) ($data['pdty_point'] ?? 0)
             + (float) ($data['pembinaan_poin'] ?? 20),
             2
         );

@@ -67,6 +67,42 @@ class AttendanceMonthlyRoster extends Model
     }
 
     /**
+     * V1's "kategori" filter (views/database/attendance/index.php) only exposes
+     * 5 of the 15 code columns as selectable categories: d, n, s, i, a. It
+     * filters rows where that column is > 0, not an employee/department field.
+     */
+    public function scopeKategori(Builder $query, ?string $kategori): Builder
+    {
+        if (! $kategori) {
+            return $query;
+        }
+
+        $kategori = strtolower($kategori);
+
+        if (! in_array($kategori, ['d', 'n', 's', 'i', 'a'], true)) {
+            return $query;
+        }
+
+        return $query->where($kategori, '>', 0);
+    }
+
+    /**
+     * V1's "ATR < threshold" toggle (views/database/attendance/index.php,
+     * `filter_low_atr` checkbox paired with the admin-settable ATR MIN
+     * value). Filters to rows whose ATR% is below the given threshold.
+     * Rows with a null atr_percentage are excluded rather than falling back
+     * to the computed accessor, since that fallback can't be expressed in SQL.
+     */
+    public function scopeLowAtr(Builder $query, bool $enabled, float $threshold): Builder
+    {
+        if (! $enabled) {
+            return $query;
+        }
+
+        return $query->whereNotNull('atr_percentage')->where('atr_percentage', '<', $threshold);
+    }
+
+    /**
      * V1's `atr` column is a free-text value populated by the Excel import,
      * not derived from a formula in AttendanceRepository.php. We honor a
      * stored value first; if it is missing, fall back to a best-effort

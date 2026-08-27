@@ -15,6 +15,7 @@ class BeritaAcaraResource extends JsonResource
             'employeeId' => $this->employee_id,
             'nrp' => $this->whenLoaded('employee', fn () => $this->employee?->nrp),
             'nama' => $this->whenLoaded('employee', fn () => $this->employee?->name),
+            'jabatan' => $this->whenLoaded('employee', fn () => $this->employee?->jabatan_ss6),
             'tanggal' => $this->tanggal?->format('Y-m-d'),
             'kronologi' => $this->kronologi,
             'diketahuiOlehId' => $this->diketahui_oleh_id,

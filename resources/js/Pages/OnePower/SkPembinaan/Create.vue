@@ -21,6 +21,8 @@ const form = useForm({
     dikeluarkan_tanggal: '',
     ttd_karyawan: '',
     ttd_atasan: '',
+    ttd_pja: '',
+    ttd_hse: '',
     pengawas_id: null,
     jenis_pelanggaran: '',
     lubang: 0,

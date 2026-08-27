@@ -30,6 +30,9 @@ class AttendanceController extends Controller
 {
     private const PER_PAGE = 15;
 
+    /** Default ATR MIN threshold used by the "ATR < threshold" filter toggle. */
+    private const DEFAULT_ATR_THRESHOLD = 95;
+
     public function __construct(private AttendanceMonthlyRosterService $rosterService) {}
 
     public function index(Request $request): Response
@@ -37,9 +40,14 @@ class AttendanceController extends Controller
         $search = trim((string) $request->string('search'));
         $bulan = (int) ($request->integer('bulan') ?: now()->month);
         $tahun = (int) ($request->integer('tahun') ?: now()->year);
+        $kategori = trim((string) $request->string('kategori')) ?: null;
+        $atrThreshold = $request->filled('atr_threshold')
+            ? (float) $request->input('atr_threshold')
+            : self::DEFAULT_ATR_THRESHOLD;
+        $filterLowAtr = $request->boolean('filter_low_atr');
         $page = max(1, (int) $request->integer('page', 1));
 
-        $items = $this->rosterService->paginate($search ?: null, $bulan, $tahun, $page, self::PER_PAGE);
+        $items = $this->rosterService->paginate($search ?: null, $bulan, $tahun, $page, self::PER_PAGE, $kategori, $filterLowAtr, $atrThreshold);
 
         return Inertia::render('OnePower/Attendance/Index', [
             'user' => $this->currentUser(),
@@ -48,6 +56,10 @@ class AttendanceController extends Controller
             'search' => $search,
             'bulan' => $bulan,
             'tahun' => $tahun,
+            'kategori' => $kategori,
+            'atrThreshold' => $atrThreshold,
+            'filterLowAtr' => $filterLowAtr,
+            'summary' => $this->rosterService->summaryStats($search ?: null, $bulan, $tahun, $kategori),
             'codeColumns' => AttendanceMonthlyRoster::CODE_COLUMNS,
             'items' => AttendanceMonthlyRosterResource::collection($items->items())->resolve(),
             'pagination' => [

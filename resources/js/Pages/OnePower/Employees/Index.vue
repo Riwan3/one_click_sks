@@ -1,10 +1,11 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { UserPlus, FileUp, Download, Search } from '@lucide/vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { UserPlus, FileUp, Download, Search, Trash2 } from '@lucide/vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/ui/Pagination.vue';
 import EmployeeTable from './Partials/EmployeeTable.vue';
+import EmployeeImportModal from './Partials/EmployeeImportModal.vue';
 
 const props = defineProps({
     user: { type: Object, required: true },
@@ -37,6 +38,34 @@ const handleDelete = (row) => {
     if (! confirm(`Hapus data karyawan "${row.name}"? Tindakan ini tidak bisa dibatalkan.`)) return;
     router.delete(`/one-power/employees/${row.id}`, { preserveScroll: true });
 };
+
+const importModalOpen = ref(false);
+const importForm = useForm({ file: null });
+
+const submitImport = () => {
+    importForm.post('/one-power/employees/import', {
+        preserveScroll: true,
+        onSuccess: () => {
+            importModalOpen.value = false;
+            importForm.reset();
+        },
+    });
+};
+
+const exportUrl = computed(() => {
+    const params = new URLSearchParams();
+    if (searchInput.value) params.set('search', searchInput.value);
+    if (jabatanInput.value) params.set('jabatan', jabatanInput.value);
+    if (props.onlyInactive) params.set('only_inactive', '1');
+    const qs = params.toString();
+    return `/one-power/employees/export${qs ? `?${qs}` : ''}`;
+});
+
+const handleBulkDeleteInactive = () => {
+    const total = props.pagination.total;
+    if (! confirm(`HAPUS SEMUA ${total} karyawan non-aktif? Tindakan ini TIDAK BISA dibatalkan.`)) return;
+    router.post('/one-power/employees/bulk-delete-inactive', {}, { preserveScroll: true });
+};
 </script>
 
 <template>
@@ -54,17 +83,34 @@ const handleDelete = (row) => {
             </div>
 
             <div class="flex flex-wrap gap-2">
-                <button type="button" title="Segera hadir" class="flex cursor-not-allowed items-center gap-1.5 rounded-lg bg-emerald-500/50 px-3 py-2 text-sm font-bold text-white">
+                <button
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-600"
+                    @click="importModalOpen = true"
+                >
                     <FileUp class="h-4 w-4" /> Import
                 </button>
-                <button type="button" title="Segera hadir" class="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-400">
+                <a
+                    :href="exportUrl"
+                    class="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                >
                     <Download class="h-4 w-4" /> Export
+                </a>
+                <button
+                    v-if="onlyInactive && pagination.total > 0"
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-bold text-white hover:bg-red-700"
+                    @click="handleBulkDeleteInactive"
+                >
+                    <Trash2 class="h-4 w-4" /> Hapus Semua Non-Aktif ({{ pagination.total }})
                 </button>
                 <Link href="/one-power/employees/create" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600">
                     <UserPlus class="h-4 w-4" /> Tambah Karyawan
                 </Link>
             </div>
         </div>
+
+        <EmployeeImportModal :open="importModalOpen" :form="importForm" @close="importModalOpen = false" @submit="submitImport" />
 
         <form class="mb-4 flex flex-wrap gap-2" @submit.prevent="submitFilter">
             <div class="relative w-full max-w-md flex-1">

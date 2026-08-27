@@ -25,6 +25,8 @@ class StoreSkPembinaanRequest extends FormRequest
             'dikeluarkan_tanggal' => ['required', 'date'],
             'ttd_karyawan' => ['nullable', 'string'],
             'ttd_atasan' => ['nullable', 'string'],
+            'ttd_pja' => ['nullable', 'string'],
+            'ttd_hse' => ['nullable', 'string'],
             'pengawas_id' => ['nullable', 'integer', 'exists:employees,id'],
             'jenis_pelanggaran' => ['required', 'string'],
             'lubang' => ['nullable', 'integer', 'min:0'],
