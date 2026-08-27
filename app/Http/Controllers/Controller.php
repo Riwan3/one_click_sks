@@ -22,4 +22,24 @@ abstract class Controller
             'foto' => null,
         ];
     }
+
+    /**
+     * Jumlah notifikasi belum dibaca.
+     */
+    protected function notifCounts(): array
+    {
+        $userId = Auth::id();
+        $unreadMessages = 0;
+        if ($userId) {
+            $unreadMessages = \App\Models\InternalMessage::where('receiver_id', $userId)
+                ->where('is_read', false)
+                ->count();
+        }
+
+        return [
+            'signature' => 0,
+            'notification' => 0,
+            'message' => $unreadMessages,
+        ];
+    }
 }

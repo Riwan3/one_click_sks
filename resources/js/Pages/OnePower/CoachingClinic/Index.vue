@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
-import { Lightbulb, Search } from '@lucide/vue';
+import { Lightbulb, Search } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({

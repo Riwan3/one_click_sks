@@ -5,7 +5,8 @@ import {
     Video, Server, FilePlus, BarChartBig, ClipboardCheck, GraduationCap, Award,
     ShieldLock, Truck, FileHeart, Phone, KeyRound, KeySquare,
     FolderOpen, FileText, Mic, Database, Activity, CircleSlash, UserCheck,
-    BellRing, OctagonAlert, Frown, VideoOff, OctagonX,
+    BellRing, OctagonAlert, Frown, VideoOff, OctagonX, BookOpen, FileCheck,
+    Sliders, Settings, Monitor, Layers
 } from '@lucide/vue';
 
 export const sidebarIcons = {
@@ -15,5 +16,6 @@ export const sidebarIcons = {
     Video, Server, FilePlus, BarChartBig, ClipboardCheck, GraduationCap, Award,
     ShieldLock, Truck, FileHeart, Phone, KeyRound, KeySquare,
     FolderOpen, FileText, Mic, Database, Activity, CircleSlash, UserCheck,
-    BellRing, OctagonAlert, Frown, VideoOff, OctagonX,
+    BellRing, OctagonAlert, Frown, VideoOff, OctagonX, BookOpen, FileCheck,
+    Sliders, Settings, Monitor, Layers
 };

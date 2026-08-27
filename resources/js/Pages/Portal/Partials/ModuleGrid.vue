@@ -20,9 +20,9 @@ defineProps({
                 v-for="module in modules"
                 :key="module.key"
                 :href="`/${module.key}`"
-                class="relative flex h-36 flex-col justify-center rounded-2xl border border-slate-900/[0.06] bg-white p-4 px-[18px] no-underline shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_20px_rgba(15,23,42,0.03)] transition-all hover:-translate-y-0.5 hover:border-blue-400/35 hover:bg-[#FAFCFF] hover:shadow-[0_2px_6px_rgba(15,23,42,0.04),0_14px_28px_rgba(74,144,226,0.14)]"
+                class="relative flex h-36 flex-col justify-center rounded-2xl border border-slate-900/[0.06] bg-white p-4 px-[18px] no-underline shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_20px_rgba(15,23,42,0.03)] transition-all hover:-translate-y-0.5 hover:z-30 hover:border-blue-400/35 hover:bg-[#FAFCFF] hover:shadow-[0_2px_6px_rgba(15,23,42,0.04),0_14px_28px_rgba(74,144,226,0.14)]"
             >
-                <div class="group/tooltip absolute right-3 top-3 z-[5]">
+                <div class="group/tooltip absolute right-3 top-3 z-30">
                     <button
                         type="button"
                         class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-500/[0.08] text-slate-500 transition-all hover:scale-105 hover:bg-blue-500/10 hover:text-blue-500"
@@ -32,7 +32,7 @@ defineProps({
                         <Info class="h-4 w-4" />
                     </button>
                     <div
-                        class="pointer-events-none absolute right-0 top-full z-10 mt-2 w-max max-w-[240px] rounded-xl bg-slate-800 px-3.5 py-3 text-left text-[0.78rem] font-medium leading-relaxed text-white opacity-0 shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition-opacity group-hover/tooltip:opacity-100"
+                        class="pointer-events-none absolute right-0 top-full z-50 mt-2 w-max max-w-[240px] rounded-xl bg-slate-900 px-3.5 py-3 text-left text-[0.78rem] font-medium leading-relaxed text-white opacity-0 shadow-[0_12px_28px_rgba(0,0,0,0.25)] transition-all duration-200 group-hover/tooltip:opacity-100 group-hover/tooltip:translate-y-0 translate-y-1"
                     >
                         {{ module.desc }}
                     </div>

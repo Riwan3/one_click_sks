@@ -3,7 +3,7 @@ import { Link } from '@inertiajs/vue3';
 import {
     Activity, BarChart2, Camera, CalendarCheck, ClipboardCheck,
     FileBarChart2, Gauge, PenLine, Phone, ShieldCheck, Users, Wallet, Wrench,
-} from '@lucide/vue';
+} from 'lucide-vue-next';
 
 defineProps({
     items: { type: Array, required: true },

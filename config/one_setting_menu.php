@@ -1,16 +1,12 @@
 <?php
 
 /**
- * Menu sidebar One-Setting — dummy, href null berarti halamannya belum dibuat.
- * menu_key wajib unik dalam file ini (dipakai untuk role menu permission).
+ * Menu sidebar One-Setting
+ * menu_key wajib unik dalam file ini.
  */
 return [
-    ['menu_key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'Gauge', 'href' => '/one-setting'],
-    ['menu_key' => 'setting-manpower', 'label' => 'Setting Manpower', 'icon' => 'Users', 'href' => null],
-    ['menu_key' => 'setting-manpower-v2', 'label' => 'Setting Manpower V2', 'icon' => 'UserCheck', 'href' => null],
-    ['menu_key' => 'setting-fleet', 'label' => 'Setting Fleet', 'icon' => 'Truck', 'href' => null],
-    ['menu_key' => 'setting-fleet-v2', 'label' => 'Setting Fleet V2', 'icon' => 'Database', 'href' => null],
-    ['menu_key' => 'monitoring-setting-manpower', 'label' => 'Monitoring Setting Manpower', 'icon' => 'Activity', 'href' => null],
-    ['menu_key' => 'kesiapan-operator', 'label' => 'Kesiapan Operator', 'icon' => 'ShieldCheck', 'href' => null],
-    ['menu_key' => 'daily-atr', 'label' => 'Daily ATR', 'icon' => 'CalendarDays', 'href' => null],
+    ['menu_key' => 'dashboard', 'label' => 'Dashboard Setting', 'icon' => 'Gauge', 'href' => '/one-setting/dashboard'],
+    ['menu_key' => 'settingan', 'label' => 'Settingan', 'icon' => 'Sliders', 'href' => '/one-setting/settingan'],
+    ['menu_key' => 'monitoring-manpower', 'label' => 'Monitoring Setting Manpower', 'icon' => 'Users', 'href' => '/one-setting/monitoring-manpower'],
+    ['menu_key' => 'monitoring-fleet', 'label' => 'Monitoring Setting Fleet', 'icon' => 'Truck', 'href' => '/one-setting/monitoring-fleet'],
 ];

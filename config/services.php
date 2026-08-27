@@ -41,4 +41,10 @@ return [
         'timeout' => env('SPDK_TIMEOUT', 30),
     ],
 
+    'ho_api' => [
+        'url' => env('HO_API_URL'),
+        'token' => env('HO_API_TOKEN'),
+        'timeout' => env('HO_API_TIMEOUT', 60),
+    ],
+
 ];

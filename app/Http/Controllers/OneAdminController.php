@@ -40,11 +40,7 @@ class OneAdminController extends Controller
 
         return Inertia::render('OneAdmin/Dashboard', [
             'user' => $this->currentUser(),
-            'notifCounts' => [
-                'signature' => 2,
-                'notification' => 3,
-                'message' => 1,
-            ],
+            'notifCounts' => $this->notifCounts(),
             'menu' => config('one_admin_menu'),
             'search' => $search,
             'stats' => $this->statsFrom($rows->all()),

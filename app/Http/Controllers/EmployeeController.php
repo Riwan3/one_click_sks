@@ -142,6 +142,166 @@ class EmployeeController extends Controller
         return redirect('/one-power/employees/inactive')->with('success', "{$count} karyawan non-aktif berhasil dihapus.");
     }
 
+    public function listGL(Request $request): Response
+    {
+        $search = trim((string) $request->string('search'));
+
+        $gls = $this->employeeService->listAllGL($search ?: null);
+
+        return Inertia::render('OnePower/Employees/ListGl', [
+            'user' => $this->currentUser(),
+            'notifCounts' => $this->notifCounts(),
+            'menu' => MenuAccess::forConfig('one_power_menu'),
+            'search' => $search,
+            'gls' => EmployeeResource::collection($gls)->resolve(),
+        ]);
+    }
+
+    public function anakAsuh(Request $request, Employee $gl): Response
+    {
+        $search = trim((string) $request->string('search'));
+
+        $mienteed = $this->employeeService->getAnakAsuh($gl, $search ?: null);
+
+        return Inertia::render('OnePower/Employees/AnakAsuh', [
+            'user' => $this->currentUser(),
+            'notifCounts' => $this->notifCounts(),
+            'menu' => MenuAccess::forConfig('one_power_menu'),
+            'gl' => new EmployeeResource($gl),
+            'search' => $search,
+            'employees' => EmployeeResource::collection($mienteed)->resolve(),
+        ]);
+    }
+
+    public function selectAnakAsuh(Request $request, Employee $gl): Response
+    {
+        $search = trim((string) $request->string('search'));
+
+        $unassigned = $this->employeeService->getUnassignedEmployees($search ?: null);
+
+        return Inertia::render('OnePower/Employees/SelectAnakAsuh', [
+            'user' => $this->currentUser(),
+            'notifCounts' => $this->notifCounts(),
+            'menu' => MenuAccess::forConfig('one_power_menu'),
+            'gl' => new EmployeeResource($gl),
+            'search' => $search,
+            'unassignedEmployees' => EmployeeResource::collection($unassigned)->resolve(),
+        ]);
+    }
+
+    public function bulkStoreAsuh(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'gl_id' => ['required', 'exists:employees,id'],
+            'employee_ids' => ['required', 'array'],
+            'employee_ids.*' => ['exists:employees,id'],
+        ]);
+
+        $gl = Employee::findOrFail($request->integer('gl_id'));
+        $count = $this->employeeService->bulkAssignAnakAsuh($gl, $request->input('employee_ids'));
+
+        return redirect("/one-power/employees/{$gl->id}/anak-asuh")->with('success', "{$count} anak asuh berhasil ditambahkan ke GL {$gl->name}.");
+    }
+
+    public function importAsuh(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'reset_lama' => ['nullable', 'boolean'],
+        ]);
+
+        $result = $this->employeeService->importSahabatPengusaha(
+            $request->file('file'),
+            $request->boolean('reset_lama')
+        );
+
+        return redirect('/one-power/employees/list-gl')->with('success', $result['message']);
+    }
+
+    public function setAsuh(Request $request, Employee $employee): RedirectResponse
+    {
+        $request->validate([
+            'gl_id' => ['nullable', 'exists:employees,id'],
+        ]);
+
+        $this->employeeService->setGroupLeader($employee, $request->input('gl_id'));
+
+        return redirect()->back()->with('success', 'Group Leader (Bapak Asuh) berhasil diperbarui.');
+    }
+
+    public function removeAsuh(Employee $employee): RedirectResponse
+    {
+        $this->employeeService->removeAsuh($employee);
+
+        return redirect()->back()->with('success', 'Karyawan berhasil dilepas dari daftar anak asuh.');
+    }
+
+    public function print(Request $request, Employee $employee): Response
+    {
+        $tahun = max(2000, (int) $request->integer('tahun', (int) now()->format('Y')));
+
+        // Load monthly ATR breakdown for employee
+        $atrRows = \App\Models\AttendanceV2Detail::query()
+            ->where('nrp', $employee->nrp)
+            ->whereYear('tanggal', $tahun)
+            ->get();
+
+        $monthlyAtr = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $monthRows = $atrRows->filter(fn ($r) => (int) $r->tanggal->format('m') === $m);
+            $d = $monthRows->where('sia_category', 'D')->count();
+            $n = $monthRows->where('sia_category', 'N')->count();
+            $s = $monthRows->where('sia_category', 'S')->count();
+            $i = $monthRows->where('sia_category', 'I')->count();
+            $a = $monthRows->where('sia_category', 'A')->count();
+            $total = $d + $n + $s + $i + $a;
+            $atr = $total > 0 ? round((($d + $n) / $total) * 100, 1) : 0;
+
+            $monthlyAtr[] = [
+                'bulan' => $m,
+                'namaBulan' => date('F', mktime(0, 0, 0, $m, 1)),
+                'd' => $d, 'n' => $n, 's' => $s, 'i' => $i, 'a' => $a,
+                'total' => $total, 'atr' => $atr,
+            ];
+        }
+
+        // Load monthly HM breakdown
+        $hmRows = \App\Models\HmData::query()
+            ->where('employee_id', $employee->id)
+            ->whereYear('tanggal', $tahun)
+            ->get();
+
+        $monthlyHm = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $monthHm = $hmRows->filter(fn ($r) => (int) $r->tanggal->format('m') === $m);
+            $sumHm = round((float) $monthHm->sum('hm_diff'), 1);
+            $countShift = $monthHm->count();
+
+            $monthlyHm[] = [
+                'bulan' => $m,
+                'namaBulan' => date('F', mktime(0, 0, 0, $m, 1)),
+                'totalHm' => $sumHm,
+                'totalShift' => $countShift,
+            ];
+        }
+
+        // Load SP / Teguran history
+        $spHistory = \App\Models\SuratPeringatan::query()->where('employee_id', $employee->id)->get();
+        $teguranHistory = \App\Models\SuratTeguran::query()->where('employee_id', $employee->id)->get();
+        $coachingHistory = \App\Models\CoachingClinic::query()->where('employee_id', $employee->id)->get();
+
+        return Inertia::render('OnePower/Employees/Print', [
+            'user' => $this->currentUser(),
+            'employee' => (new EmployeeResource($employee->load(['groupLeader', 'anakAsuh'])))->resolve(),
+            'tahun' => $tahun,
+            'monthlyAtr' => $monthlyAtr,
+            'monthlyHm' => $monthlyHm,
+            'spHistory' => $spHistory,
+            'teguranHistory' => $teguranHistory,
+            'coachingHistory' => $coachingHistory,
+        ]);
+    }
+
     private function renderList(Request $request, bool $onlyInactive): Response
     {
         $search = trim((string) $request->string('search'));
@@ -173,10 +333,5 @@ class EmployeeController extends Controller
             fn (EmployeeStatus $status) => ['value' => $status->value, 'label' => $status->label()],
             EmployeeStatus::cases()
         );
-    }
-
-    private function notifCounts(): array
-    {
-        return ['signature' => 2, 'notification' => 3, 'message' => 1];
     }
 }

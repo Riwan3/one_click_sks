@@ -16,13 +16,35 @@ class CoachingClinicController extends Controller
 
     public function index(Request $request)
     {
-        abort_if($request->user()?->isManagement() ?? false, 403);
+        $search = $request->input('search');
 
-        $clinics = $this->service->paginate(15);
+        $clinics = CoachingClinic::with(['employee', 'coach'])
+            ->when($search, function ($q) use ($search) {
+                $q->whereHas('employee', function ($eq) use ($search) {
+                    $eq->where('nama', 'like', "%{$search}%")
+                       ->orWhere('nrp', 'like', "%{$search}%");
+                });
+            })
+            ->latest('tanggal')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'nomorSurat' => $item->nomor_surat ?? sprintf('CC-%04d', $item->id),
+                    'nrp' => $item->employee?->nrp ?? '-',
+                    'nama' => $item->employee?->nama ?? '-',
+                    'coachNama' => $item->coach?->name ?? 'Coach',
+                    'tanggal' => $item->tanggal ? \Carbon\Carbon::parse($item->tanggal)->format('d M Y') : '-',
+                    'fatigueLevel' => $item->fatigue_level ?? 0,
+                ];
+            });
 
-        return Inertia::render('CoachingClinic/Index', [
-            'clinics' => CoachingClinicResource::collection($clinics),
-            'canManage' => ! ($request->user()?->isManagement() ?? false),
+        return Inertia::render('OnePower/CoachingClinic/Index', [
+            'user' => $this->currentUser(),
+            'notifCounts' => $this->notifCounts(),
+            'menu' => config('one_power_menu'),
+            'search' => $search ?? '',
+            'items' => $clinics,
         ]);
     }
 

@@ -16,6 +16,7 @@ class Employee extends Model
         'status_karyawan',
         'lokasi_kerja',
         'unit',
+        'gl_id',
         'no_telepon',
         'efektif_bekerja',
         'input_here',
@@ -33,6 +34,16 @@ class Employee extends Model
     public function user()
     {
         return $this->hasOne(User::class);
+    }
+
+    public function groupLeader()
+    {
+        return $this->belongsTo(self::class, 'gl_id');
+    }
+
+    public function anakAsuh()
+    {
+        return $this->hasMany(self::class, 'gl_id');
     }
 
     public function operatorUnfitRecords()

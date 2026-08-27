@@ -30,11 +30,7 @@ class OnePowerController extends Controller
 
         return Inertia::render('OnePower/Dashboard', [
             'user' => $this->currentUser(),
-            'notifCounts' => [
-                'signature' => 2,
-                'notification' => 3,
-                'message' => 1,
-            ],
+            'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
             'filters' => [
                 'bulan' => $month,

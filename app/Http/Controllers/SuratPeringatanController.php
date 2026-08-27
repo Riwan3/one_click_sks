@@ -168,9 +168,4 @@ class SuratPeringatanController extends Controller
             Employee::query()->search($keyword)->limit(10)->get(['id', 'nrp', 'name', 'jabatan_ss6', 'unit'])
         );
     }
-
-    private function notifCounts(): array
-    {
-        return ['signature' => 2, 'notification' => 3, 'message' => 1];
-    }
 }

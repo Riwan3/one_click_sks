@@ -85,9 +85,4 @@ class RosterPersonalController extends Controller
 
         return $user->employee?->nrp ?? $user->username ?? '';
     }
-
-    private function notifCounts(): array
-    {
-        return ['signature' => 2, 'notification' => 3, 'message' => 1];
-    }
 }

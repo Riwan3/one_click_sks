@@ -246,9 +246,4 @@ class IzinKaryawanController extends Controller
 
         return implode(',', $line);
     }
-
-    private function notifCounts(): array
-    {
-        return ['signature' => 2, 'notification' => 3, 'message' => 1];
-    }
 }

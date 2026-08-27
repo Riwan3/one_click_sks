@@ -65,4 +65,84 @@ class HmDataService
 
         return $import->importedCount();
     }
+
+    public function importFromApi(int $bulan, int $tahun, ?int $createdBy): array
+    {
+        if ($bulan < 1 || $bulan > 12 || $tahun < 2000) {
+            return ['success' => false, 'message' => 'Parameter bulan/tahun tidak valid.', 'count' => 0];
+        }
+
+        $startDate = sprintf('%04d-%02d-01', $tahun, $bulan);
+        $endDate = date('Y-m-t', strtotime($startDate));
+
+        $hoApiService = new HoApiService;
+        $apiResult = $hoApiService->fetchHmFromApi($startDate, $endDate, 'all');
+
+        if (! $apiResult['success']) {
+            return ['success' => false, 'message' => $apiResult['message'], 'count' => 0];
+        }
+
+        // Delete existing HM data for this period
+        HmData::whereYear('tanggal', $tahun)->whereMonth('tanggal', $bulan)->delete();
+
+        $count = 0;
+        foreach ($apiResult['items'] as $item) {
+            $rawDate = (string) ($item['date'] ?? '');
+            $tanggal = null;
+
+            if (preg_match('/^(\d{2})-(\d{2})-(\d{4})$/', $rawDate, $m)) {
+                $tanggal = "{$m[3]}-{$m[2]}-{$m[1]}";
+            } elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $rawDate)) {
+                $tanggal = $rawDate;
+            }
+
+            if (! $tanggal) {
+                continue;
+            }
+
+            $nrp = trim((string) ($item['nrp'] ?? ''));
+            if ($nrp === '') {
+                continue;
+            }
+
+            $optName = trim((string) ($item['opt_name'] ?? 'Karyawan API'));
+
+            // Ensure employee exists
+            $employee = \App\Models\Employee::firstOrCreate(
+                ['nrp' => $nrp],
+                [
+                    'name' => $optName,
+                    'dept' => $item['dept'] ?? null,
+                    'unit' => $item['unit'] ?? null,
+                    'status_karyawan' => \App\Enums\EmployeeStatus::Fit->value,
+                ]
+            );
+
+            $hmStart = is_numeric($item['hm_start'] ?? null) ? (float) $item['hm_start'] : 0;
+            $hmStop = is_numeric($item['hm_stop'] ?? null) ? (float) $item['hm_stop'] : 0;
+            $hmDiff = is_numeric($item['hm_diff'] ?? null) ? (float) $item['hm_diff'] : max(0, $hmStop - $hmStart);
+
+            HmData::updateOrCreate(
+                [
+                    'tanggal' => $tanggal,
+                    'shift' => (string) ($item['shift'] ?? 'all'),
+                    'employee_id' => $employee->id,
+                    'unit' => (string) ($item['unit'] ?? '-'),
+                ],
+                [
+                    'dept' => $item['dept'] ?? null,
+                    'hm_start' => $hmStart,
+                    'hm_stop' => $hmStop,
+                    'hm_diff' => $hmDiff,
+                    'activity' => $item['activity'] ?? null,
+                    'parking' => $item['parking'] ?? null,
+                    'created_by' => $createdBy,
+                ]
+            );
+
+            $count++;
+        }
+
+        return ['success' => true, 'message' => "Bulan {$bulan}/{$tahun}: {$count} data HM berhasil disimpan dari API HO.", 'count' => $count];
+    }
 }

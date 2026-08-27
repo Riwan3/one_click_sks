@@ -171,9 +171,4 @@ class PaktaIntegritasController extends Controller
             'isBlank' => true,
         ]);
     }
-
-    private function notifCounts(): array
-    {
-        return ['signature' => 2, 'notification' => 3, 'message' => 1];
-    }
 }

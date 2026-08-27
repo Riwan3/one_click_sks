@@ -75,9 +75,4 @@ class QuartalOperatorReportController extends Controller
 
         return redirect()->back()->with('success', 'Ranking BCM kuartal berhasil dihitung ulang.');
     }
-
-    private function notifCounts(): array
-    {
-        return ['signature' => 2, 'notification' => 3, 'message' => 1];
-    }
 }

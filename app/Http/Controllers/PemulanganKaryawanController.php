@@ -108,9 +108,4 @@ class PemulanganKaryawanController extends Controller
 
         return response()->json($employees);
     }
-
-    private function notifCounts(): array
-    {
-        return ['signature' => 2, 'notification' => 3, 'message' => 1];
-    }
 }

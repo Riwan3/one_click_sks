@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { Gauge, CloudDownload, Search } from '@lucide/vue';
+import { Gauge, CloudDownload, Search, RefreshCw, X } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/ui/Pagination.vue';
 import HmDataTable from './Partials/HmDataTable.vue';
@@ -106,6 +106,36 @@ const submitImport = () => {
         },
     });
 };
+
+const importApiModalOpen = ref(false);
+const importApiForm = useForm({
+    bulan: new Date().getMonth() + 1,
+    tahun: new Date().getFullYear(),
+});
+
+const submitImportApi = () => {
+    importApiForm.post('/one-power/personal-data/hm/import-api', {
+        preserveScroll: true,
+        onSuccess: () => {
+            importApiModalOpen.value = false;
+        },
+    });
+};
+
+const bulanList = [
+    { value: 1, label: 'Januari' },
+    { value: 2, label: 'Februari' },
+    { value: 3, label: 'Maret' },
+    { value: 4, label: 'April' },
+    { value: 5, label: 'Mei' },
+    { value: 6, label: 'Juni' },
+    { value: 7, label: 'Juli' },
+    { value: 8, label: 'Agustus' },
+    { value: 9, label: 'September' },
+    { value: 10, label: 'Oktober' },
+    { value: 11, label: 'November' },
+    { value: 12, label: 'Desember' },
+];
 </script>
 
 <template>
@@ -118,10 +148,13 @@ const submitImport = () => {
                 <p class="m-0 text-sm text-slate-500">Kelola dan monitor data penggunaan jam kerja alat.</p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <button type="button" class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700" @click="importModalOpen = true">
+                <button type="button" class="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-indigo-700" @click="importApiModalOpen = true">
+                    <RefreshCw class="h-4 w-4" /> Import dari API HO
+                </button>
+                <button type="button" class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-700" @click="importModalOpen = true">
                     <CloudDownload class="h-4 w-4" /> Import Excel
                 </button>
-                <button type="button" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600" @click="openCreate">
+                <button type="button" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-blue-600" @click="openCreate">
                     <Gauge class="h-4 w-4" /> Tambah Data
                 </button>
             </div>
@@ -174,5 +207,41 @@ const submitImport = () => {
 
         <HmDataFormModal :open="formModalOpen" :row="editingRow" :form="form" @close="closeFormModal" @submit="submitForm" />
         <HmDataImportModal :open="importModalOpen" :form="importForm" @close="importModalOpen = false" @submit="submitImport" />
+
+        <!-- Modal Import dari API HO -->
+        <div v-if="importApiModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+            <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+                <div class="mb-4 flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-800">Import HM dari API HO</h3>
+                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="importApiModalOpen = false">
+                        <X class="h-5 w-5" />
+                    </button>
+                </div>
+                <p class="mb-4 text-xs text-slate-500">
+                    Sistem akan mengambil data HM dari Head Office (HO) API untuk bulan terpilih dan menggantikan data HM pada periode tersebut.
+                </p>
+                <form class="space-y-4" @submit.prevent="submitImportApi">
+                    <div>
+                        <label class="mb-1 block text-xs font-bold text-slate-600">Bulan</label>
+                        <select v-model="importApiForm.bulan" class="w-full rounded-lg border border-slate-200 p-2.5 text-sm font-semibold outline-none focus:border-indigo-500">
+                            <option v-for="b in bulanList" :key="b.value" :value="b.value">{{ b.label }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-bold text-slate-600">Tahun</label>
+                        <input v-model.number="importApiForm.tahun" type="number" min="2000" max="2099" class="w-full rounded-lg border border-slate-200 p-2.5 text-sm outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button type="button" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50" @click="importApiModalOpen = false">
+                            Batal
+                        </button>
+                        <button type="submit" :disabled="importApiForm.processing" class="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50">
+                            <RefreshCw v-if="importApiForm.processing" class="h-4 w-4 animate-spin" />
+                            <span>{{ importApiForm.processing ? 'Mengimpor...' : 'Proses Import' }}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </AppLayout>
 </template>

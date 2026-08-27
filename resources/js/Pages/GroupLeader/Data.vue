@@ -23,7 +23,7 @@ defineProps({
     <div class="min-h-screen bg-slate-100 pb-24 pt-[84px]">
         <TopNav :user="user" :notif-counts="notifCounts" />
 
-        <div class="mx-auto flex max-w-md flex-col gap-4 px-4">
+        <div class="mx-auto flex max-w-md md:max-w-4xl lg:max-w-5xl flex-col gap-4 px-4">
             <StatusSummaryCards :atr="atr" :compliance="compliance" />
             <DataMenuGrid :items="menuItems" />
 
@@ -32,6 +32,8 @@ defineProps({
             </p>
         </div>
 
-        <BottomNav active="data" :items="navItems" :accent-class="accentClass" />
+        <div class="lg:hidden">
+            <BottomNav active="data" :items="navItems" :accent-class="accentClass" />
+        </div>
     </div>
 </template>

@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\InternalMessageController;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\AttendanceV2Controller;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BeritaAcaraController;
 use App\Http\Controllers\CoachingClinicController;
@@ -24,6 +26,9 @@ use App\Http\Controllers\MppMasterCategoryController;
 use App\Http\Controllers\MppPhotoController;
 use App\Http\Controllers\MppReportController;
 use App\Http\Controllers\OneAcademyController;
+use App\Http\Controllers\MonitoringGradeController;
+use App\Http\Controllers\EvaluasiKompetensiController;
+use App\Http\Controllers\BestEmployeeController;
 use App\Http\Controllers\OneCoreController;
 use App\Http\Controllers\OneDmsController;
 use App\Http\Controllers\OneGmpController;
@@ -47,6 +52,9 @@ use App\Http\Controllers\ValidasiIstirahatController;
 use App\Http\Controllers\SpDkController;
 use App\Http\Controllers\JobMonitorController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\UnitController;
+use App\Http\Controllers\NomorPentingController;
+use App\Http\Controllers\ForgotPasswordRequestController;
 use Illuminate\Support\Facades\Route;
 
 // Public Health Check Endpoint (for monitoring systems)
@@ -82,12 +90,23 @@ Route::middleware('auth')->group(function () {
     Route::delete('/one-power/employees/{employee}', [EmployeeController::class, 'destroy'])->name('one-power.employees.destroy');
     Route::post('/one-power/employees/{employee}/status', [EmployeeController::class, 'setStatus'])->name('one-power.employees.status');
 
+    // Sahabat Pengusaha (GL - Mentee) & Print Profile
+    Route::get('/one-power/employees/list-gl', [EmployeeController::class, 'listGL'])->name('one-power.employees.list-gl');
+    Route::get('/one-power/employees/{gl}/anak-asuh', [EmployeeController::class, 'anakAsuh'])->name('one-power.employees.anak-asuh');
+    Route::get('/one-power/employees/{gl}/select-anak-asuh', [EmployeeController::class, 'selectAnakAsuh'])->name('one-power.employees.select-anak-asuh');
+    Route::post('/one-power/employees/bulk-store-asuh', [EmployeeController::class, 'bulkStoreAsuh'])->name('one-power.employees.bulk-store-asuh');
+    Route::post('/one-power/employees/import-asuh', [EmployeeController::class, 'importAsuh'])->name('one-power.employees.import-asuh');
+    Route::post('/one-power/employees/{employee}/set-asuh', [EmployeeController::class, 'setAsuh'])->name('one-power.employees.set-asuh');
+    Route::delete('/one-power/employees/{employee}/remove-asuh', [EmployeeController::class, 'removeAsuh'])->name('one-power.employees.remove-asuh');
+    Route::get('/one-power/employees/{employee}/print', [EmployeeController::class, 'print'])->name('one-power.employees.print');
+
     Route::get('/one-power/personal-data/hm', [HmDataController::class, 'index'])->name('one-power.hm-data.index');
     Route::get('/one-power/personal-data/hm/search-employee', [HmDataController::class, 'searchEmployee'])->name('one-power.hm-data.search-employee');
     Route::post('/one-power/personal-data/hm', [HmDataController::class, 'store'])->name('one-power.hm-data.store');
     Route::put('/one-power/personal-data/hm/{hm}', [HmDataController::class, 'update'])->name('one-power.hm-data.update');
     Route::delete('/one-power/personal-data/hm/{hm}', [HmDataController::class, 'destroy'])->name('one-power.hm-data.destroy');
     Route::post('/one-power/personal-data/hm/import', [HmDataController::class, 'import'])->name('one-power.hm-data.import');
+    Route::post('/one-power/personal-data/hm/import-api', [HmDataController::class, 'importFromApi'])->name('one-power.hm-data.import-api');
 
     Route::get('/one-power/personal-data/attendance', [AttendanceController::class, 'index'])->name('one-power.attendance.index');
     Route::get('/one-power/personal-data/attendance/search-employee', [AttendanceController::class, 'searchEmployee'])->name('one-power.attendance.search-employee');
@@ -96,6 +115,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/one-power/personal-data/attendance', [AttendanceController::class, 'store'])->name('one-power.attendance.store');
     Route::put('/one-power/personal-data/attendance/{attendance}', [AttendanceController::class, 'update'])->name('one-power.attendance.update');
     Route::delete('/one-power/personal-data/attendance/{attendance}', [AttendanceController::class, 'destroy'])->name('one-power.attendance.destroy');
+
+    Route::get('/one-power/personal-data/attendance-v2', [AttendanceV2Controller::class, 'index'])->name('one-power.attendance-v2.index');
+    Route::post('/one-power/personal-data/attendance-v2/import-api', [AttendanceV2Controller::class, 'importFromApi'])->name('one-power.attendance-v2.import-api');
+    Route::delete('/one-power/personal-data/attendance-v2/{attendanceV2}', [AttendanceV2Controller::class, 'destroy'])->name('one-power.attendance-v2.destroy');
 
     Route::get('/one-power/personal-data/mpr', [ManpowerPerformanceReportController::class, 'index'])->name('one-power.mpr.index');
     Route::get('/one-power/personal-data/mpr/search-employee', [ManpowerPerformanceReportController::class, 'searchEmployee'])->name('one-power.mpr.search-employee');
@@ -297,8 +320,28 @@ Route::middleware('auth')->group(function () {
     Route::get('/one-power/pembinaan/sk-pembinaan/{skPembinaan}/print', [SkPembinaanController::class, 'show'])->name('one-power.sk-pembinaan.print');
 
     Route::get('/one-academy', [OneAcademyController::class, 'dashboard'])->name('one-academy.dashboard');
+    Route::post('/one-academy/store-pengajuan', [OneAcademyController::class, 'storePengajuan'])->name('one-academy.store-pengajuan');
+    Route::delete('/one-academy/delete-pengajuan/{id}', [OneAcademyController::class, 'deletePengajuan'])->name('one-academy.delete-pengajuan');
+    Route::get('/one-academy/odp-database', [OneAcademyController::class, 'odpList'])->name('one-academy.odp-database');
+    Route::post('/one-academy/store-odp-karyawan', [OneAcademyController::class, 'storeOdpKaryawan'])->name('one-academy.store-odp-karyawan');
+    Route::get('/one-academy/monitoring-grade', [MonitoringGradeController::class, 'index'])->name('one-academy.monitoring-grade.index');
+    Route::post('/one-academy/monitoring-grade/store-grade', [MonitoringGradeController::class, 'storeGrade'])->name('one-academy.monitoring-grade.store-grade');
+    Route::post('/one-academy/monitoring-grade/store-versatility', [MonitoringGradeController::class, 'storeVersatility'])->name('one-academy.monitoring-grade.store-versatility');
+
+    Route::get('/one-academy/evaluasi-kompetensi', [EvaluasiKompetensiController::class, 'index'])->name('one-academy.evaluasi-kompetensi.index');
+    Route::post('/one-academy/evaluasi-kompetensi/store-materi', [EvaluasiKompetensiController::class, 'storeMateri'])->name('one-academy.evaluasi-kompetensi.store-materi');
+    Route::post('/one-academy/evaluasi-kompetensi/store-assessment', [EvaluasiKompetensiController::class, 'storeAssessment'])->name('one-academy.evaluasi-kompetensi.store-assessment');
+    Route::post('/one-academy/evaluasi-kompetensi/store-question', [EvaluasiKompetensiController::class, 'storeQuestion'])->name('one-academy.evaluasi-kompetensi.store-question');
+    Route::post('/one-academy/evaluasi-kompetensi/save-targets', [EvaluasiKompetensiController::class, 'saveTargets'])->name('one-academy.evaluasi-kompetensi.save-targets');
+
+    Route::get('/one-academy/best-employee', [BestEmployeeController::class, 'index'])->name('one-academy.best-employee.index');
+    Route::post('/one-academy/best-employee/store-campaign', [BestEmployeeController::class, 'storeCampaign'])->name('one-academy.best-employee.store-campaign');
+    Route::post('/one-academy/best-employee/store-question', [BestEmployeeController::class, 'storeQuestion'])->name('one-academy.best-employee.store-question');
+    Route::post('/one-academy/best-employee/store-participant', [BestEmployeeController::class, 'storeParticipant'])->name('one-academy.best-employee.store-participant');
+    Route::post('/one-academy/best-employee/reset-attempt', [BestEmployeeController::class, 'resetAttempt'])->name('one-academy.best-employee.reset-attempt');
 
     Route::get('/one-core', [OneCoreController::class, 'dashboard'])->name('one-core.dashboard');
+    Route::post('/one-core/users', [OneCoreController::class, 'storeUser'])->name('one-core.users.store');
     Route::post('/one-core/unlock', [OneCoreController::class, 'unlock'])->name('one-core.unlock');
     Route::post('/one-core/lock', [OneCoreController::class, 'lock'])->name('one-core.lock');
     Route::put('/one-core/users/{user}/role', [OneCoreController::class, 'updateUserRole'])->name('one-core.users.role');
@@ -311,19 +354,126 @@ Route::middleware('auth')->group(function () {
     Route::get('/one-core/roles/{role}', [OneCoreController::class, 'roleDetail'])->name('one-core.roles.detail');
     Route::put('/one-core/roles/{role}/menu/{module}', [OneCoreController::class, 'updateRoleMenuAccess'])->name('one-core.roles.menu.update');
 
-    Route::get('/one-dms', [OneDmsController::class, 'dashboard'])->name('one-dms.dashboard');
+    // Unit Produksi
+    Route::get('/one-core/units', [UnitController::class, 'index'])->name('one-core.units.index');
+    Route::post('/one-core/units', [UnitController::class, 'store'])->name('one-core.units.store');
+    Route::put('/one-core/units/{unit}', [UnitController::class, 'update'])->name('one-core.units.update');
+    Route::delete('/one-core/units/{unit}', [UnitController::class, 'destroy'])->name('one-core.units.destroy');
+    Route::post('/one-core/units/settings', [UnitController::class, 'updateSettings'])->name('one-core.units.settings');
 
-    Route::get('/one-gmp', [OneGmpController::class, 'dashboard'])->name('one-gmp.dashboard');
+    // Nomor Penting
+    Route::get('/one-core/nomor-penting', [NomorPentingController::class, 'index'])->name('one-core.nomor-penting.index');
+    Route::post('/one-core/nomor-penting', [NomorPentingController::class, 'store'])->name('one-core.nomor-penting.store');
+    Route::put('/one-core/nomor-penting/{nomorPenting}', [NomorPentingController::class, 'update'])->name('one-core.nomor-penting.update');
+    Route::delete('/one-core/nomor-penting/{nomorPenting}', [NomorPentingController::class, 'destroy'])->name('one-core.nomor-penting.destroy');
+
+    // Reset Password Requests
+    Route::get('/one-core/reset-password-requests', [ForgotPasswordRequestController::class, 'index'])->name('one-core.reset-password-requests.index');
+    Route::put('/one-core/reset-password-requests/{forgotPasswordRequest}/complete', [ForgotPasswordRequestController::class, 'complete'])->name('one-core.reset-password-requests.complete');
+
+    Route::get('/one-dms', function () {
+        return redirect()->route('one-dms.dashboard');
+    });
+    Route::get('/one-dms/dashboard', [OneDmsController::class, 'dashboard'])->name('one-dms.dashboard');
+    Route::get('/one-dms/formulir', [OneDmsController::class, 'formulir'])->name('one-dms.formulir');
+    Route::post('/one-dms/store', [OneDmsController::class, 'storeDms'])->name('one-dms.store');
+    Route::delete('/one-dms/delete/{id}', [OneDmsController::class, 'deleteDms'])->name('one-dms.delete');
+    Route::post('/one-dms/save-petugas', [OneDmsController::class, 'savePetugas'])->name('one-dms.save-petugas');
+    Route::get('/one-dms/data-icc/{category}', [OneDmsController::class, 'dataIcc'])->name('one-dms.data-icc');
+
+    Route::get('/one-gmp', function () {
+        return redirect()->route('one-gmp.dashboard');
+    });
+    Route::get('/one-gmp/dashboard', [OneGmpController::class, 'dashboard'])->name('one-gmp.dashboard');
+    Route::get('/one-gmp/trend', [OneGmpController::class, 'trend'])->name('one-gmp.trend');
+    Route::get('/one-gmp/area/{type}', [OneGmpController::class, 'area'])->name('one-gmp.area');
+    Route::get('/one-gmp/penilaian/{type}', [OneGmpController::class, 'penilaian'])->name('one-gmp.penilaian');
+    Route::post('/one-gmp/penilaian/store', [OneGmpController::class, 'storePenilaian'])->name('one-gmp.penilaian.store');
+    Route::get('/one-gmp/approval', [OneGmpController::class, 'approval'])->name('one-gmp.approval');
+    Route::post('/one-gmp/approval/approve/{id}', [OneGmpController::class, 'approveForm'])->name('one-gmp.approval.approve');
+    Route::post('/one-gmp/approval/reject/{id}', [OneGmpController::class, 'rejectForm'])->name('one-gmp.approval.reject');
+    Route::post('/one-gmp/approval/return/{id}', [OneGmpController::class, 'returnForm'])->name('one-gmp.approval.return');
+    Route::get('/one-gmp/master', [OneGmpController::class, 'masterGmp'])->name('one-gmp.master');
+    Route::post('/one-gmp/master/store', [OneGmpController::class, 'storeMaster'])->name('one-gmp.master.store');
+    Route::delete('/one-gmp/master/delete/{id}', [OneGmpController::class, 'deleteMaster'])->name('one-gmp.master.delete');
 
     Route::get('/one-reporting', [OneReportingController::class, 'dashboard'])->name('one-reporting.dashboard');
+    Route::get('/one-reporting/dashboard', [OneReportingController::class, 'dashboard'])->name('one-reporting.dashboard-index');
+    Route::get('/one-reporting/daily', [OneReportingController::class, 'daily'])->name('one-reporting.daily');
+    Route::post('/one-reporting/daily/task-toggle', [OneReportingController::class, 'updateTask'])->name('one-reporting.daily.task-toggle');
+    Route::post('/one-reporting/daily/store', [OneReportingController::class, 'storeAssignment'])->name('one-reporting.daily.store');
+    Route::delete('/one-reporting/daily/delete/{id}', [OneReportingController::class, 'deleteAssignment'])->name('one-reporting.daily.delete');
+    
+    Route::get('/one-reporting/laporan', [OneReportingController::class, 'laporan'])->name('one-reporting.laporan');
+    Route::get('/one-reporting/laporan/export', [OneReportingController::class, 'exportCsv'])->name('one-reporting.laporan.export');
+    
+    Route::get('/one-reporting/master', [OneReportingController::class, 'master'])->name('one-reporting.master');
+    Route::post('/one-reporting/master/area/store', [OneReportingController::class, 'storeArea'])->name('one-reporting.master.area.store');
+    Route::post('/one-reporting/master/area/update/{id}', [OneReportingController::class, 'updateArea'])->name('one-reporting.master.area.update');
+    Route::delete('/one-reporting/master/area/delete/{id}', [OneReportingController::class, 'deleteArea'])->name('one-reporting.master.area.delete');
+    Route::post('/one-reporting/master/unit/store', [OneReportingController::class, 'storeUnit'])->name('one-reporting.master.unit.store');
+    Route::post('/one-reporting/master/unit/update/{id}', [OneReportingController::class, 'updateUnit'])->name('one-reporting.master.unit.update');
+    Route::delete('/one-reporting/master/unit/delete/{id}', [OneReportingController::class, 'deleteUnit'])->name('one-reporting.master.unit.delete');
+    Route::post('/one-reporting/master/aktivitas/store', [OneReportingController::class, 'storeAktivitas'])->name('one-reporting.master.aktivitas.store');
+    Route::post('/one-reporting/master/aktivitas/update/{id}', [OneReportingController::class, 'updateAktivitas'])->name('one-reporting.master.aktivitas.update');
+    Route::delete('/one-reporting/master/aktivitas/delete/{id}', [OneReportingController::class, 'deleteAktivitas'])->name('one-reporting.master.aktivitas.delete');
+    
+    Route::get('/one-reporting/ojk', [OneReportingController::class, 'ojk'])->name('one-reporting.ojk');
+    Route::post('/one-reporting/ojk/upload', [OneReportingController::class, 'uploadOjk'])->name('one-reporting.ojk.upload');
+    Route::delete('/one-reporting/ojk/delete/{id}', [OneReportingController::class, 'deleteOjk'])->name('one-reporting.ojk.delete');
 
     Route::get('/one-setting', [OneSettingController::class, 'dashboard'])->name('one-setting.dashboard');
+    Route::get('/one-setting/dashboard', [OneSettingController::class, 'dashboard'])->name('one-setting.dashboard-index');
+    Route::get('/one-setting/settingan', [OneSettingController::class, 'settingan'])->name('one-setting.settingan');
+    
+    // Manpower & Roster Actions
+    Route::post('/one-setting/roster/manual', [OneSettingController::class, 'storeManualRoster'])->name('one-setting.roster.manual');
+    Route::post('/one-setting/roster/update/{id}', [OneSettingController::class, 'updateRoster'])->name('one-setting.roster.update');
+    Route::delete('/one-setting/roster/delete/{id}', [OneSettingController::class, 'deleteRoster'])->name('one-setting.roster.delete');
+    Route::post('/one-setting/roster/clear', [OneSettingController::class, 'clearRoster'])->name('one-setting.roster.clear');
+    Route::post('/one-setting/manpower/sync-gsheet', [OneSettingController::class, 'syncGsheetManpower'])->name('one-setting.manpower.sync-gsheet');
+    
+    // Fleet Actions
+    Route::post('/one-setting/unit-fleet/store', [OneSettingController::class, 'storeUnitFleet'])->name('one-setting.unit-fleet.store');
+    Route::delete('/one-setting/unit-fleet/delete/{id}', [OneSettingController::class, 'deleteUnitFleet'])->name('one-setting.unit-fleet.delete');
+    Route::post('/one-setting/fleet/import', [OneSettingController::class, 'importFleet'])->name('one-setting.fleet.import');
+    Route::post('/one-setting/fleet/delete', [OneSettingController::class, 'deleteFleetData'])->name('one-setting.fleet.delete');
+    
+    // Monitoring Views
+    Route::get('/one-setting/monitoring-manpower', [OneSettingController::class, 'monitoringManpower'])->name('one-setting.monitoring-manpower');
+    Route::get('/one-setting/monitoring-fleet', [OneSettingController::class, 'monitoringFleet'])->name('one-setting.monitoring-fleet');
 
     Route::get('/one-procedure', [OneProcedureController::class, 'dashboard'])->name('one-procedure.dashboard');
+    Route::get('/one-procedure/dashboard', [OneProcedureController::class, 'dashboard'])->name('one-procedure.dashboard-index');
+    
+    // 1. Prosedur Routes
+    Route::get('/one-procedure/prosedur', [OneProcedureController::class, 'prosedur'])->name('one-procedure.prosedur');
+    Route::post('/one-procedure/prosedur/store', [OneProcedureController::class, 'storeProcedure'])->name('one-procedure.prosedur.store');
+    Route::post('/one-procedure/prosedur/update/{id}', [OneProcedureController::class, 'updateProcedure'])->name('one-procedure.prosedur.update');
+    Route::delete('/one-procedure/prosedur/delete/{id}', [OneProcedureController::class, 'deleteProcedure'])->name('one-procedure.prosedur.delete');
+    
+    // 2. Activity Routes
+    Route::get('/one-procedure/activity', [OneProcedureController::class, 'activity'])->name('one-procedure.activity');
+    Route::post('/one-procedure/assessment/store', [OneProcedureController::class, 'storeAssessment'])->name('one-procedure.assessment.store');
+    Route::post('/one-procedure/assessment/update/{id}', [OneProcedureController::class, 'updateAssessment'])->name('one-procedure.assessment.update');
+    Route::delete('/one-procedure/assessment/delete/{id}', [OneProcedureController::class, 'deleteAssessment'])->name('one-procedure.assessment.delete');
+    Route::post('/one-procedure/question/store', [OneProcedureController::class, 'storeQuestion'])->name('one-procedure.question.store');
+    Route::delete('/one-procedure/question/delete/{id}', [OneProcedureController::class, 'deleteQuestion'])->name('one-procedure.question.delete');
+    
+    // 3. Evaluasi Prosedur Routes
+    Route::get('/one-procedure/evaluasi', [OneProcedureController::class, 'evaluasi'])->name('one-procedure.evaluasi');
+    Route::post('/one-procedure/evaluasi/store', [OneProcedureController::class, 'storeEvaluation'])->name('one-procedure.evaluasi.store');
+    Route::delete('/one-procedure/evaluasi/delete/{id}', [OneProcedureController::class, 'deleteEvaluation'])->name('one-procedure.evaluasi.delete');
 
     // SPDK Integration Routes
     Route::post('/one-power/spdk-lookup', [SpDkController::class, 'lookup'])->name('spdk.lookup');
     Route::get('/admin/spdk/sync-log', [SpDkController::class, 'syncLog'])->name('spdk.sync-log');
+
+    // Internal Messages E2E Chat Routes
+    Route::get('/internal-messages/contacts', [InternalMessageController::class, 'contacts'])->name('internal-messages.contacts');
+    Route::get('/internal-messages/unread-count', [InternalMessageController::class, 'unreadCount'])->name('internal-messages.unread-count');
+    Route::get('/internal-messages/{contactId}', [InternalMessageController::class, 'getMessages'])->name('internal-messages.get');
+    Route::post('/internal-messages', [InternalMessageController::class, 'store'])->name('internal-messages.store');
 
     // Job Monitoring Routes (Admin Only)
     Route::middleware(['auth', 'admin'])->prefix('admin/jobs')->name('admin.jobs.')->group(function () {
@@ -332,15 +482,29 @@ Route::middleware('auth')->group(function () {
         Route::get('/history', [JobMonitorController::class, 'history'])->name('history');
     });
 
+    // Profil Route Shortcut
+    Route::get('/profil', [PortalController::class, 'profil'])->name('profil');
+
+    // Announcement Routes
+    Route::get('/pengumuman', [\App\Http\Controllers\AnnouncementController::class, 'index'])->name('pengumuman.index');
+    Route::post('/pengumuman', [\App\Http\Controllers\AnnouncementController::class, 'store'])->name('pengumuman.store');
+    Route::delete('/pengumuman/{announcement}', [\App\Http\Controllers\AnnouncementController::class, 'destroy'])->name('pengumuman.destroy');
+
+    // Reward Center Routes
+    Route::get('/rewards', [\App\Http\Controllers\RewardController::class, 'index'])->name('rewards.index');
+    Route::post('/rewards', [\App\Http\Controllers\RewardController::class, 'store'])->name('rewards.store');
+    Route::delete('/rewards/{reward}', [\App\Http\Controllers\RewardController::class, 'destroy'])->name('rewards.destroy');
+
     $implementedModuleKeys = ['one-power', 'one-academy', 'one-core', 'one-dms', 'one-gmp', 'one-reporting', 'one-setting', 'one-procedure'];
 
     $moduleKeys = collect(config('modules.list'))
-    ->pluck('key')
-    ->reject(fn (string $key) => in_array($key, $implementedModuleKeys, true))
-    ->implode('|');
+        ->pluck('key')
+        ->reject(fn (string $key) => in_array($key, $implementedModuleKeys, true))
+        ->implode('|');
 
-    Route::get('/{module}', [ModuleController::class, 'show'])
-    ->where('module', $moduleKeys)
-    ->name('module.show');
-
+    if (! empty($moduleKeys)) {
+        Route::get('/{module}', [ModuleController::class, 'show'])
+            ->where('module', $moduleKeys)
+            ->name('module.show');
+    }
 });

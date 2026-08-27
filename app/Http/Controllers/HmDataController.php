@@ -80,6 +80,26 @@ class HmDataController extends Controller
         return redirect('/one-power/personal-data/hm')->with('success', "Berhasil mengimport {$count} data HM.");
     }
 
+    public function importFromApi(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'bulan' => ['required', 'integer', 'between:1,12'],
+            'tahun' => ['required', 'integer', 'min:2000'],
+        ]);
+
+        $result = $this->hmDataService->importFromApi(
+            $request->integer('bulan'),
+            $request->integer('tahun'),
+            $request->user()?->id
+        );
+
+        if (! $result['success']) {
+            return redirect()->back()->with('error', $result['message']);
+        }
+
+        return redirect('/one-power/personal-data/hm')->with('success', $result['message']);
+    }
+
     public function searchEmployee(Request $request): JsonResponse
     {
         $keyword = trim((string) $request->string('keyword'));
@@ -94,10 +114,5 @@ class HmDataController extends Controller
             ->get(['id', 'nrp', 'name', 'jabatan_ss6', 'unit']);
 
         return response()->json($employees);
-    }
-
-    private function notifCounts(): array
-    {
-        return ['signature' => 2, 'notification' => 3, 'message' => 1];
     }
 }

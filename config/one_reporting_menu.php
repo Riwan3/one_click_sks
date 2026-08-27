@@ -1,14 +1,13 @@
 <?php
 
 /**
- * Menu sidebar One-Reporting — dummy, href null berarti halamannya belum dibuat.
- * menu_key wajib unik dalam file ini (dipakai untuk role menu permission).
+ * Menu sidebar One-Reporting — dipandu oleh kebutuhan V1.
+ * menu_key wajib unik dalam file ini.
  */
 return [
-    ['menu_key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'LayoutGrid', 'href' => '/one-reporting'],
-    ['menu_key' => 'daily-assignment', 'label' => 'Daily Assignment', 'icon' => 'CalendarCheck', 'href' => null],
-    ['menu_key' => 'daily-compliance', 'label' => 'Daily Compliance', 'icon' => 'ClipboardCheck', 'href' => null],
-    ['menu_key' => 'rekapitulasi-compliance', 'label' => 'Rekapitulasi Compliance', 'icon' => 'FileBarChart2', 'href' => null],
-    ['menu_key' => 'checklist-hp', 'label' => 'Checklist HP', 'icon' => 'ClipboardCheck', 'href' => null],
-    ['menu_key' => 'reporting-p5m', 'label' => 'Reporting P5M', 'icon' => 'FileText', 'href' => null],
+    ['menu_key' => 'dashboard-compliance', 'label' => 'Dashboard Compliance', 'icon' => 'LayoutGrid', 'href' => '/one-reporting/dashboard'],
+    ['menu_key' => 'daily-compliance', 'label' => 'Daily Compliance', 'icon' => 'ClipboardCheck', 'href' => '/one-reporting/daily'],
+    ['menu_key' => 'laporan-compliance', 'label' => 'Laporan Compliance', 'icon' => 'FileText', 'href' => '/one-reporting/laporan'],
+    ['menu_key' => 'master-compliance', 'label' => 'Master Data Compliance', 'icon' => 'Database', 'href' => '/one-reporting/master'],
+    ['menu_key' => 'ojk', 'label' => 'OJK (Observasi Jaminan Safety)', 'icon' => 'Camera', 'href' => '/one-reporting/ojk'],
 ];

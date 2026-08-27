@@ -50,11 +50,7 @@ class OneCoreController extends Controller
 
         return Inertia::render('OneCore/Dashboard', [
             'user' => $this->currentUser(),
-            'notifCounts' => [
-                'signature' => 2,
-                'notification' => 3,
-                'message' => 1,
-            ],
+            'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_core_menu'),
             'search' => $search,
             'users' => UserResource::collection($users->items())->resolve(),
@@ -72,6 +68,27 @@ class OneCoreController extends Controller
         $user->update(['role' => $request->string('role')->toString()]);
 
         return redirect('/one-core')->with('success', 'Role akses user berhasil diperbarui.');
+    }
+
+    public function storeUser(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'username' => 'required|string|max:50|unique:users,username',
+            'name' => 'required|string|max:255',
+            'role' => 'required|string',
+            'email' => 'nullable|email|max:255',
+            'password' => 'nullable|string|min:6',
+        ]);
+
+        User::create([
+            'username' => $validated['username'],
+            'name' => $validated['name'],
+            'role' => $validated['role'],
+            'email' => $validated['email'] ?? null,
+            'password' => $validated['password'] ?: $validated['username'],
+        ]);
+
+        return redirect('/one-core')->with('success', 'User baru berhasil ditambahkan.');
     }
 
     public function resetPassword(User $user): RedirectResponse
@@ -107,7 +124,7 @@ class OneCoreController extends Controller
     {
         return Inertia::render('OneCore/Roles/Index', [
             'user' => $this->currentUser(),
-            'notifCounts' => ['signature' => 2, 'notification' => 3, 'message' => 1],
+            'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_core_menu'),
             'roles' => $this->rolePermissionService->summaryForAllRoles(),
         ]);
@@ -148,7 +165,7 @@ class OneCoreController extends Controller
 
         return Inertia::render('OneCore/Roles/Detail', [
             'user' => $this->currentUser(),
-            'notifCounts' => ['signature' => 2, 'notification' => 3, 'message' => 1],
+            'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_core_menu'),
             'role' => ['value' => $roleModel->code, 'label' => $roleModel->label, 'scope' => $roleModel->scope->value],
             'moduleMenus' => $this->rolePermissionService->menuDetailForRole($roleModel->code),

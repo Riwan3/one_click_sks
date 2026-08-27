@@ -148,9 +148,4 @@ class CoachingCounselingController extends Controller
             fclose($h);
         }, 'template_coaching.csv', ['Content-Type' => 'text/csv']);
     }
-
-    private function notifCounts(): array
-    {
-        return ['signature' => 2, 'notification' => 3, 'message' => 1];
-    }
 }

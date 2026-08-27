@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Plus, Edit2, Trash2, Eye } from '@lucide/vue';
+import { Plus, Edit2, Trash2, Eye } from 'lucide-vue-next';
 
 const props = defineProps({
   clinics: { type: Array, required: true },

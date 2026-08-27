@@ -1,11 +1,11 @@
 <?php
 
 /**
- * Menu sidebar One-Power — href null berarti halamannya belum dibuat.
+ * Menu sidebar One-Power
  * menu_key wajib unik dalam file ini (dipakai untuk role menu permission).
  */
 return [
-    ['menu_key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'LayoutGrid', 'href' => '/one-power'],
+    ['menu_key' => 'dashboard', 'label' => 'Dashboard ATR, HM, Deviasi Operator', 'icon' => 'LayoutGrid', 'href' => '/one-power'],
     ['menu_key' => 'data-karyawan', 'label' => 'Data Karyawan', 'icon' => 'Users', 'href' => '/one-power/employees'],
     ['menu_key' => 'karyawan-nonaktif', 'label' => 'Data Karyawan Non-Aktif', 'icon' => 'UserX', 'href' => '/one-power/employees/inactive'],
     [

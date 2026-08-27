@@ -170,9 +170,4 @@ class SkPembinaanController extends Controller
 
         return response()->json(MasterSpdk::query()->search($keyword)->orderBy('jenis_pelanggaran')->limit(20)->get());
     }
-
-    private function notifCounts(): array
-    {
-        return ['signature' => 2, 'notification' => 3, 'message' => 1];
-    }
 }

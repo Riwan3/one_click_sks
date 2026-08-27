@@ -1,12 +1,12 @@
 <?php
 
 /**
- * Menu sidebar One-Procedure — dummy, href null berarti halamannya belum dibuat.
- * menu_key wajib unik dalam file ini (dipakai untuk role menu permission).
+ * Menu sidebar One-Procedure
+ * menu_key wajib unik dalam file ini.
  */
 return [
-    ['menu_key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'FileText', 'href' => '/one-procedure'],
-    ['menu_key' => 'prosedur-operasional', 'label' => 'Prosedur Operasional', 'icon' => 'ClipboardCheck', 'href' => null],
-    ['menu_key' => 'activity', 'label' => 'Activity', 'icon' => 'Activity', 'href' => null],
-    ['menu_key' => 'evaluasi-prosedur', 'label' => 'Evaluasi Prosedur', 'icon' => 'FileBarChart2', 'href' => null],
+    ['menu_key' => 'dashboard', 'label' => 'Dashboard Procedure', 'icon' => 'Gauge', 'href' => '/one-procedure/dashboard'],
+    ['menu_key' => 'prosedur', 'label' => 'Prosedur', 'icon' => 'BookOpen', 'href' => '/one-procedure/prosedur'],
+    ['menu_key' => 'activity', 'label' => 'Activity', 'icon' => 'Activity', 'href' => '/one-procedure/activity'],
+    ['menu_key' => 'evaluasi', 'label' => 'Evaluasi Prosedur', 'icon' => 'FileCheck', 'href' => '/one-procedure/evaluasi'],
 ];

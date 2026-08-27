@@ -44,7 +44,7 @@ class MppDepartemenController extends Controller
         return Inertia::render('OnePower/MppDepartemen/Index', [
             'user' => $this->currentUser(),
             'isAdmin' => $request->user()->isAdmin(),
-            'notifCounts' => ['signature' => 2, 'notification' => 3, 'message' => 1],
+            'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
             'departments' => $departments,
             'staff' => $staff,

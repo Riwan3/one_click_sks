@@ -68,9 +68,4 @@ class RosterController extends Controller
 
         return redirect()->back()->with('success', "Berhasil mengimport {$count} data roster.");
     }
-
-    private function notifCounts(): array
-    {
-        return ['signature' => 2, 'notification' => 3, 'message' => 1];
-    }
 }
