@@ -48,7 +48,7 @@ const submitImport = () => {
                 </h1>
                 <p class="m-0 text-sm text-slate-500">Kelola pemetaan Group Leader (Bapak Asuh) dan Karyawan (Anak Asuh).</p>
             </div>
-            <div class="flex flex-wrap gap-2">
+            <div v-if="user.role === 'admin' || user.role === 'superadmin' || user.role === 'management'" class="flex flex-wrap gap-2">
                 <button type="button" class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-700 shadow-sm" @click="importModalOpen = true">
                     <CloudDownload class="h-4 w-4" /> Import Sahabat Pengusaha
                 </button>

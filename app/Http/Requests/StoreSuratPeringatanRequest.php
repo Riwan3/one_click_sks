@@ -42,6 +42,7 @@ class StoreSuratPeringatanRequest extends FormRequest
             'ttd_atasan' => ['nullable', 'string'],
             'pengawas_id' => ['nullable', 'integer', 'exists:employees,id'],
             'koreksi_alpa' => ['nullable', 'string', 'max:100'],
+            'foto' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
         ];
     }
 

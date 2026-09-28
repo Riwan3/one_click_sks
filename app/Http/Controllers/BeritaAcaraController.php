@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateBeritaAcaraRequest;
 use App\Http\Resources\BeritaAcaraResource;
 use App\Models\BeritaAcara;
 use App\Models\Employee;
+use App\Models\Setting;
 use App\Services\BeritaAcaraService;
 use App\Support\MenuAccess;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +30,9 @@ class BeritaAcaraController extends Controller
         $dateTo = trim((string) $request->string('date_to', now()->toDateString()));
         $page = max(1, (int) $request->integer('page', 1));
 
+        $siteCode = Setting::getValue('berita_acara_site_code', 'ADW') ?: 'ADW';
+        BeritaAcara::updateSiteCode($siteCode);
+
         $items = $this->beritaAcaraService->paginate($search, $dateFrom ?: null, $dateTo ?: null, $page, self::PER_PAGE);
 
         return Inertia::render('OnePower/BeritaAcara/Index', [
@@ -45,6 +49,13 @@ class BeritaAcaraController extends Controller
                 'total' => $items->total(),
             ],
             'canManage' => ! $request->user()?->isManagement(),
+            'documentSettings' => [
+                'siteCode' => Setting::getValue('berita_acara_site_code', 'ADW') ?: 'ADW',
+                'lokasi' => Setting::getValue('berita_acara_lokasi', 'Wara') ?: 'Wara',
+                'noDokumen' => Setting::getValue('berita_acara_no_dokumen', 'PPA-ADRO-F-SHE-24D') ?: 'PPA-ADRO-F-SHE-24D',
+                'revisi' => Setting::getValue('berita_acara_revisi', '0') ?: '0',
+                'tglEfektif' => Setting::getValue('berita_acara_tgl_efektif', '2022-04-07') ?: '2022-04-07',
+            ],
         ]);
     }
 
@@ -52,10 +63,17 @@ class BeritaAcaraController extends Controller
     {
         abort_if($request->user()?->isManagement(), 403);
 
+        $defaultTanggal = now()->toDateString();
+        $defaultNomorSurat = BeritaAcara::nextNomorSurat($defaultTanggal);
+
         return Inertia::render('OnePower/BeritaAcara/Create', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
+            'defaultValues' => [
+                'nomorSurat' => $defaultNomorSurat,
+                'tanggal' => $defaultTanggal,
+            ],
         ]);
     }
 
@@ -78,7 +96,7 @@ class BeritaAcaraController extends Controller
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
-            'targetItem' => new BeritaAcaraResource($beritaAcara),
+            'targetItem' => (new BeritaAcaraResource($beritaAcara))->resolve(),
         ]);
     }
 
@@ -134,8 +152,52 @@ class BeritaAcaraController extends Controller
         $beritaAcara->load(['employee', 'diketahuiOleh']);
 
         return Inertia::render('OnePower/BeritaAcara/Print', [
-            'item' => new BeritaAcaraResource($beritaAcara),
+            'item' => (new BeritaAcaraResource($beritaAcara))->resolve(),
+            'documentSettings' => [
+                'siteCode' => Setting::getValue('berita_acara_site_code', 'ADW') ?: 'ADW',
+                'lokasi' => Setting::getValue('berita_acara_lokasi', 'Wara') ?: 'Wara',
+                'noDokumen' => Setting::getValue('berita_acara_no_dokumen', 'PPA-ADRO-F-SHE-24D') ?: 'PPA-ADRO-F-SHE-24D',
+                'revisi' => Setting::getValue('berita_acara_revisi', '0') ?: '0',
+                'tglEfektif' => Setting::getValue('berita_acara_tgl_efektif', '2022-04-07') ?: '2022-04-07',
+            ],
         ]);
+    }
+
+    public function saveSettings(Request $request): RedirectResponse
+    {
+        abort_if($request->user()?->isManagement(), 403);
+
+        $validated = $request->validate([
+            'siteCode' => ['required', 'string', 'max:50'],
+            'lokasi' => ['nullable', 'string', 'max:100'],
+            'noDokumen' => ['required', 'string', 'max:100'],
+            'revisi' => ['nullable', 'string', 'max:50'],
+            'tglEfektif' => ['nullable', 'date'],
+        ]);
+
+        $siteCode = strtoupper(trim($validated['siteCode']));
+        $lokasi = trim($validated['lokasi'] ?? 'Wara');
+        $noDokumen = trim($validated['noDokumen']);
+        $revisi = trim($validated['revisi'] ?? '0');
+        $tglEfektif = $validated['tglEfektif'] ?? '2022-04-07';
+
+        Setting::setValue('berita_acara_site_code', $siteCode);
+        Setting::setValue('berita_acara_lokasi', $lokasi);
+        Setting::setValue('berita_acara_no_dokumen', $noDokumen);
+        Setting::setValue('berita_acara_revisi', $revisi);
+        Setting::setValue('berita_acara_tgl_efektif', $tglEfektif);
+
+        // Update existing records' nomor surat to use the new locked site code
+        BeritaAcara::updateSiteCode($siteCode);
+
+        // Update document header fields on all existing records as well
+        BeritaAcara::query()->update([
+            'no_dokumen' => $noDokumen,
+            'revisi' => $revisi,
+            'tgl_efektif' => $tglEfektif,
+        ]);
+
+        return redirect()->back()->with('success', 'Pengaturan dokumen berita acara berhasil dikunci dan seluruh data telah diperbarui.');
     }
 
     public function searchEmployee(Request $request): JsonResponse

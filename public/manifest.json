@@ -1,0 +1,39 @@
+{
+  "name": "One Click",
+  "short_name": "One Click",
+  "description": "Manajemen People Development Sistem PT Putra Perkasa Abadi",
+  "start_url": "/portal",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#7B112C",
+  "background_color": "#f1f5f9",
+  "lang": "id",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/images/title.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/title.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Portal Beranda",
+      "url": "/portal",
+      "icons": [{ "src": "/images/title.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Data Saya",
+      "url": "/portal/data",
+      "icons": [{ "src": "/images/title.png", "sizes": "192x192" }]
+    }
+  ]
+}

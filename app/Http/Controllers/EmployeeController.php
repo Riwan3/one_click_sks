@@ -142,8 +142,23 @@ class EmployeeController extends Controller
         return redirect('/one-power/employees/inactive')->with('success', "{$count} karyawan non-aktif berhasil dihapus.");
     }
 
-    public function listGL(Request $request): Response
+    public function bulkDeleteAll(Request $request): RedirectResponse
     {
+        $count = $this->employeeService->deleteAll();
+
+        return redirect('/one-power/employees')->with('success', "Semua data karyawan ({$count} data) berhasil dihapus.");
+    }
+
+    public function listGL(Request $request): Response|RedirectResponse
+    {
+        $user = $request->user();
+        if ($user && $user->isGroupLeader() && ! $user->isAdmin()) {
+            $gl = $this->resolveGlEmployee($user);
+            if ($gl) {
+                return redirect()->route('one-power.employees.anak-asuh', $gl->id);
+            }
+        }
+
         $search = trim((string) $request->string('search'));
 
         $gls = $this->employeeService->listAllGL($search ?: null);
@@ -157,8 +172,16 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function anakAsuh(Request $request, Employee $gl): Response
+    public function anakAsuh(Request $request, Employee $gl): Response|RedirectResponse
     {
+        $user = $request->user();
+        if ($user && $user->isGroupLeader() && ! $user->isAdmin()) {
+            $myGl = $this->resolveGlEmployee($user);
+            if ($myGl && $myGl->id !== $gl->id) {
+                return redirect()->route('one-power.employees.anak-asuh', $myGl->id);
+            }
+        }
+
         $search = trim((string) $request->string('search'));
 
         $mienteed = $this->employeeService->getAnakAsuh($gl, $search ?: null);
@@ -167,14 +190,22 @@ class EmployeeController extends Controller
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
-            'gl' => new EmployeeResource($gl),
+            'gl' => (new EmployeeResource($gl))->resolve(),
             'search' => $search,
             'employees' => EmployeeResource::collection($mienteed)->resolve(),
         ]);
     }
 
-    public function selectAnakAsuh(Request $request, Employee $gl): Response
+    public function selectAnakAsuh(Request $request, Employee $gl): Response|RedirectResponse
     {
+        $user = $request->user();
+        if ($user && $user->isGroupLeader() && ! $user->isAdmin()) {
+            $myGl = $this->resolveGlEmployee($user);
+            if ($myGl && $myGl->id !== $gl->id) {
+                return redirect()->route('one-power.employees.select-anak-asuh', $myGl->id);
+            }
+        }
+
         $search = trim((string) $request->string('search'));
 
         $unassigned = $this->employeeService->getUnassignedEmployees($search ?: null);
@@ -183,7 +214,7 @@ class EmployeeController extends Controller
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
-            'gl' => new EmployeeResource($gl),
+            'gl' => (new EmployeeResource($gl))->resolve(),
             'search' => $search,
             'unassignedEmployees' => EmployeeResource::collection($unassigned)->resolve(),
         ]);
@@ -191,20 +222,42 @@ class EmployeeController extends Controller
 
     public function bulkStoreAsuh(Request $request): RedirectResponse
     {
+        $glId = \App\Support\Hashids::decode($request->input('gl_id')) ?? $request->input('gl_id');
+        $rawEmployeeIds = (array) $request->input('employee_ids', []);
+        $employeeIds = array_map(fn ($id) => \App\Support\Hashids::decode($id) ?? $id, $rawEmployeeIds);
+
+        $request->merge([
+            'gl_id' => $glId,
+            'employee_ids' => $employeeIds,
+        ]);
+
         $request->validate([
             'gl_id' => ['required', 'exists:employees,id'],
             'employee_ids' => ['required', 'array'],
             'employee_ids.*' => ['exists:employees,id'],
         ]);
 
-        $gl = Employee::findOrFail($request->integer('gl_id'));
-        $count = $this->employeeService->bulkAssignAnakAsuh($gl, $request->input('employee_ids'));
+        $user = $request->user();
+        if ($user && $user->isGroupLeader() && ! $user->isAdmin()) {
+            $myGl = $this->resolveGlEmployee($user);
+            if ($myGl && $myGl->id !== (int) $glId) {
+                abort(403, 'Anda hanya dapat menambahkan anak asuh untuk diri Anda sendiri.');
+            }
+        }
 
-        return redirect("/one-power/employees/{$gl->id}/anak-asuh")->with('success', "{$count} anak asuh berhasil ditambahkan ke GL {$gl->name}.");
+        $gl = Employee::findOrFail((int) $glId);
+        $count = $this->employeeService->bulkAssignAnakAsuh($gl, $employeeIds);
+
+        return redirect("/one-power/employees/{$gl->getRouteKey()}/anak-asuh")->with('success', "{$count} anak asuh berhasil ditambahkan ke GL {$gl->name}.");
     }
 
     public function importAsuh(Request $request): RedirectResponse
     {
+        $user = $request->user();
+        if ($user && $user->isGroupLeader() && ! $user->isAdmin()) {
+            abort(403, 'Hanya Admin yang dapat mengimpor data Sahabat Pengusaha.');
+        }
+
         $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
             'reset_lama' => ['nullable', 'boolean'],
@@ -220,20 +273,62 @@ class EmployeeController extends Controller
 
     public function setAsuh(Request $request, Employee $employee): RedirectResponse
     {
+        $user = $request->user();
+        if ($user && $user->isGroupLeader() && ! $user->isAdmin()) {
+            abort(403, 'Akses tidak diizinkan.');
+        }
+
+        $glId = \App\Support\Hashids::decode($request->input('gl_id')) ?? $request->input('gl_id');
+        $request->merge(['gl_id' => $glId]);
+
         $request->validate([
             'gl_id' => ['nullable', 'exists:employees,id'],
         ]);
 
-        $this->employeeService->setGroupLeader($employee, $request->input('gl_id'));
+        $this->employeeService->setGroupLeader($employee, $glId);
 
         return redirect()->back()->with('success', 'Group Leader (Bapak Asuh) berhasil diperbarui.');
     }
 
-    public function removeAsuh(Employee $employee): RedirectResponse
+    public function removeAsuh(Request $request, Employee $employee): RedirectResponse
     {
+        $user = $request->user();
+        if ($user && $user->isGroupLeader() && ! $user->isAdmin()) {
+            $myGl = $this->resolveGlEmployee($user);
+            if ($myGl && $employee->gl_id !== $myGl->id) {
+                abort(403, 'Anda hanya dapat melepas anak asuh Anda sendiri.');
+            }
+        }
+
         $this->employeeService->removeAsuh($employee);
 
         return redirect()->back()->with('success', 'Karyawan berhasil dilepas dari daftar anak asuh.');
+    }
+
+    private function resolveGlEmployee(?\App\Models\User $user): ?Employee
+    {
+        if (! $user) {
+            return null;
+        }
+
+        $gl = $user->getEmployeeRecord();
+
+        if (! $gl && $user->username) {
+            $gl = Employee::firstOrCreate(
+                ['nrp' => $user->username],
+                [
+                    'name' => $user->name,
+                    'jabatan_ss6' => $user->jabatan ?: 'GROUP LEADER',
+                    'unit' => $user->unit ?: '-',
+                    'email' => $user->email,
+                ]
+            );
+            if (! $user->employee_id) {
+                $user->update(['employee_id' => $gl->id]);
+            }
+        }
+
+        return $gl;
     }
 
     public function print(Request $request, Employee $employee): Response
@@ -241,7 +336,7 @@ class EmployeeController extends Controller
         $tahun = max(2000, (int) $request->integer('tahun', (int) now()->format('Y')));
 
         // Load monthly ATR breakdown for employee
-        $atrRows = \App\Models\AttendanceV2Detail::query()
+        $atrRows = \App\Models\AttendanceDetail::query()
             ->where('nrp', $employee->nrp)
             ->whereYear('tanggal', $tahun)
             ->get();

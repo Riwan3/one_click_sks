@@ -1,11 +1,13 @@
 <script setup>
-import { ref } from 'vue';
+import { confirmDialog } from '@/utils/confirm';
+import { ref, watch } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { CloudDownload, FilePlus, Search } from '@lucide/vue';
+import { CloudDownload, FilePlus, Lock, Search } from '@lucide/vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/ui/Pagination.vue';
 import BeritaAcaraTable from './Partials/BeritaAcaraTable.vue';
 import BeritaAcaraImportModal from './Partials/BeritaAcaraImportModal.vue';
+import BeritaAcaraSettingModal from './Partials/BeritaAcaraSettingModal.vue';
 
 const props = defineProps({
     user: { type: Object, required: true },
@@ -17,19 +19,25 @@ const props = defineProps({
     items: { type: Array, required: true },
     pagination: { type: Object, required: true },
     canManage: { type: Boolean, default: true },
+    documentSettings: { type: Object, default: () => ({}) },
 });
 
 const baseUrl = '/one-power/pembinaan/berita-acara';
 const searchInput = ref(props.search);
 const dateFromInput = ref(props.dateFrom);
 const dateToInput = ref(props.dateTo);
+const settingModalOpen = ref(false);
+
+watch(() => props.search, (val) => { searchInput.value = val; });
+watch(() => props.dateFrom, (val) => { dateFromInput.value = val; });
+watch(() => props.dateTo, (val) => { dateToInput.value = val; });
 
 const submitFilter = () => {
     router.get(baseUrl, { search: searchInput.value, date_from: dateFromInput.value, date_to: dateToInput.value }, { preserveScroll: true, preserveState: true });
 };
 
-const handleDelete = (row) => {
-    if (! confirm(`Hapus berita acara "${row.nomorSurat}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+const handleDelete = async (row) => {
+    if (! await confirmDialog(`Hapus berita acara "${row.nomorSurat}"? Tindakan ini tidak bisa dibatalkan.`)) return;
     router.delete(`${baseUrl}/${row.id}`, { preserveScroll: true });
 };
 
@@ -61,6 +69,9 @@ const submitImport = () => {
             </div>
 
             <div v-if="canManage" class="flex flex-wrap gap-2">
+                <button type="button" class="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 shadow-xs hover:bg-amber-100 transition" @click="settingModalOpen = true">
+                    <Lock class="h-4 w-4 text-amber-600" /> Kunci Dokumen &amp; No. Surat
+                </button>
                 <button type="button" class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700" @click="importModalOpen = true">
                     <CloudDownload class="h-4 w-4" /> Import Excel
                 </button>
@@ -85,7 +96,7 @@ const submitImport = () => {
             <button type="submit" class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-600">Filter</button>
         </form>
 
-        <BeritaAcaraTable :items="items" :can-manage="canManage" @delete="handleDelete" />
+        <BeritaAcaraTable :items="items" :pagination="pagination" :can-manage="canManage" @delete="handleDelete" />
 
         <div class="mt-4">
             <Pagination
@@ -97,5 +108,6 @@ const submitImport = () => {
         </div>
 
         <BeritaAcaraImportModal :open="importModalOpen" :form="importForm" @close="importModalOpen = false" @submit="submitImport" />
+        <BeritaAcaraSettingModal :open="settingModalOpen" :settings="documentSettings" @close="settingModalOpen = false" />
     </AppLayout>
 </template>

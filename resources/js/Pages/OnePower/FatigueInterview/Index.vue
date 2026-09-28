@@ -1,10 +1,13 @@
 <script setup>
-import { ref } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { FilePlus, Search } from '@lucide/vue';
+import { confirmDialog } from '@/utils/confirm';
+import { ref, computed, watch } from 'vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { CloudDownload, FilePlus, Lock, Search } from '@lucide/vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/ui/Pagination.vue';
 import FatigueInterviewTable from './Partials/FatigueInterviewTable.vue';
+import FatigueInterviewSettingModal from './Partials/FatigueInterviewSettingModal.vue';
+import FatigueInterviewImportModal from './Partials/FatigueInterviewImportModal.vue';
 
 const props = defineProps({
     user: { type: Object, required: true },
@@ -15,19 +18,45 @@ const props = defineProps({
     dateTo: { type: String, default: '' },
     items: { type: Array, required: true },
     pagination: { type: Object, required: true },
+    canManage: { type: Boolean, default: true },
+    documentSettings: { type: Object, default: () => ({}) },
+});
+
+const isAdmin = computed(() => {
+    const role = String(props.user?.role || '').toLowerCase();
+    const jabatan = String(props.user?.jabatan || '').toLowerCase();
+    return role === 'admin' || role === 'admin_produksi' || role === 'management' || jabatan.includes('admin');
 });
 
 const baseUrl = '/one-power/pembinaan/interview-fatigue';
 const searchInput = ref(props.search);
 const dateFromInput = ref(props.dateFrom);
 const dateToInput = ref(props.dateTo);
+const settingModalOpen = ref(false);
+const importModalOpen = ref(false);
+const importForm = useForm({ file: null });
+
+watch(() => props.search, (val) => { searchInput.value = val; });
+watch(() => props.dateFrom, (val) => { dateFromInput.value = val; });
+watch(() => props.dateTo, (val) => { dateToInput.value = val; });
 
 const submitFilter = () => {
     router.get(baseUrl, { search: searchInput.value, date_from: dateFromInput.value, date_to: dateToInput.value }, { preserveScroll: true, preserveState: true });
 };
 
-const handleDelete = (row) => {
-    if (! confirm(`Hapus interview fatigue "${row.noSurat}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+const submitImport = () => {
+    importForm.post(`${baseUrl}/import`, {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => {
+            importModalOpen.value = false;
+            importForm.reset();
+        },
+    });
+};
+
+const handleDelete = async (row) => {
+    if (! await confirmDialog(`Hapus interview fatigue "${row.noSurat}"? Tindakan ini tidak bisa dibatalkan.`)) return;
     router.delete(`${baseUrl}/${row.id}`, { preserveScroll: true });
 };
 </script>
@@ -44,9 +73,27 @@ const handleDelete = (row) => {
                 </p>
             </div>
 
-            <Link :href="`${baseUrl}/create`" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600">
-                <FilePlus class="h-4 w-4" /> Buat Interview Fatigue
-            </Link>
+            <div class="flex flex-wrap gap-2">
+                <button
+                    v-if="isAdmin"
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 shadow-xs hover:bg-amber-100 transition"
+                    @click="settingModalOpen = true"
+                >
+                    <Lock class="h-4 w-4 text-amber-600" /> Kunci Dokumen &amp; No. Surat
+                </button>
+                <button
+                    v-if="canManage"
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 shadow-sm"
+                    @click="importModalOpen = true"
+                >
+                    <CloudDownload class="h-4 w-4" /> Import Excel
+                </button>
+                <Link :href="`${baseUrl}/create`" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600 shadow-sm">
+                    <FilePlus class="h-4 w-4" /> Buat Interview Fatigue
+                </Link>
+            </div>
         </div>
 
         <form class="mb-4 flex flex-wrap gap-2" @submit.prevent="submitFilter">
@@ -74,5 +121,18 @@ const handleDelete = (row) => {
                 :query="{ search, date_from: dateFrom, date_to: dateTo }"
             />
         </div>
+
+        <FatigueInterviewSettingModal
+            :open="settingModalOpen"
+            :settings="documentSettings"
+            @close="settingModalOpen = false"
+        />
+
+        <FatigueInterviewImportModal
+            :open="importModalOpen"
+            :form="importForm"
+            @close="importModalOpen = false"
+            @submit="submitImport"
+        />
     </AppLayout>
 </template>

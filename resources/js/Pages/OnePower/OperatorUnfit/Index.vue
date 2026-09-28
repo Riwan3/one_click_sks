@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { UserPlus, Search } from '@lucide/vue';
@@ -21,13 +22,13 @@ const submitFilter = () => {
     router.get('/one-power/deviasi-operator/unfit', { search: searchInput.value }, { preserveScroll: true, preserveState: true });
 };
 
-const handleEndUnfit = (row) => {
-    if (! confirm(`Akhiri status unfit untuk "${row.nama}" hari ini?`)) return;
+const handleEndUnfit = async (row) => {
+    if (! await confirmDialog(`Akhiri status unfit untuk "${row.nama}" hari ini?`)) return;
     router.post(`/one-power/deviasi-operator/unfit/${row.id}/end`, {}, { preserveScroll: true });
 };
 
-const handleDelete = (row) => {
-    if (! confirm(`Hapus data unfit "${row.nama}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+const handleDelete = async (row) => {
+    if (! await confirmDialog(`Hapus data unfit "${row.nama}"? Tindakan ini tidak bisa dibatalkan.`)) return;
     router.delete(`/one-power/deviasi-operator/unfit/${row.id}`, { preserveScroll: true });
 };
 </script>
@@ -38,7 +39,7 @@ const handleDelete = (row) => {
     <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
         <div class="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-                <h1 class="mb-1 text-xl font-extrabold text-slate-800">Data Unfit Karyawan</h1>
+                <h1 class="mb-1 text-xl font-extrabold text-slate-800">Operator Unfit</h1>
                 <p class="m-0 text-sm text-slate-500">
                     Total ditemukan: <strong class="text-slate-700">{{ pagination.total }}</strong> data.
                 </p>

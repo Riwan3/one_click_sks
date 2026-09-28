@@ -83,9 +83,9 @@ class HoApiService
     }
 
     /**
-     * Fetch Attendance V2 detail data from HO API (endpoint: attendance-detail).
+     * Fetch Attendance detail data from HO API (endpoint: attendance-detail).
      */
-    public function fetchAttendanceV2FromApi(string $startDate, string $endDate, string $dept = 'PRO'): array
+    public function fetchAttendanceFromApi(string $startDate, string $endDate, string $dept = 'PRO'): array
     {
         return $this->fetchFromHoApi('attendance-detail', $startDate, $endDate, ['dept' => $dept]);
     }

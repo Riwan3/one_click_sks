@@ -26,6 +26,7 @@ class AnnouncementController extends Controller
 
         // Increment views_count for all announcements on view if wanted
         $announcements = Announcement::with('user:id,name,username')
+            ->withCount('reads')
             ->latest()
             ->get()
             ->map(function ($item) {
@@ -38,8 +39,10 @@ class AnnouncementController extends Controller
                     'title' => $item->title,
                     'type' => $item->type,
                     'content' => $item->content,
+                    'visibility_mode' => $item->visibility_mode ?? 'continuous',
                     'image_url' => $item->image_path ? asset('storage/' . $item->image_path) : null,
                     'views_count' => $item->views_count,
+                    'reads_count' => $item->reads_count ?? 0,
                     'author_name' => $item->user?->name ?? 'SYSTEM',
                     'date_formatted' => sprintf('%s %s %s, %s', $created->format('d'), $bulanIndo, $created->format('Y'), $created->format('H:i')),
                 ];
@@ -58,6 +61,7 @@ class AnnouncementController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'type' => 'required|string|max:100',
+            'visibility_mode' => 'nullable|string|in:continuous,once',
             'content' => 'required|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
@@ -71,12 +75,42 @@ class AnnouncementController extends Controller
             'user_id' => Auth::id(),
             'title' => $validated['title'],
             'type' => $validated['type'],
+            'visibility_mode' => $validated['visibility_mode'] ?? 'continuous',
             'content' => $validated['content'],
             'image_path' => $imagePath,
             'views_count' => 1,
         ]);
 
         return redirect()->back()->with('success', 'Pengumuman berhasil dipublikasikan!');
+    }
+
+    public function updateVisibility(Request $request, Announcement $announcement): RedirectResponse
+    {
+        $validated = $request->validate([
+            'visibility_mode' => 'required|in:continuous,once',
+        ]);
+
+        $announcement->update([
+            'visibility_mode' => $validated['visibility_mode'],
+        ]);
+
+        $label = $validated['visibility_mode'] === 'once' ? 'Sekali Lihat (1x)' : 'Terus-terusan (Continue)';
+        return redirect()->back()->with('success', "Mode tayang pengumuman berhasil diubah menjadi: {$label}");
+    }
+
+    public function markSeen(Announcement $announcement): \Illuminate\Http\JsonResponse
+    {
+        $userId = Auth::id();
+        if ($userId) {
+            \App\Models\AnnouncementRead::firstOrCreate([
+                'announcement_id' => $announcement->id,
+                'user_id' => $userId,
+            ]);
+
+            $announcement->increment('views_count');
+        }
+
+        return response()->json(['success' => true]);
     }
 
     public function destroy(Announcement $announcement): RedirectResponse
@@ -88,5 +122,48 @@ class AnnouncementController extends Controller
         $announcement->delete();
 
         return redirect()->back()->with('success', 'Pengumuman berhasil dihapus!');
+    }
+
+    public function active(): \Illuminate\Http\JsonResponse
+    {
+        $userId = Auth::id();
+
+        $announcements = Announcement::with('user:id,name,username')
+            ->where(function ($query) use ($userId) {
+                $query->whereNull('visibility_mode')
+                    ->orWhere('visibility_mode', 'continuous')
+                    ->orWhere(function ($sub) use ($userId) {
+                        $sub->where('visibility_mode', 'once');
+                        if ($userId) {
+                            $sub->whereDoesntHave('reads', function ($r) use ($userId) {
+                                $r->where('user_id', $userId);
+                            });
+                        }
+                    });
+            })
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(function ($item) {
+                $created = Carbon::parse($item->created_at);
+                $bulanIndo = self::BULAN_INDONESIA[$created->format('F')] ?? $created->format('F');
+
+                return [
+                    'id' => $item->id,
+                    'title' => $item->title,
+                    'type' => $item->type,
+                    'visibility_mode' => $item->visibility_mode ?? 'continuous',
+                    'content' => $item->content,
+                    'image_url' => $item->image_path ? asset('storage/' . $item->image_path) : null,
+                    'views_count' => $item->views_count,
+                    'author_name' => $item->user?->name ?? 'SYSTEM',
+                    'date' => sprintf('%s %s %s', $created->format('d'), $bulanIndo, $created->format('Y')),
+                ];
+            });
+
+        return response()->json([
+            'session_id' => request()->session()->getId(),
+            'announcements' => $announcements,
+        ]);
     }
 }

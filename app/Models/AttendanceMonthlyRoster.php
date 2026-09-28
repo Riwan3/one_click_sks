@@ -47,6 +47,15 @@ class AttendanceMonthlyRoster extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function scopeForEmployee(Builder $query, ?int $employeeId): Builder
+    {
+        if ($employeeId === null) {
+            return $query;
+        }
+
+        return $query->where('employee_id', $employeeId);
+    }
+
     public function scopeSearch(Builder $query, ?string $keyword): Builder
     {
         if (! $keyword) {

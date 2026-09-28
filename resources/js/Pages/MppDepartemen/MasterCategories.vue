@@ -152,6 +152,7 @@
 </template>
 
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -204,8 +205,8 @@ const submitForm = () => {
   }
 };
 
-const deleteCategory = (id) => {
-  if (confirm('Apakah Anda yakin ingin menghapus kategori ini?')) {
+const deleteCategory = async (id) => {
+  if (await confirmDialog('Apakah Anda yakin ingin menghapus kategori ini?')) {
     useForm().delete(route('mpp-master-categories.destroy', id));
   }
 };

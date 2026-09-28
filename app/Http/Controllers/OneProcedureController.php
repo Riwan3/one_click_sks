@@ -2,19 +2,42 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Employee;
+use App\Http\Requests\SaveEvalProcedureRequest;
+use App\Http\Resources\EvalProcedureResource;
+use App\Http\Resources\ProcedureAssessmentResource;
+use App\Http\Resources\ProcedureCertificateResource;
+use App\Http\Resources\ProcedureMonitoringResource;
+use App\Http\Resources\ProcedureQuestionResource;
+use App\Http\Resources\ProsedurDocumentResource;
 use App\Models\Procedure;
 use App\Models\ProcedureAssessment;
 use App\Models\ProcedureEvaluation;
-use App\Models\ProcedureQuestion;
+use App\Models\ProsedurCategory;
+use App\Models\ProsedurKerja;
+use App\Models\ProsedurType;
+use App\Services\EvalProcedureService;
+use App\Services\OneProcedureDashboardService;
+use App\Services\ProcedureAssessmentService;
+use App\Services\ProcedureCertificateService;
+use App\Services\ProcedureMonitoringService;
 use App\Support\MenuAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class OneProcedureController extends Controller
 {
+    public function __construct(
+        private ProcedureMonitoringService $monitoringService,
+        private EvalProcedureService $evalProcedureService,
+        private ProcedureAssessmentService $assessmentService,
+        private ProcedureCertificateService $certificateService,
+        private OneProcedureDashboardService $dashboardService,
+    ) {}
+
     /**
      * Dashboard One-Procedure
      */
@@ -22,328 +45,710 @@ class OneProcedureController extends Controller
     {
         $search = trim((string) $request->query('search', ''));
 
-        $totalProcedures = Procedure::count();
-        $activeProcedures = Procedure::where('status', 'active')->count();
-        $totalAssessments = ProcedureAssessment::count();
-        $totalEvaluations = ProcedureEvaluation::count();
-
-        $recentProcedures = Procedure::withCount(['assessments'])
-            ->when($search !== '', fn ($q) => $q->where('title', 'like', "%{$search}%")->orWhere('category', 'like', "%{$search}%"))
-            ->orderBy('created_at', 'desc')
-            ->take(10)
-            ->get();
-
         return Inertia::render('OneProcedure/Dashboard', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_procedure_menu'),
             'search' => $search,
-            'stats' => [
-                'totalProcedures' => $totalProcedures,
-                'activeProcedures' => $activeProcedures,
-                'totalAssessments' => $totalAssessments,
-                'totalEvaluations' => $totalEvaluations,
-            ],
-            'recentProcedures' => $recentProcedures,
+            'documents' => $this->dashboardService->documentSummary(),
+            'activities' => $this->dashboardService->activitySummary(),
+            'evaluation' => $this->dashboardService->evaluationSummary(),
+            'recentDocuments' => ProsedurDocumentResource::collection($this->dashboardService->recentDocuments($search))->resolve(),
         ]);
     }
 
     /**
-     * 1. Prosedur (Dokumen & Materi SOP)
+     * 1. Prosedur (Dokumen Prosedur Kerja / SOP / IK)
      */
     public function prosedur(Request $request): Response
     {
+        $categories = ProsedurCategory::orderBy('created_at', 'asc')->get();
+        $types = ProsedurType::orderBy('created_at', 'asc')->get();
+
+        $validTypes = ['aktivity_select'];
+        foreach ($types as $t) {
+            $validTypes[] = $t->slug;
+        }
+        foreach ($categories as $cat) {
+            foreach ($types as $t) {
+                $validTypes[] = $cat->slug . '_' . $t->slug;
+            }
+        }
+
+        $jenis = (string) $request->query('type', '');
+        if (!in_array($jenis, $validTypes, true)) {
+            $jenis = $types->first()?->slug ?: 'sop';
+        }
+
         $search = trim((string) $request->query('search', ''));
-        $category = $request->query('category', '');
-        $risk = $request->query('risk', '');
-        $status = $request->query('status', '');
+        $searchActive = !empty($search);
 
-        $query = Procedure::query()
-            ->when($search !== '', fn ($q) => $q->where('title', 'like', "%{$search}%")->orWhere('description', 'like', "%{$search}%"))
-            ->when($category !== '', fn ($q) => $q->where('category', $category))
-            ->when($risk !== '', fn ($q) => $q->where('risk_level', $risk))
-            ->when($status !== '', fn ($q) => $q->where('status', $status));
+        $aktivityCategories = [];
+        foreach ($categories as $cat) {
+            $aktivityCategories[$cat->slug] = $cat->name;
+        }
+        $docTypeMap = [];
+        foreach ($types as $t) {
+            $docTypeMap[$t->slug] = $t->name;
+        }
 
-        $procedures = $query->orderBy('created_at', 'desc')->get()->map(function ($p) {
+        $currentCategory = '';
+        foreach ($aktivityCategories as $slug => $label) {
+            if (str_starts_with($jenis, $slug)) {
+                $currentCategory = $slug;
+                break;
+            }
+        }
+
+        $isAktivityContext = ($jenis === 'aktivity_select' || !empty($currentCategory));
+        $showTable = !$isAktivityContext || (str_contains($jenis, '_') && $jenis !== 'aktivity_select');
+
+        if (!empty($currentCategory)) {
+            $subSlug = str_starts_with($jenis, $currentCategory . '_') ? substr($jenis, strlen($currentCategory) + 1) : '';
+            $typeName = $docTypeMap[$subSlug] ?? $subSlug;
+            $currentLabel = strtoupper(($aktivityCategories[$currentCategory] ?? $currentCategory) . ($typeName ? ' - ' . $typeName : ''));
+        } else {
+            $currentLabel = strtoupper($docTypeMap[$jenis] ?? str_replace('_', ' ', $jenis));
+        }
+
+        // Dokumen query sesuai SopRepository
+        $docQuery = ProsedurKerja::query();
+
+        if ($jenis && $jenis !== 'aktivity_select') {
+            if (!str_contains($jenis, '_')) {
+                $docQuery->where(function ($q) use ($jenis) {
+                    $q->where('jenis', $jenis)
+                      ->orWhere('jenis', 'like', "%_{$jenis}");
+                });
+            } else {
+                $matchedCat = $categories->first(fn ($c) => str_starts_with($jenis, $c->slug . '_'));
+                if ($matchedCat) {
+                    $typePart = substr($jenis, strlen($matchedCat->slug) + 1);
+                    $docQuery->where(function ($q) use ($jenis, $matchedCat, $typePart) {
+                        $q->where('jenis', $jenis)
+                          ->orWhereIn('id', function ($sub) use ($matchedCat, $typePart) {
+                              $sub->select('pcd.prosedur_id')
+                                  ->from('prosedur_category_docs as pcd')
+                                  ->join('prosedur_kerja as pk2', 'pk2.id', '=', 'pcd.prosedur_id')
+                                  ->where('pcd.category_id', $matchedCat->id)
+                                  ->where(function ($q2) use ($typePart) {
+                                      $q2->where('pk2.jenis', $typePart)
+                                         ->orWhere('pk2.jenis', 'like', "%_{$typePart}");
+                                  });
+                          });
+                    });
+                } else {
+                    $docQuery->where('jenis', $jenis);
+                }
+            }
+        }
+
+        if ($searchActive) {
+            $docQuery->where(function ($q) use ($search) {
+                $q->where('judul', 'like', "%{$search}%")
+                  ->orWhere('kode_dokumen', 'like', "%{$search}%");
+            });
+        }
+
+        $docs = $docQuery->orderBy('created_at', 'desc')->get()->map(function ($d) use ($aktivityCategories, $docTypeMap, $isAktivityContext) {
+            $docJenis = $d->jenis ?? '';
+            $dCat = $isAktivityContext ? '-' : 'PROSEDUR (UMUM)';
+            $dType = $docJenis;
+
+            foreach ($aktivityCategories as $slug => $name) {
+                if ($slug && (str_starts_with($docJenis, $slug . '_') || $docJenis === $slug)) {
+                    $dCat = $name;
+                    $dType = str_starts_with($docJenis, $slug . '_') ? substr($docJenis, strlen($slug) + 1) : '';
+                    break;
+                }
+            }
+            $dTypeLabel = $docTypeMap[$dType] ?? strtoupper($dType ?: '-');
+
             return [
-                'id' => $p->id,
-                'title' => $p->title,
-                'category' => $p->category,
-                'revision' => $p->revision,
-                'description' => $p->description,
-                'risk_level' => $p->risk_level,
-                'status' => $p->status,
-                'file_path' => $p->file_path,
-                'file_type' => $p->file_type,
-                'effective_date' => $p->effective_date,
-                'expired_date' => $p->expired_date,
-                'created_by' => $p->created_by ?: 'System',
-                'created_at' => $p->created_at->format('Y-m-d'),
-                'assessments_count' => $p->assessments()->count(),
+                'id' => $d->id,
+                'jenis' => $d->jenis,
+                'kode_dokumen' => $d->kode_dokumen,
+                'judul' => $d->judul,
+                'tanggal' => $d->tanggal ? $d->tanggal->format('Y-m-d') : null,
+                'file_dokumen' => $d->file_dokumen,
+                'status' => $d->status ?? 'aktif',
+                'category_label' => $dCat,
+                'type_label' => $dTypeLabel,
+                'created_at' => $d->created_at ? $d->created_at->format('Y-m-d') : null,
             ];
         });
 
-        $categories = Procedure::distinct()->pluck('category')->filter()->values();
+        $counts = ProsedurKerja::where('status', 'aktif')
+            ->selectRaw('jenis, COUNT(*) as total')
+            ->groupBy('jenis')
+            ->pluck('total', 'jenis')
+            ->toArray();
+
+        $allDocsForSelect = ProsedurKerja::select('id', 'jenis', 'kode_dokumen', 'judul')
+            ->orderBy('judul', 'asc')
+            ->get();
 
         return Inertia::render('OneProcedure/Prosedur', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_procedure_menu'),
-            'filters' => [
-                'search' => $search,
-                'category' => $category,
-                'risk' => $risk,
-                'status' => $status,
-            ],
-            'procedures' => $procedures,
-            'categories' => $categories,
+            'docs' => $docs,
+            'jenis' => $jenis,
+            'search' => $search,
+            'searchActive' => $searchActive,
+            'currentLabel' => $currentLabel,
+            'currentCategory' => $currentCategory,
+            'isAktivityContext' => $isAktivityContext,
+            'showTable' => $showTable,
+            'counts' => $counts,
+            'allSopCategories' => $categories,
+            'allSopTypes' => $types,
+            'allDocsForSelect' => $allDocsForSelect,
         ]);
     }
 
     public function storeProcedure(Request $request): RedirectResponse
     {
         $request->validate([
-            'title' => 'required|string',
-            'category' => 'nullable|string',
-            'risk_level' => 'required|in:low,medium,high,critical',
+            'judul' => 'required|string|max:255',
+            'kode_dokumen' => 'required|string|max:100',
+            'file_dokumen' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:20480',
         ]);
 
-        Procedure::create([
-            'title' => $request->title,
-            'category' => $request->category ?: 'Operasional',
-            'revision' => $request->revision ?: 'Rev. 0',
-            'description' => $request->description,
-            'risk_level' => $request->risk_level,
-            'status' => $request->status ?: 'active',
-            'effective_date' => $request->effective_date ?: date('Y-m-d'),
-            'expired_date' => $request->expired_date,
-            'created_by' => auth()->user()?->name ?: 'Administrator',
+        $catSlug = trim((string) $request->input('category_slug', ''));
+        $typeSlug = trim((string) $request->input('type_slug', 'sop'));
+        $jenis = (!empty($catSlug) && $catSlug !== 'global') ? ($catSlug . '_' . $typeSlug) : $typeSlug;
+
+        $filePath = null;
+        if ($request->hasFile('file_dokumen')) {
+            $file = $request->file('file_dokumen');
+            $filename = 'pk_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $destDir = public_path('assets/uploads/prosedur_kerja');
+            if (!is_dir($destDir)) {
+                mkdir($destDir, 0755, true);
+            }
+            $file->move($destDir, $filename);
+            $filePath = '/assets/uploads/prosedur_kerja/' . $filename;
+        }
+
+        ProsedurKerja::create([
+            'jenis' => $jenis,
+            'kode_dokumen' => trim($request->input('kode_dokumen')),
+            'judul' => trim($request->input('judul')),
+            'tanggal' => now()->toDateString(),
+            'file_dokumen' => $filePath,
+            'status' => $request->input('status', 'aktif'),
+            'created_by' => auth()->id(),
         ]);
 
-        return back()->with('success', 'Prosedur baru berhasil disimpan');
+        return back()->with('success', 'Dokumen prosedur berhasil ditambahkan');
     }
 
     public function updateProcedure(Request $request, $id): RedirectResponse
     {
         $request->validate([
-            'title' => 'required|string',
-            'risk_level' => 'required|in:low,medium,high,critical',
+            'judul' => 'required|string|max:255',
+            'kode_dokumen' => 'required|string|max:100',
+            'file_dokumen' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:20480',
         ]);
 
-        $p = Procedure::findOrFail($id);
-        $p->update([
-            'title' => $request->title,
-            'category' => $request->category ?: $p->category,
-            'revision' => $request->revision ?: $p->revision,
-            'description' => $request->description,
-            'risk_level' => $request->risk_level,
-            'status' => $request->status ?: $p->status,
-            'effective_date' => $request->effective_date ?: $p->effective_date,
-            'expired_date' => $request->expired_date,
+        $doc = ProsedurKerja::findOrFail($id);
+
+        $catSlug = trim((string) $request->input('category_slug', 'global'));
+        $typeSlug = trim((string) $request->input('type_slug', 'sop'));
+        $jenis = ($catSlug !== 'global' && !empty($catSlug)) ? ($catSlug . '_' . $typeSlug) : $typeSlug;
+
+        $filePath = $doc->file_dokumen;
+        if ($request->hasFile('file_dokumen')) {
+            if ($doc->file_dokumen && file_exists(public_path(ltrim($doc->file_dokumen, '/')))) {
+                @unlink(public_path(ltrim($doc->file_dokumen, '/')));
+            }
+            $file = $request->file('file_dokumen');
+            $filename = 'pk_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $destDir = public_path('assets/uploads/prosedur_kerja');
+            if (!is_dir($destDir)) {
+                mkdir($destDir, 0755, true);
+            }
+            $file->move($destDir, $filename);
+            $filePath = '/assets/uploads/prosedur_kerja/' . $filename;
+        }
+
+        $doc->update([
+            'jenis' => $jenis,
+            'kode_dokumen' => trim($request->input('kode_dokumen')),
+            'judul' => trim($request->input('judul')),
+            'file_dokumen' => $filePath,
+            'status' => $request->input('status', 'aktif'),
         ]);
 
-        return back()->with('success', 'Data prosedur berhasil diperbarui');
+        return back()->with('success', 'Dokumen prosedur berhasil diperbarui');
     }
 
     public function deleteProcedure($id): RedirectResponse
     {
-        Procedure::destroy($id);
-        return back()->with('success', 'Prosedur berhasil dihapus');
+        $doc = ProsedurKerja::find($id);
+        if ($doc) {
+            if ($doc->file_dokumen && file_exists(public_path(ltrim($doc->file_dokumen, '/')))) {
+                @unlink(public_path(ltrim($doc->file_dokumen, '/')));
+            }
+            $doc->delete();
+        }
+
+        return back()->with('success', 'Dokumen prosedur berhasil dihapus');
+    }
+
+    public function storeCategory(Request $request): RedirectResponse
+    {
+        $request->validate(['name' => 'required|string|max:255']);
+        $name = trim($request->input('name'));
+        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '_', $name)));
+
+        $category = ProsedurCategory::firstOrCreate(
+            ['slug' => $slug],
+            ['name' => $name]
+        );
+
+        $docIds = $request->input('doc_ids', []);
+        if (is_array($docIds) && !empty($docIds)) {
+            $category->documents()->sync(array_filter(array_map('intval', $docIds)));
+        }
+
+        return back()->with('success', 'Kategori prosedur berhasil ditambahkan');
+    }
+
+    public function deleteCategory($id): RedirectResponse
+    {
+        $category = ProsedurCategory::find($id);
+        if ($category) {
+            $category->documents()->detach();
+            $category->delete();
+        }
+
+        return back()->with('success', 'Kategori berhasil dihapus');
+    }
+
+    public function storeType(Request $request): RedirectResponse
+    {
+        $request->validate(['name' => 'required|string|max:255']);
+        $name = trim($request->input('name'));
+        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '_', $name)));
+
+        ProsedurType::firstOrCreate(
+            ['slug' => $slug],
+            ['name' => $name]
+        );
+
+        return back()->with('success', 'Jenis dokumen berhasil ditambahkan');
+    }
+
+    public function deleteType($id): RedirectResponse
+    {
+        ProsedurType::destroy($id);
+        return back()->with('success', 'Jenis dokumen berhasil dihapus');
+    }
+
+    public function viewDocument($id): BinaryFileResponse
+    {
+        $doc = ProsedurKerja::findOrFail($id);
+        if (!$doc->file_dokumen) {
+            abort(404, 'File dokumen tidak ditemukan');
+        }
+
+        $localPath = public_path(ltrim($doc->file_dokumen, '/'));
+        if (!file_exists($localPath)) {
+            $legacyPath = 'd:/laragon/www/one-click/' . ltrim($doc->file_dokumen, '/');
+            if (file_exists($legacyPath)) {
+                $localPath = $legacyPath;
+            } else {
+                abort(404, 'File tidak ditemukan di server');
+            }
+        }
+
+        $ext = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
+        $contentType = match ($ext) {
+            'pdf' => 'application/pdf',
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            default => 'application/octet-stream',
+        };
+
+        return response()->file($localPath, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'inline; filename="' . basename($localPath) . '"',
+        ]);
     }
 
     /**
-     * 2. Activity (Activity & Question Bank Assessment)
+     * 2. Activity (Dokumen Aktivity / Kategori Prosedur)
+     * Sesuai dengan index?action=procedure_activity di legacy ../one-click
      */
     public function activity(Request $request): Response
     {
-        $procedureId = $request->query('procedure_id');
+        $categories = ProsedurCategory::orderBy('created_at', 'asc')->get();
+        $types = ProsedurType::orderBy('created_at', 'asc')->get();
 
-        $procedures = Procedure::orderBy('title', 'asc')->get(['id', 'title', 'category']);
+        $validTypes = ['aktivity_select'];
+        foreach ($types as $t) {
+            $validTypes[] = $t->slug;
+        }
+        foreach ($categories as $cat) {
+            foreach ($types as $t) {
+                $validTypes[] = $cat->slug . '_' . $t->slug;
+            }
+        }
 
-        $assessments = ProcedureAssessment::with(['procedure', 'questions'])
-            ->when($procedureId, fn ($q) => $q->where('procedure_id', $procedureId))
-            ->orderBy('created_at', 'desc')
+        $jenis = (string) $request->query('type', 'aktivity_select');
+        if (!in_array($jenis, $validTypes, true)) {
+            $jenis = 'aktivity_select';
+        }
+
+        $search = trim((string) $request->query('search', ''));
+        $searchActive = !empty($search);
+
+        $aktivityCategories = [];
+        foreach ($categories as $cat) {
+            $aktivityCategories[$cat->slug] = $cat->name;
+        }
+        $docTypeMap = [];
+        foreach ($types as $t) {
+            $docTypeMap[$t->slug] = $t->name;
+        }
+
+        $currentCategory = '';
+        foreach ($aktivityCategories as $slug => $label) {
+            if (str_starts_with($jenis, $slug)) {
+                $currentCategory = $slug;
+                break;
+            }
+        }
+
+        $isAktivityContext = true;
+        $showTable = !empty($currentCategory) && str_contains($jenis, '_') && $jenis !== 'aktivity_select';
+
+        if (!empty($currentCategory)) {
+            $subSlug = str_starts_with($jenis, $currentCategory . '_') ? substr($jenis, strlen($currentCategory) + 1) : '';
+            $typeName = $docTypeMap[$subSlug] ?? $subSlug;
+            $currentLabel = strtoupper(($aktivityCategories[$currentCategory] ?? $currentCategory) . ($typeName ? ' - ' . $typeName : ''));
+        } else {
+            $currentLabel = 'AKTIVITY';
+        }
+
+        // Dokumen query sesuai SopRepository
+        $docQuery = ProsedurKerja::query();
+
+        if ($jenis && $jenis !== 'aktivity_select') {
+            if (!str_contains($jenis, '_')) {
+                $docQuery->where(function ($q) use ($jenis) {
+                    $q->where('jenis', $jenis)
+                      ->orWhere('jenis', 'like', "%_{$jenis}");
+                });
+            } else {
+                $matchedCat = $categories->first(fn ($c) => str_starts_with($jenis, $c->slug . '_'));
+                if ($matchedCat) {
+                    $typePart = substr($jenis, strlen($matchedCat->slug) + 1);
+                    $docQuery->where(function ($q) use ($jenis, $matchedCat, $typePart) {
+                        $q->where('jenis', $jenis)
+                          ->orWhereIn('id', function ($sub) use ($matchedCat, $typePart) {
+                              $sub->select('pcd.prosedur_id')
+                                  ->from('prosedur_category_docs as pcd')
+                                  ->join('prosedur_kerja as pk2', 'pk2.id', '=', 'pcd.prosedur_id')
+                                  ->where('pcd.category_id', $matchedCat->id)
+                                  ->where(function ($q2) use ($typePart) {
+                                      $q2->where('pk2.jenis', $typePart)
+                                         ->orWhere('pk2.jenis', 'like', "%_{$typePart}");
+                                  });
+                          });
+                    });
+                } else {
+                    $docQuery->where('jenis', $jenis);
+                }
+            }
+        }
+
+        if ($searchActive) {
+            $docQuery->where(function ($q) use ($search) {
+                $q->where('judul', 'like', "%{$search}%")
+                  ->orWhere('kode_dokumen', 'like', "%{$search}%");
+            });
+        }
+
+        $docs = $docQuery->orderBy('created_at', 'desc')->get()->map(function ($d) use ($aktivityCategories, $docTypeMap) {
+            $docJenis = $d->jenis ?? '';
+            $dCat = '-';
+            $dType = $docJenis;
+
+            foreach ($aktivityCategories as $slug => $name) {
+                if ($slug && (str_starts_with($docJenis, $slug . '_') || $docJenis === $slug)) {
+                    $dCat = $name;
+                    $dType = str_starts_with($docJenis, $slug . '_') ? substr($docJenis, strlen($slug) + 1) : '';
+                    break;
+                }
+            }
+            $dTypeLabel = $docTypeMap[$dType] ?? strtoupper($dType ?: '-');
+
+            return [
+                'id' => $d->id,
+                'jenis' => $d->jenis,
+                'kode_dokumen' => $d->kode_dokumen,
+                'judul' => $d->judul,
+                'tanggal' => $d->tanggal ? $d->tanggal->format('Y-m-d') : null,
+                'file_dokumen' => $d->file_dokumen,
+                'status' => $d->status ?? 'aktif',
+                'category_label' => $dCat,
+                'type_label' => $dTypeLabel,
+                'created_at' => $d->created_at ? $d->created_at->format('Y-m-d') : null,
+            ];
+        });
+
+        $counts = ProsedurKerja::where('status', 'aktif')
+            ->selectRaw('jenis, COUNT(*) as total')
+            ->groupBy('jenis')
+            ->pluck('total', 'jenis')
+            ->toArray();
+
+        $activeCategoryObj = null;
+        $attachedDocIds = [];
+        if ($currentCategory) {
+            $activeCategoryObj = $categories->firstWhere('slug', $currentCategory);
+            if ($activeCategoryObj) {
+                $attachedDocIds = $activeCategoryObj->documents()->pluck('prosedur_kerja.id')->toArray();
+            }
+        }
+
+        $allDocsForSelect = ProsedurKerja::select('id', 'jenis', 'kode_dokumen', 'judul', 'tanggal', 'status')
+            ->orderBy('judul', 'asc')
             ->get();
 
         return Inertia::render('OneProcedure/Activity', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_procedure_menu'),
-            'selectedProcedureId' => $procedureId,
-            'procedures' => $procedures,
-            'assessments' => $assessments,
+            'docs' => $docs,
+            'jenis' => $jenis,
+            'search' => $search,
+            'searchActive' => $searchActive,
+            'currentLabel' => $currentLabel,
+            'currentCategory' => $currentCategory,
+            'activeCategory' => $activeCategoryObj,
+            'attachedDocIds' => $attachedDocIds,
+            'isAktivityContext' => $isAktivityContext,
+            'showTable' => $showTable,
+            'counts' => $counts,
+            'allSopCategories' => $categories,
+            'allSopTypes' => $types,
+            'allDocsForSelect' => $allDocsForSelect,
         ]);
     }
 
-    public function storeAssessment(Request $request): RedirectResponse
+    public function syncCategoryDocs(Request $request): RedirectResponse
     {
         $request->validate([
-            'procedure_id' => 'required|exists:procedures,id',
-            'title' => 'required|string',
-            'passing_grade' => 'required|integer|min:0|max:100',
+            'category_id' => 'required|exists:prosedur_categories,id',
+            'doc_ids' => 'nullable|array',
+            'doc_ids.*' => 'integer',
         ]);
 
-        ProcedureAssessment::create([
-            'procedure_id' => $request->procedure_id,
-            'title' => $request->title,
-            'passing_grade' => (int) $request->passing_grade,
-            'timer_minutes' => (int) ($request->timer_minutes ?: 30),
-            'retry_limit' => (int) ($request->retry_limit ?: 3),
-            'validity_months' => (int) ($request->validity_months ?: 6),
-            'status' => $request->status ?: 'draft',
-            'created_by' => auth()->user()?->name ?: 'Administrator',
-        ]);
+        $category = ProsedurCategory::findOrFail($request->input('category_id'));
+        $docIds = array_filter(array_map('intval', (array) $request->input('doc_ids', [])));
 
-        return back()->with('success', 'Activity / Assessment baru berhasil dibuat');
-    }
+        $category->documents()->sync($docIds);
 
-    public function updateAssessment(Request $request, $id): RedirectResponse
-    {
-        $request->validate([
-            'title' => 'required|string',
-            'passing_grade' => 'required|integer|min:0|max:100',
-        ]);
-
-        $pa = ProcedureAssessment::findOrFail($id);
-        $pa->update([
-            'title' => $request->title,
-            'passing_grade' => (int) $request->passing_grade,
-            'timer_minutes' => (int) ($request->timer_minutes ?: $pa->timer_minutes),
-            'retry_limit' => (int) ($request->retry_limit ?: $pa->retry_limit),
-            'validity_months' => (int) ($request->validity_months ?: $pa->validity_months),
-            'status' => $request->status ?: $pa->status,
-        ]);
-
-        return back()->with('success', 'Activity / Assessment berhasil diperbarui');
-    }
-
-    public function deleteAssessment($id): RedirectResponse
-    {
-        ProcedureAssessment::destroy($id);
-        return back()->with('success', 'Assessment berhasil dihapus');
-    }
-
-    public function storeQuestion(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'assessment_id' => 'required|exists:procedure_assessments,id',
-            'question' => 'required|string',
-            'correct' => 'required|string',
-        ]);
-
-        ProcedureQuestion::create([
-            'assessment_id' => $request->assessment_id,
-            'question_type' => $request->question_type ?: 'multiple_choice',
-            'question' => $request->question,
-            'option_a' => $request->option_a,
-            'option_b' => $request->option_b,
-            'option_c' => $request->option_c,
-            'option_d' => $request->option_d,
-            'correct' => strtoupper($request->correct),
-            'explanation' => $request->explanation,
-        ]);
-
-        return back()->with('success', 'Soal berhasil ditambahkan ke bank soal');
-    }
-
-    public function deleteQuestion($id): RedirectResponse
-    {
-        ProcedureQuestion::destroy($id);
-        return back()->with('success', 'Soal berhasil dihapus');
+        return back()->with('success', 'Dokumen aktifitas ' . $category->name . ' berhasil diperbarui');
     }
 
     /**
-     * 3. Evaluasi Prosedur (Assessment Results & Compliance Monitoring)
+     * 3. Evaluasi Prosedur (SOP Evaluation, Assessment, Monitoring & Certification)
+     * Sesuai dengan database/sop/evaluasi.php?tab=procedure di legacy ../one-click
      */
     public function evaluasi(Request $request): Response
     {
-        $assessmentId = $request->query('assessment_id');
-        $status = $request->query('status');
-        $search = trim((string) $request->query('search', ''));
+        $request->user()?->loadMissing('employee');
+        $isAdminOrGL = Gate::allows('manage-procedure-evaluation');
 
-        $assessments = ProcedureAssessment::orderBy('title', 'asc')->get(['id', 'title']);
+        $activeTab = $request->query('tab', 'procedure');
+        // Filter prosedur hanya berlaku di tab Procedure (param status/search tab lain punya arti berbeda)
+        $filters = collect(['search', 'cat', 'risk', 'status', 'date_from', 'date_to'])
+            ->mapWithKeys(fn ($key) => [$key => $activeTab === 'procedure' ? trim((string) $request->query($key, '')) : ''])
+            ->all();
 
-        $evaluations = ProcedureEvaluation::with(['assessment.procedure', 'employee'])
-            ->when($assessmentId, fn ($q) => $q->where('assessment_id', $assessmentId))
-            ->when($status, fn ($q) => $q->where('status', $status))
-            ->when($search !== '', function ($q) use ($search) {
-                $q->where('nrp', 'like', "%{$search}%")
-                  ->orWhereHas('employee', fn ($eq) => $eq->where('name', 'like', "%{$search}%"));
-            })
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($e) {
-                return [
-                    'id' => $e->id,
-                    'nrp' => $e->nrp,
-                    'employee_name' => $e->employee ? $e->employee->name : 'NRP ' . $e->nrp,
-                    'department' => $e->employee ? $e->employee->departemen : 'PRODUKSI',
-                    'assessment_title' => $e->assessment ? $e->assessment->title : '-',
-                    'procedure_title' => $e->assessment && $e->assessment->procedure ? $e->assessment->procedure->title : '-',
-                    'score' => $e->score,
-                    'passing_grade' => $e->assessment ? $e->assessment->passing_grade : 80,
-                    'status' => $e->status,
-                    'completed_at' => $e->completed_at ? $e->completed_at->format('Y-m-d H:i') : '-',
-                    'certificate_code' => $e->certificate_code ?: '-',
-                    'notes' => $e->notes,
-                ];
-            });
+        $this->evalProcedureService->autoExpire();
+        $procedures = in_array($activeTab, ['procedure', 'assessment'], true)
+            ? EvalProcedureResource::collection($this->evalProcedureService->list($filters))->resolve()
+            : [];
+        $categories = $this->evalProcedureService->categories();
 
-        $totalEvaluations = $evaluations->count();
-        $passedCount = $evaluations->where('status', 'passed')->count();
-        $failedCount = $evaluations->where('status', 'failed')->count();
-        $passRate = $totalEvaluations > 0 ? round(($passedCount / $totalEvaluations) * 100, 1) : 0;
+        $monitoring = $activeTab === 'monitoring' ? $this->monitoringProps($request) : null;
 
         return Inertia::render('OneProcedure/Evaluasi', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_procedure_menu'),
-            'filters' => [
-                'assessment_id' => $assessmentId,
-                'status' => $status,
-                'search' => $search,
+            'isAdminOrGL' => $isAdminOrGL,
+            'activeTab' => $activeTab,
+            'filters' => $filters,
+            'procedures' => $procedures,
+            'categories' => $categories,
+            'assessment' => $activeTab === 'assessment' ? $this->assessmentProps($request) : null,
+            'monitoring' => $monitoring,
+            'certification' => $activeTab === 'certification' ? $this->certificationProps($request) : null,
+        ]);
+    }
+
+    private function assessmentProps(Request $request): array
+    {
+        $manageId = (int) $request->query('manage', 0);
+        $manage = $manageId
+            ? ProcedureAssessment::with(['procedure:id,title', 'questions' => fn ($q) => $q->orderBy('id')])->withCount('questions')->find($manageId)
+            : null;
+        $targets = $manage?->target_roles ?: [];
+
+        return [
+            'createMode' => $request->boolean('create'),
+            'procId' => (int) $request->query('proc_id', 0),
+            'focus' => (string) $request->query('focus', ''),
+            'list' => ProcedureAssessmentResource::collection($this->assessmentService->listAll())->resolve(),
+            'manage' => $manage ? (new ProcedureAssessmentResource($manage))->resolve() : null,
+            'questions' => $manage ? ProcedureQuestionResource::collection($manage->questions)->resolve() : [],
+            'stats' => $manage ? [
+                'total_questions' => $manage->questions_count,
+                'total_roles' => count($targets),
+                'total_employees' => $this->assessmentService->estimatedEmployees($targets),
+                'estimated_time' => $manage->timer_minutes,
+                'passing_grade' => $manage->passing_grade,
+            ] : null,
+            'targetRoles' => $this->assessmentService->targetRoleOptions(),
+            'signers' => $this->assessmentService->signerOptions(),
+            'currentEmployeeId' => $request->user()?->employee_id,
+        ];
+    }
+
+    private function certificationProps(Request $request): array
+    {
+        $this->certificateService->refreshStatuses();
+
+        $filters = $this->certificateService->normalizeFilters($request->query());
+        $paginator = $this->certificateService->paginate($filters);
+
+        return [
+            'filters' => $filters,
+            'summary' => $this->certificateService->summary(),
+            'assessments' => $this->certificateService->assessmentOptions(),
+            'passedWithoutCertCount' => $this->certificateService->passedWithoutCertificate($filters['assessment_id'])
+                ->select('assessment_id', 'nrp')->distinct()->get()->count(),
+            'rows' => ProcedureCertificateResource::collection($paginator->items())->resolve(),
+            'pagination' => [
+                'currentPage' => $paginator->currentPage(),
+                'lastPage' => $paginator->lastPage(),
+                'total' => $paginator->total(),
+                'perPage' => $paginator->perPage(),
             ],
-            'stats' => [
-                'totalEvaluations' => $totalEvaluations,
-                'passedCount' => $passedCount,
-                'failedCount' => $failedCount,
-                'passRate' => $passRate,
+        ];
+    }
+
+    private function monitoringProps(Request $request): array
+    {
+        $this->monitoringService->recalcPassedFlags();
+
+        $filters = $this->monitoringService->normalizeFilters($request->query());
+        $paginator = $this->monitoringService->paginate($filters);
+
+        return [
+            'filters' => $filters,
+            'summary' => $this->monitoringService->summary($filters['assessment_id']),
+            'dailyCompletions' => $this->monitoringService->dailyCompletions($filters['assessment_id']),
+            'assessments' => $this->monitoringService->assessmentOptions(),
+            'jabatans' => $this->monitoringService->jabatanOptions(),
+            'mentors' => $this->monitoringService->mentorOptions(),
+            'rows' => ProcedureMonitoringResource::collection($paginator->items())->resolve(),
+            'pagination' => [
+                'currentPage' => $paginator->currentPage(),
+                'lastPage' => $paginator->lastPage(),
+                'total' => $paginator->total(),
+                'perPage' => $paginator->perPage(),
             ],
-            'assessments' => $assessments,
-            'evaluations' => $evaluations,
+        ];
+    }
+
+    public function storeEvalProcedure(SaveEvalProcedureRequest $request): RedirectResponse
+    {
+        $this->evalProcedureService->create($request->validated(), $request->file('file'), (string) $request->user()->name);
+
+        return redirect()->route('one-procedure.evaluasi', ['tab' => 'procedure'])->with('success', 'Prosedur berhasil ditambahkan');
+    }
+
+    public function updateEvalProcedure(SaveEvalProcedureRequest $request, Procedure $procedure): RedirectResponse
+    {
+        $this->evalProcedureService->update($procedure, $request->validated(), $request->file('file'));
+
+        return redirect()->route('one-procedure.evaluasi', ['tab' => 'procedure'])->with('success', 'Prosedur berhasil diperbarui');
+    }
+
+    public function deleteEvalProcedure(Procedure $procedure): RedirectResponse
+    {
+        Gate::authorize('manage-procedure-evaluation');
+
+        $this->evalProcedureService->delete($procedure);
+
+        return redirect()->route('one-procedure.evaluasi', ['tab' => 'procedure'])->with('success', 'Prosedur berhasil dihapus');
+    }
+
+    public function viewEvalProcedure($id): BinaryFileResponse
+    {
+        $proc = Procedure::findOrFail($id);
+        if (!$proc->file_path) {
+            abort(404, 'File prosedur tidak ditemukan');
+        }
+
+        $localPath = public_path(ltrim($proc->file_path, '/'));
+        if (!file_exists($localPath)) {
+            $legacyPath = 'd:/laragon/www/one-click/' . ltrim($proc->file_path, '/');
+            if (file_exists($legacyPath)) {
+                $localPath = $legacyPath;
+            } else {
+                abort(404, 'File prosedur tidak ditemukan di server');
+            }
+        }
+
+        $ext = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
+        $contentType = match ($ext) {
+            'pdf' => 'application/pdf',
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            default => 'application/octet-stream',
+        };
+
+        return response()->file($localPath, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'inline; filename="' . basename($localPath) . '"',
         ]);
     }
 
     public function storeEvaluation(Request $request): RedirectResponse
     {
-        $request->validate([
+        Gate::authorize('manage-procedure-evaluation');
+        $data = $request->validate([
             'assessment_id' => 'required|exists:procedure_assessments,id',
             'nrp' => 'required|string',
             'score' => 'required|integer|min:0|max:100',
         ]);
 
-        $assessment = ProcedureAssessment::findOrFail($request->assessment_id);
-        $passingGrade = $assessment->passing_grade ?: 80;
-        $score = (int) $request->score;
-        $status = $score >= $passingGrade ? 'passed' : 'failed';
-        $certCode = $status === 'passed' ? 'CERT-SOP-' . strtoupper(Str::random(6)) : null;
-
-        ProcedureEvaluation::create([
-            'assessment_id' => $request->assessment_id,
-            'nrp' => $request->nrp,
-            'score' => $score,
-            'status' => $status,
+        $assessment = ProcedureAssessment::findOrFail($data['assessment_id']);
+        $evaluation = ProcedureEvaluation::create([
+            'assessment_id' => $assessment->id,
+            'nrp' => $data['nrp'],
+            'score' => $data['score'],
+            'status' => $data['score'] >= $assessment->passing_grade ? 'passed' : 'failed',
             'completed_at' => now(),
-            'certificate_code' => $certCode,
-            'notes' => $request->notes,
+            'notes' => $request->input('notes'),
         ]);
+        $this->monitoringService->assignEmployee($assessment->id, $data['nrp']);
+
+        // Sertifikat diterbitkan otomatis ketika karyawan lulus assessment (sama seperti v1)
+        if ($evaluation->status === 'passed') {
+            $this->certificateService->issue($evaluation, (string) $request->user()->name);
+        }
 
         return back()->with('success', 'Data evaluasi prosedur berhasil disimpan');
-    }
-
-    public function deleteEvaluation($id): RedirectResponse
-    {
-        ProcedureEvaluation::destroy($id);
-        return back()->with('success', 'Data evaluasi berhasil dihapus');
     }
 }

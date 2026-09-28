@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { ref } from 'vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ArrowLeft, Megaphone, PlusCircle, Send, Trash2, Image as ImageIcon, Eye, Calendar, User, Info, AlertTriangle, MessageSquare } from 'lucide-vue-next';
@@ -14,6 +15,7 @@ const props = defineProps({
 const form = useForm({
     title: '',
     type: '📢 Pengumuman',
+    visibility_mode: 'continuous',
     content: '',
     image: null,
 });
@@ -41,8 +43,16 @@ const submitAnnouncement = () => {
     });
 };
 
-const deleteAnnouncement = (id) => {
-    if (confirm('Apakah Anda yakin ingin menghapus pengumuman ini?')) {
+const updateVisibility = (id, newMode) => {
+    router.patch(`/pengumuman/${id}/visibility`, {
+        visibility_mode: newMode,
+    }, {
+        preserveScroll: true,
+    });
+};
+
+const deleteAnnouncement = async (id) => {
+    if (await confirmDialog('Apakah Anda yakin ingin menghapus pengumuman ini?')) {
         router.delete(`/pengumuman/${id}`, {
             preserveScroll: true,
         });
@@ -94,7 +104,7 @@ const typeBadges = {
                 </div>
 
                 <form @submit.prevent="submitAnnouncement" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <!-- JUDUL -->
                         <div class="md:col-span-2 space-y-1">
                             <label class="block text-xs font-bold uppercase text-slate-700">Judul <span class="text-rose-500">*</span></label>
@@ -118,6 +128,18 @@ const typeBadges = {
                                 <option value="💡 Informasi">💡 Informasi</option>
                                 <option value="⚠️ Peringatan">⚠️ Peringatan</option>
                                 <option value="📌 Roster & Operasional">📌 Roster &amp; Operasional</option>
+                            </select>
+                        </div>
+
+                        <!-- MODE TAYANG -->
+                        <div class="space-y-1">
+                            <label class="block text-xs font-bold uppercase text-slate-700">Mode Tayang</label>
+                            <select
+                                v-model="form.visibility_mode"
+                                class="w-full rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-sm outline-none focus:border-blue-500 focus:bg-white transition font-medium"
+                            >
+                                <option value="continuous">🔁 Terus-terusan (Tiap Sesi)</option>
+                                <option value="once">👁️ 1x Lihat (Sekali per Akun)</option>
                             </select>
                         </div>
                     </div>
@@ -198,7 +220,7 @@ const typeBadges = {
 
                     <!-- FOOTER METADATA & DELETE ACTION -->
                     <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-500">
-                        <div class="flex flex-wrap items-center gap-4">
+                        <div class="flex flex-wrap items-center gap-3">
                             <span class="flex items-center gap-1.5">
                                 <Calendar class="h-3.5 w-3.5 text-slate-400" /> {{ item.date_formatted }}
                             </span>
@@ -208,6 +230,22 @@ const typeBadges = {
                             <span class="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px]">
                                 <Eye class="h-3 w-3 text-slate-400" /> {{ item.views_count }}x Dilihat
                             </span>
+
+                            <!-- MODE TAYANG SELECTOR -->
+                            <div class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1">
+                                <span class="text-[10px] font-black uppercase text-slate-400">Mode:</span>
+                                <select
+                                    :value="item.visibility_mode || 'continuous'"
+                                    @change="updateVisibility(item.id, $event.target.value)"
+                                    class="bg-transparent text-xs font-bold text-slate-800 outline-none cursor-pointer"
+                                >
+                                    <option value="continuous">🔁 Terus-terusan</option>
+                                    <option value="once">👁️ 1x Lihat</option>
+                                </select>
+                                <span v-if="item.visibility_mode === 'once'" class="text-[10px] font-bold text-blue-600 pl-1 border-l border-slate-200">
+                                    {{ item.reads_count }} akun sudah baca
+                                </span>
+                            </div>
                         </div>
 
                         <!-- DELETE BUTTON (HAPUS) -->

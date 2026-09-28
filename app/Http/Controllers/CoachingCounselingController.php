@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreCoachingCounselingRequest;
 use App\Http\Requests\UpdateCoachingCounselingRequest;
 use App\Http\Resources\CoachingCounselingResource;
+use App\Http\Resources\EmployeeResource;
 use App\Models\CoachingCounseling;
 use App\Models\Employee;
+use App\Models\Setting;
 use App\Services\CoachingCounselingService;
 use App\Support\MenuAccess;
 use Illuminate\Http\JsonResponse;
@@ -26,11 +28,25 @@ class CoachingCounselingController extends Controller
     public function index(Request $request): Response
     {
         $search = trim((string) $request->string('search'));
-        $dateFrom = trim((string) $request->string('date_from'));
-        $dateTo = trim((string) $request->string('date_to'));
+        $dateFrom = trim((string) $request->string('date_from', now()->startOfMonth()->toDateString()));
+        $dateTo = trim((string) $request->string('date_to', now()->toDateString()));
         $page = max(1, (int) $request->integer('page', 1));
 
-        $items = $this->coachingCounselingService->paginate($search, $dateFrom ?: null, $dateTo ?: null, $page, self::PER_PAGE);
+        $user = $request->user();
+        $gl = null;
+        if ($user && $user->isGroupLeader() && ! $user->isAdmin()) {
+            $gl = $user->getEmployeeRecord();
+        }
+
+        $items = $this->coachingCounselingService->paginate(
+            $search,
+            $dateFrom ?: null,
+            $dateTo ?: null,
+            $page,
+            self::PER_PAGE,
+            $gl,
+            $user
+        );
 
         return Inertia::render('OnePower/CoachingCounseling/Index', [
             'user' => $this->currentUser(),
@@ -46,6 +62,8 @@ class CoachingCounselingController extends Controller
                 'total' => $items->total(),
             ],
             'canManage' => ! $request->user()?->isManagement(),
+            'documentSettings' => $this->getDocumentSettings(),
+            'gl' => $gl ? (new EmployeeResource($gl))->resolve() : null,
         ]);
     }
 
@@ -53,10 +71,55 @@ class CoachingCounselingController extends Controller
     {
         abort_if($request->user()?->isManagement(), 403);
 
+        $defaultCoach = null;
+        $user = $request->user();
+        if ($user) {
+            $user->loadMissing('employee');
+            $emp = $user->employee;
+
+            if (! $emp && $user->employee_id) {
+                $emp = Employee::find($user->employee_id);
+            }
+
+            if (! $emp && $user->username) {
+                $emp = Employee::where('nrp', $user->username)->first();
+            }
+
+            if (! $emp && $user->name) {
+                $emp = Employee::where('name', $user->name)->first();
+            }
+
+            if (! $emp) {
+                $emp = Employee::firstOrCreate(
+                    ['nrp' => $user->username ?: 'USR'.str_pad((string) $user->id, 5, '0', STR_PAD_LEFT)],
+                    [
+                        'name' => $user->name,
+                        'jabatan_ss6' => $user->jabatan ?: 'GL / COACH',
+                        'unit' => $user->unit ?: '-',
+                        'email' => $user->email,
+                    ]
+                );
+                if (! $user->employee_id) {
+                    $user->update(['employee_id' => $emp->id]);
+                }
+            }
+
+            if ($emp) {
+                $defaultCoach = [
+                    'id' => $emp->id,
+                    'nrp' => $emp->nrp,
+                    'name' => $emp->name,
+                    'jabatan_ss6' => $emp->jabatan_ss6,
+                    'unit' => $emp->unit,
+                ];
+            }
+        }
+
         return Inertia::render('OnePower/CoachingCounseling/Create', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
+            'defaultCoach' => $defaultCoach,
         ]);
     }
 
@@ -101,13 +164,81 @@ class CoachingCounselingController extends Controller
         return redirect()->back()->with('success', 'Coaching & counseling berhasil dihapus.');
     }
 
-    public function show(CoachingCounseling $coachingCounseling): Response
+    public function printBlankForm(): Response
+    {
+        return Inertia::render('OnePower/CoachingCounseling/PrintForm', [
+            'item' => null,
+            'documentSettings' => $this->getDocumentSettings(),
+        ]);
+    }
+
+    public function printForm(CoachingCounseling $coachingCounseling): Response
     {
         $coachingCounseling->load(['employee', 'coach']);
 
-        return Inertia::render('OnePower/CoachingCounseling/Print', [
-            'item' => new CoachingCounselingResource($coachingCounseling),
+        return Inertia::render('OnePower/CoachingCounseling/PrintForm', [
+            'item' => (new CoachingCounselingResource($coachingCounseling))->resolve(),
+            'documentSettings' => $this->getDocumentSettings(),
         ]);
+    }
+
+    public function printResult(CoachingCounseling $coachingCounseling): Response
+    {
+        $coachingCounseling->load(['employee', 'coach']);
+
+        return Inertia::render('OnePower/CoachingCounseling/PrintResult', [
+            'item' => (new CoachingCounselingResource($coachingCounseling))->resolve(),
+            'documentSettings' => $this->getDocumentSettings(),
+        ]);
+    }
+
+    public function show(Request $request, CoachingCounseling $coachingCounseling): Response
+    {
+        if ($request->query('type') === 'form') {
+            return $this->printForm($coachingCounseling);
+        }
+
+        return $this->printResult($coachingCounseling);
+    }
+
+    public function saveSettings(Request $request): RedirectResponse
+    {
+        abort_if($request->user()?->isManagement(), 403);
+
+        $validated = $request->validate([
+            'siteCode' => ['required', 'string', 'max:50'],
+            'lokasi' => ['nullable', 'string', 'max:100'],
+            'noDokumen' => ['required', 'string', 'max:100'],
+            'revisi' => ['nullable', 'string', 'max:50'],
+            'tglEfektif' => ['nullable', 'date'],
+        ]);
+
+        $siteCode = strtoupper(trim($validated['siteCode']));
+        $lokasi = trim($validated['lokasi'] ?? 'Tabalong');
+        $noDokumen = trim($validated['noDokumen']);
+        $revisi = trim($validated['revisi'] ?? '1');
+        $tglEfektif = $validated['tglEfektif'] ?? '2022-06-07';
+
+        Setting::setValue('coaching_counseling_site_code', $siteCode);
+        Setting::setValue('coaching_counseling_lokasi', $lokasi);
+        Setting::setValue('coaching_counseling_no_dokumen', $noDokumen);
+        Setting::setValue('coaching_counseling_revisi', $revisi);
+        Setting::setValue('coaching_counseling_tgl_efektif', $tglEfektif);
+
+        CoachingCounseling::updateSiteCode($siteCode);
+
+        return redirect()->back()->with('success', 'Pengaturan format dokumen & no. surat coaching counseling berhasil dikunci.');
+    }
+
+    private function getDocumentSettings(): array
+    {
+        return [
+            'siteCode' => Setting::getValue('coaching_counseling_site_code', 'ADW') ?: 'ADW',
+            'lokasi' => Setting::getValue('coaching_counseling_lokasi', 'Tabalong') ?: 'Tabalong',
+            'noDokumen' => Setting::getValue('coaching_counseling_no_dokumen', 'PPA-ADRO-F-HCGA-17') ?: 'PPA-ADRO-F-HCGA-17',
+            'revisi' => Setting::getValue('coaching_counseling_revisi', '1') ?: '1',
+            'tglEfektif' => Setting::getValue('coaching_counseling_tgl_efektif', '2022-06-07') ?: '2022-06-07',
+        ];
     }
 
     public function searchEmployee(Request $request): JsonResponse

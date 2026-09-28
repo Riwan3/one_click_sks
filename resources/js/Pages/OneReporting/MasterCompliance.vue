@@ -1,404 +1,140 @@
 <script setup>
-import { ref } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { 
-  Database, 
-  MapPin, 
-  Truck, 
-  ListCheck, 
-  Plus, 
-  Pencil, 
-  Trash2, 
-  X,
-  CheckCircle2,
-  XCircle
-} from 'lucide-vue-next';
+import { Map as MapIcon, Truck, ListChecks, Plus, Pencil, Trash2, FileText } from 'lucide-vue-next';
+import { confirmDialog } from '@/utils/confirm';
+import MasterFormModal from './Partials/Master/MasterFormModal.vue';
 
 const props = defineProps({
   user: Object,
   notifCounts: Object,
   menu: Array,
-  tab: String,
-  areas: Array,
-  units: Array,
-  aktivitas: Array,
+  tab: { type: String, default: 'area' },
+  rows: { type: Array, default: () => [] },
+  areaOptions: { type: Array, default: () => [] },
+  kategoriOptions: { type: Array, default: () => [] },
+  documentOptions: { type: Array, default: () => [] },
 });
 
-const activeTab = ref(props.tab || 'area');
-
-// Modals State
-const showAreaModal = ref(false);
-const editingArea = ref(null);
-const areaForm = ref({ nama: '', keterangan: '', aktif: true });
-
-const showUnitModal = ref(false);
-const editingUnit = ref(null);
-const unitForm = ref({ kode: '', nama: '', area: '', keterangan: '', aktif: true });
-
-const showAktModal = ref(false);
-const editingAkt = ref(null);
-const aktForm = ref({ nama: '', kategori: '', keterangan: '', aktif: true });
-
-// Area CRUD
-const openAreaAdd = () => {
-  editingArea.value = null;
-  areaForm.value = { nama: '', keterangan: '', aktif: true };
-  showAreaModal.value = true;
-};
-const openAreaEdit = (item) => {
-  editingArea.value = item;
-  areaForm.value = { nama: item.nama, keterangan: item.keterangan || '', aktif: Boolean(item.aktif) };
-  showAreaModal.value = true;
-};
-const saveArea = () => {
-  if (editingArea.value) {
-    router.post(`/one-reporting/master/area/update/${editingArea.value.id}`, areaForm.value, {
-      onSuccess: () => showAreaModal.value = false
-    });
-  } else {
-    router.post('/one-reporting/master/area/store', areaForm.value, {
-      onSuccess: () => showAreaModal.value = false
-    });
-  }
-};
-const deleteArea = (id) => {
-  if (confirm('Hapus area ini?')) {
-    router.delete(`/one-reporting/master/area/delete/${id}`);
-  }
+const TABS = {
+  area: { label: 'Master Area', icon: MapIcon, noun: 'area', add: 'Tambah Area', empty: 'Belum ada data area' },
+  unit: { label: 'Master Unit/Lokasi', icon: Truck, noun: 'unit', add: 'Tambah Unit', empty: 'Belum ada data unit' },
+  aktivitas: { label: 'Master Aktivitas', icon: ListChecks, noun: 'aktivitas', add: 'Tambah Aktivitas', empty: 'Belum ada data aktivitas' },
 };
 
-// Unit CRUD
-const openUnitAdd = () => {
-  editingUnit.value = null;
-  unitForm.value = { kode: '', nama: '', area: '', keterangan: '', aktif: true };
-  showUnitModal.value = true;
-};
-const openUnitEdit = (item) => {
-  editingUnit.value = item;
-  unitForm.value = { kode: item.kode || '', nama: item.nama, area: item.area || '', keterangan: item.keterangan || '', aktif: Boolean(item.aktif) };
-  showUnitModal.value = true;
-};
-const saveUnit = () => {
-  if (editingUnit.value) {
-    router.post(`/one-reporting/master/unit/update/${editingUnit.value.id}`, unitForm.value, {
-      onSuccess: () => showUnitModal.value = false
-    });
-  } else {
-    router.post('/one-reporting/master/unit/store', unitForm.value, {
-      onSuccess: () => showUnitModal.value = false
-    });
-  }
-};
-const deleteUnit = (id) => {
-  if (confirm('Hapus unit ini?')) {
-    router.delete(`/one-reporting/master/unit/delete/${id}`);
-  }
+const COLUMNS = {
+  area: [{ key: 'nama', label: 'Nama Area', bold: true }, { key: 'keterangan', label: 'Keterangan', muted: true }],
+  unit: [
+    { key: 'kode', label: 'Kode Unit', badge: 'bg-blue-50 text-blue-700' },
+    { key: 'nama', label: 'Nama Unit/Lokasi', bold: true },
+    { key: 'area', label: 'Area', muted: true },
+    { key: 'keterangan', label: 'Keterangan', muted: true },
+  ],
+  aktivitas: [
+    { key: 'nama', label: 'Nama Aktivitas', bold: true },
+    { key: 'kategori', label: 'Kategori', badge: 'bg-violet-50 text-violet-700' },
+    { key: 'dokumen_urls', label: 'Keterangan', documents: true },
+  ],
 };
 
-// Aktivitas CRUD
-const openAktAdd = () => {
-  editingAkt.value = null;
-  aktForm.value = { nama: '', kategori: '', keterangan: '', aktif: true };
-  showAktModal.value = true;
-};
-const openAktEdit = (item) => {
-  editingAkt.value = item;
-  aktForm.value = { nama: item.nama, kategori: item.kategori || '', keterangan: item.keterangan || '', aktif: Boolean(item.aktif) };
-  showAktModal.value = true;
-};
-const saveAkt = () => {
-  if (editingAkt.value) {
-    router.post(`/one-reporting/master/aktivitas/update/${editingAkt.value.id}`, aktForm.value, {
-      onSuccess: () => showAktModal.value = false
-    });
-  } else {
-    router.post('/one-reporting/master/aktivitas/store', aktForm.value, {
-      onSuccess: () => showAktModal.value = false
-    });
-  }
-};
-const deleteAkt = (id) => {
-  if (confirm('Hapus aktivitas ini?')) {
-    router.delete(`/one-reporting/master/aktivitas/delete/${id}`);
-  }
+const formModal = ref(null);
+
+const current = computed(() => TABS[props.tab]);
+const columns = computed(() => COLUMNS[props.tab]);
+
+const handleDelete = async (row) => {
+  if (!(await confirmDialog(`Hapus ${current.value.noun} ini?`))) return;
+  router.delete(`/one-reporting/master/${props.tab}/${row.id}`, { preserveScroll: true });
 };
 </script>
 
 <template>
-  <Head title="Master Compliance - One-Reporting" />
+  <Head title="Master Compliance - One Click" />
 
   <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
-    <div class="space-y-6">
-      <!-- Header -->
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
-        <div>
-          <div class="flex items-center gap-2 text-xs font-semibold text-sky-600 mb-1">
-            <span>Operation Compliance Report</span>
-            <span>/</span>
-            <span class="text-slate-500">Master Data</span>
-          </div>
-          <h1 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-            <Database class="w-6 h-6 text-sky-500" />
-            Master Data Compliance
-          </h1>
-          <p class="text-xs text-slate-500 mt-0.5">Kelola data master area, unit/lokasi, dan daftar aktivitas compliance</p>
+    <div class="mx-auto max-w-[1100px] space-y-4">
+      <div>
+        <nav class="mb-1 text-xs text-slate-500">
+          <Link href="/one-reporting/dashboard" class="text-blue-500">Dashboard</Link> / Operation Compliance Report / <span class="text-slate-400">Master Compliance</span>
+        </nav>
+        <h1 class="text-xl font-bold text-slate-800">Master Compliance</h1>
+        <p class="text-[13px] text-slate-500">Kelola data master area, unit/lokasi, dan aktivitas</p>
+      </div>
+
+      <nav class="flex flex-wrap gap-1.5">
+        <Link
+          v-for="(item, key) in TABS"
+          :key="key"
+          :href="`/one-reporting/master?tab=${key}`"
+          :class="['inline-flex items-center gap-1 rounded-full border-[1.5px] px-4 py-1.5 text-sm font-semibold transition', tab === key ? 'border-blue-500 bg-blue-500 text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-100']"
+        >
+          <component :is="item.icon" class="h-4 w-4" />{{ item.label }}
+        </Link>
+      </nav>
+
+      <div class="flex items-center justify-between">
+        <span class="text-[13px] text-slate-500">{{ rows.length }} {{ current.noun }} terdaftar</span>
+        <button type="button" class="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700" @click="formModal = { row: null }">
+          <Plus class="h-4 w-4" />{{ current.add }}
+        </button>
+      </div>
+
+      <div class="overflow-hidden rounded-2xl bg-white shadow-md">
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[640px] text-left text-[13px] text-slate-700">
+            <thead class="whitespace-nowrap border-b-2 border-slate-100 text-xs font-bold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th class="py-2 pl-4 pr-2">#</th>
+                <th v-for="col in columns" :key="col.key" class="px-2 py-2">{{ col.label }}</th>
+                <th class="px-2 py-2 text-center">Status</th>
+                <th class="py-2 pl-2 pr-4 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr v-if="rows.length === 0">
+                <td :colspan="columns.length + 3" class="py-10 text-center text-slate-500">{{ current.empty }}</td>
+              </tr>
+              <tr v-for="(row, idx) in rows" :key="row.id" class="hover:bg-slate-50">
+                <td class="py-2.5 pl-4 pr-2 text-slate-400">{{ idx + 1 }}</td>
+                <td v-for="col in columns" :key="col.key" :class="['px-2 py-2.5', col.bold && 'font-semibold', col.muted && 'text-slate-500']">
+                  <template v-if="col.documents">
+                    <span v-if="row.dokumen_urls.length === 0" class="text-slate-500">—</span>
+                    <a
+                      v-for="(url, docIdx) in row.dokumen_urls"
+                      :key="url"
+                      :href="url"
+                      target="_blank"
+                      class="mb-1 mr-1 inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-slate-50"
+                    >
+                      <FileText class="h-3 w-3" />Lihat Dokumen {{ row.dokumen_urls.length > 1 ? docIdx + 1 : '' }}
+                    </a>
+                  </template>
+                  <span v-else-if="col.badge && row[col.key]" :class="['rounded px-2 py-0.5 text-xs font-semibold', col.badge]">{{ row[col.key] }}</span>
+                  <span v-else>{{ row[col.key] || '—' }}</span>
+                </td>
+                <td class="px-2 py-2.5 text-center">
+                  <span :class="['rounded-full px-2.5 py-1 text-xs', row.aktif ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800']">{{ row.aktif ? 'Aktif' : 'Nonaktif' }}</span>
+                </td>
+                <td class="whitespace-nowrap py-2.5 pl-2 pr-4 text-center">
+                  <button type="button" title="Edit" class="mr-1 rounded-md border border-blue-500 px-2 py-1 text-blue-600 hover:bg-blue-50" @click="formModal = { row }"><Pencil class="h-3 w-3" /></button>
+                  <button type="button" title="Hapus" class="rounded-md border border-red-500 px-2 py-1 text-red-600 hover:bg-red-50" @click="handleDelete(row)"><Trash2 class="h-3 w-3" /></button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-
-        <div>
-          <button v-if="activeTab === 'area'" @click="openAreaAdd" class="px-4 py-2 text-xs font-semibold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition flex items-center gap-1.5">
-            <Plus class="w-4 h-4" /> Tambah Area
-          </button>
-          <button v-if="activeTab === 'unit'" @click="openUnitAdd" class="px-4 py-2 text-xs font-semibold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition flex items-center gap-1.5">
-            <Plus class="w-4 h-4" /> Tambah Unit
-          </button>
-          <button v-if="activeTab === 'aktivitas'" @click="openAktAdd" class="px-4 py-2 text-xs font-semibold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition flex items-center gap-1.5">
-            <Plus class="w-4 h-4" /> Tambah Aktivitas
-          </button>
-        </div>
-      </div>
-
-      <!-- Navigation Tabs -->
-      <div class="flex items-center gap-2 border-b border-slate-200 pb-2">
-        <button 
-          @click="activeTab = 'area'" 
-          class="px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2"
-          :class="activeTab === 'area' ? 'bg-sky-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
-        >
-          <MapPin class="w-4 h-4" /> Master Area ({{ areas.length }})
-        </button>
-        <button 
-          @click="activeTab = 'unit'" 
-          class="px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2"
-          :class="activeTab === 'unit' ? 'bg-sky-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
-        >
-          <Truck class="w-4 h-4" /> Master Unit/Lokasi ({{ units.length }})
-        </button>
-        <button 
-          @click="activeTab = 'aktivitas'" 
-          class="px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2"
-          :class="activeTab === 'aktivitas' ? 'bg-sky-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
-        >
-          <ListCheck class="w-4 h-4" /> Master Aktivitas ({{ aktivitas.length }})
-        </button>
-      </div>
-
-      <!-- TAB 1: AREA -->
-      <div v-if="activeTab === 'area'" class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <table class="w-full text-left text-xs">
-          <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-100">
-            <tr>
-              <th class="px-4 py-3.5 w-12 text-center">#</th>
-              <th class="px-4 py-3.5">Nama Area</th>
-              <th class="px-4 py-3.5">Keterangan</th>
-              <th class="px-4 py-3.5 text-center">Status</th>
-              <th class="px-4 py-3.5 text-right w-24">Aksi</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 text-slate-700">
-            <tr v-for="(item, idx) in areas" :key="item.id" class="hover:bg-slate-50/60 transition">
-              <td class="px-4 py-3.5 text-center font-bold text-slate-400">{{ idx + 1 }}</td>
-              <td class="px-4 py-3.5 font-bold text-slate-800">{{ item.nama }}</td>
-              <td class="px-4 py-3.5 text-slate-500">{{ item.keterangan || '-' }}</td>
-              <td class="px-4 py-3.5 text-center">
-                <span class="px-2.5 py-0.5 text-[10px] font-bold rounded-full" :class="item.aktif ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'">
-                  {{ item.aktif ? 'Aktif' : 'Nonaktif' }}
-                </span>
-              </td>
-              <td class="px-4 py-3.5 text-right space-x-1">
-                <button @click="openAreaEdit(item)" class="p-1.5 text-slate-400 hover:text-sky-600 rounded-lg hover:bg-sky-50 transition">
-                  <Pencil class="w-4 h-4" />
-                </button>
-                <button @click="deleteArea(item.id)" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition">
-                  <Trash2 class="w-4 h-4" />
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!areas || areas.length === 0">
-              <td colspan="5" class="px-4 py-10 text-center text-slate-400 text-xs">Belum ada data area</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- TAB 2: UNIT -->
-      <div v-if="activeTab === 'unit'" class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <table class="w-full text-left text-xs">
-          <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-100">
-            <tr>
-              <th class="px-4 py-3.5 w-12 text-center">#</th>
-              <th class="px-4 py-3.5">Kode Unit</th>
-              <th class="px-4 py-3.5">Nama Unit/Lokasi</th>
-              <th class="px-4 py-3.5">Area</th>
-              <th class="px-4 py-3.5">Keterangan</th>
-              <th class="px-4 py-3.5 text-center">Status</th>
-              <th class="px-4 py-3.5 text-right w-24">Aksi</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 text-slate-700">
-            <tr v-for="(item, idx) in units" :key="item.id" class="hover:bg-slate-50/60 transition">
-              <td class="px-4 py-3.5 text-center font-bold text-slate-400">{{ idx + 1 }}</td>
-              <td class="px-4 py-3.5 font-bold text-sky-600">{{ item.kode || '-' }}</td>
-              <td class="px-4 py-3.5 font-bold text-slate-800">{{ item.nama }}</td>
-              <td class="px-4 py-3.5 font-semibold text-slate-600">{{ item.area || '-' }}</td>
-              <td class="px-4 py-3.5 text-slate-500">{{ item.keterangan || '-' }}</td>
-              <td class="px-4 py-3.5 text-center">
-                <span class="px-2.5 py-0.5 text-[10px] font-bold rounded-full" :class="item.aktif ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'">
-                  {{ item.aktif ? 'Aktif' : 'Nonaktif' }}
-                </span>
-              </td>
-              <td class="px-4 py-3.5 text-right space-x-1">
-                <button @click="openUnitEdit(item)" class="p-1.5 text-slate-400 hover:text-sky-600 rounded-lg hover:bg-sky-50 transition">
-                  <Pencil class="w-4 h-4" />
-                </button>
-                <button @click="deleteUnit(item.id)" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition">
-                  <Trash2 class="w-4 h-4" />
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!units || units.length === 0">
-              <td colspan="7" class="px-4 py-10 text-center text-slate-400 text-xs">Belum ada data unit</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- TAB 3: AKTIVITAS -->
-      <div v-if="activeTab === 'aktivitas'" class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <table class="w-full text-left text-xs">
-          <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-100">
-            <tr>
-              <th class="px-4 py-3.5 w-12 text-center">#</th>
-              <th class="px-4 py-3.5">Nama Aktivitas</th>
-              <th class="px-4 py-3.5">Kategori</th>
-              <th class="px-4 py-3.5">Keterangan</th>
-              <th class="px-4 py-3.5 text-center">Status</th>
-              <th class="px-4 py-3.5 text-right w-24">Aksi</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 text-slate-700">
-            <tr v-for="(item, idx) in aktivitas" :key="item.id" class="hover:bg-slate-50/60 transition">
-              <td class="px-4 py-3.5 text-center font-bold text-slate-400">{{ idx + 1 }}</td>
-              <td class="px-4 py-3.5 font-bold text-slate-800">{{ item.nama }}</td>
-              <td class="px-4 py-3.5">
-                <span class="px-2 py-0.5 text-[10px] font-semibold bg-purple-50 text-purple-700 rounded-md border border-purple-200">
-                  {{ item.kategori || 'General' }}
-                </span>
-              </td>
-              <td class="px-4 py-3.5 text-slate-500">{{ item.keterangan || '-' }}</td>
-              <td class="px-4 py-3.5 text-center">
-                <span class="px-2.5 py-0.5 text-[10px] font-bold rounded-full" :class="item.aktif ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'">
-                  {{ item.aktif ? 'Aktif' : 'Nonaktif' }}
-                </span>
-              </td>
-              <td class="px-4 py-3.5 text-right space-x-1">
-                <button @click="openAktEdit(item)" class="p-1.5 text-slate-400 hover:text-sky-600 rounded-lg hover:bg-sky-50 transition">
-                  <Pencil class="w-4 h-4" />
-                </button>
-                <button @click="deleteAkt(item.id)" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition">
-                  <Trash2 class="w-4 h-4" />
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!aktivitas || aktivitas.length === 0">
-              <td colspan="6" class="px-4 py-10 text-center text-slate-400 text-xs">Belum ada data aktivitas</td>
-            </tr>
-          </tbody>
-        </table>
       </div>
     </div>
 
-    <!-- MODAL AREA -->
-    <div v-if="showAreaModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-      <div class="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-100 p-5 space-y-4 text-xs">
-        <h3 class="font-bold text-slate-800 text-sm">{{ editingArea ? 'Edit Master Area' : 'Tambah Master Area' }}</h3>
-        <form @submit.prevent="saveArea" class="space-y-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Nama Area *</label>
-            <input type="text" v-model="areaForm.nama" required class="w-full px-3 py-2 border border-slate-300 rounded-xl" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Keterangan</label>
-            <textarea v-model="areaForm.keterangan" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-xl"></textarea>
-          </div>
-          <div v-if="editingArea">
-            <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
-              <input type="checkbox" v-model="areaForm.aktif" class="rounded text-sky-600" /> Aktif
-            </label>
-          </div>
-          <div class="flex justify-end gap-2 pt-2">
-            <button type="button" @click="showAreaModal = false" class="px-4 py-2 font-semibold bg-slate-100 rounded-xl">Batal</button>
-            <button type="submit" class="px-4 py-2 font-semibold text-white bg-sky-600 rounded-xl">Simpan</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- MODAL UNIT -->
-    <div v-if="showUnitModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-      <div class="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-100 p-5 space-y-4 text-xs">
-        <h3 class="font-bold text-slate-800 text-sm">{{ editingUnit ? 'Edit Master Unit' : 'Tambah Master Unit' }}</h3>
-        <form @submit.prevent="saveUnit" class="space-y-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Kode Unit</label>
-            <input type="text" v-model="unitForm.kode" placeholder="DT-001..." class="w-full px-3 py-2 border border-slate-300 rounded-xl" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Nama Unit/Lokasi *</label>
-            <input type="text" v-model="unitForm.nama" required class="w-full px-3 py-2 border border-slate-300 rounded-xl" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Area</label>
-            <select v-model="unitForm.area" class="w-full px-3 py-2 border border-slate-300 rounded-xl">
-              <option value="">-- Pilih Area --</option>
-              <option v-for="a in areas" :key="a.id" :value="a.nama">{{ a.nama }}</option>
-            </select>
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Keterangan</label>
-            <textarea v-model="unitForm.keterangan" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-xl"></textarea>
-          </div>
-          <div v-if="editingUnit">
-            <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
-              <input type="checkbox" v-model="unitForm.aktif" class="rounded text-sky-600" /> Aktif
-            </label>
-          </div>
-          <div class="flex justify-end gap-2 pt-2">
-            <button type="button" @click="showUnitModal = false" class="px-4 py-2 font-semibold bg-slate-100 rounded-xl">Batal</button>
-            <button type="submit" class="px-4 py-2 font-semibold text-white bg-sky-600 rounded-xl">Simpan</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- MODAL AKTIVITAS -->
-    <div v-if="showAktModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-      <div class="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-100 p-5 space-y-4 text-xs">
-        <h3 class="font-bold text-slate-800 text-sm">{{ editingAkt ? 'Edit Master Aktivitas' : 'Tambah Master Aktivitas' }}</h3>
-        <form @submit.prevent="saveAkt" class="space-y-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Nama Aktivitas *</label>
-            <input type="text" v-model="aktForm.nama" required class="w-full px-3 py-2 border border-slate-300 rounded-xl" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Kategori</label>
-            <input type="text" v-model="aktForm.kategori" placeholder="GMP, Safety, Inspeksi..." class="w-full px-3 py-2 border border-slate-300 rounded-xl" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Keterangan</label>
-            <textarea v-model="aktForm.keterangan" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-xl"></textarea>
-          </div>
-          <div v-if="editingAkt">
-            <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
-              <input type="checkbox" v-model="aktForm.aktif" class="rounded text-sky-600" /> Aktif
-            </label>
-          </div>
-          <div class="flex justify-end gap-2 pt-2">
-            <button type="button" @click="showAktModal = false" class="px-4 py-2 font-semibold bg-slate-100 rounded-xl">Batal</button>
-            <button type="submit" class="px-4 py-2 font-semibold text-white bg-sky-600 rounded-xl">Simpan</button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <MasterFormModal
+      v-if="formModal"
+      :type="tab"
+      :row="formModal.row"
+      :area-options="areaOptions"
+      :kategori-options="kategoriOptions"
+      :document-options="documentOptions"
+      @closed="formModal = null"
+    />
   </AppLayout>
 </template>

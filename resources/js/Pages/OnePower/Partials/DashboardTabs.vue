@@ -1,5 +1,5 @@
 <script setup>
-import { CalendarCheck, Gauge, UserRoundX } from '@lucide/vue';
+import { CalendarCheck, Gauge, UserRoundX, HeartHandshake } from '@lucide/vue';
 
 defineProps({
     activeTab: { type: String, required: true },
@@ -11,6 +11,7 @@ const tabs = [
     { key: 'kehadiran', label: 'Kehadiran', icon: CalendarCheck },
     { key: 'hm', label: 'HM', icon: Gauge },
     { key: 'deviasi', label: 'Deviasi', icon: UserRoundX },
+    { key: 'coaching', label: 'Coaching Counseling', icon: HeartHandshake },
 ];
 </script>
 

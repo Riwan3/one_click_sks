@@ -1,6 +1,8 @@
 <script setup>
 import { ref, watch } from 'vue';
+import { Link } from '@inertiajs/vue3';
 import SignaturePad from '@/Components/ui/SignaturePad.vue';
+import PhotoUploadField from '@/Components/ui/PhotoUploadField.vue';
 
 const props = defineProps({
     form: { type: Object, required: true },
@@ -31,17 +33,17 @@ const pickEmployee = (employee) => {
     props.form.nama = employee.name;
     props.form.jabatan = employee.jabatan_ss6 ?? '';
     props.form.departemen = employee.unit ?? '';
-    employeeQuery.value = employee.name;
+    employeeQuery.value = `${employee.nrp} - ${employee.name}`;
     showResults.value = false;
 };
 
 const jenisOptions = [
-    { key: 'jenis_absen', label: 'Absen tanpa keterangan' },
-    { key: 'jenis_perilaku', label: 'Perilaku tidak sesuai' },
-    { key: 'jenis_ceroboh', label: 'Ceroboh dalam bekerja' },
-    { key: 'jenis_hasil_kerja', label: 'Hasil kerja tidak sesuai standar' },
-    { key: 'jenis_menolak_perintah', label: 'Menolak perintah atasan' },
-    { key: 'jenis_pelanggaran_peraturan', label: 'Pelanggaran peraturan perusahaan' },
+    { key: 'jenis_absen', label: 'Absen / Terlambat' },
+    { key: 'jenis_ceroboh', label: 'Ceroboh / Lalai' },
+    { key: 'jenis_menolak_perintah', label: 'Menolak Perintah' },
+    { key: 'jenis_perilaku', label: 'Perilaku' },
+    { key: 'jenis_hasil_kerja', label: 'Hasil Kerja' },
+    { key: 'jenis_pelanggaran_peraturan', label: 'Pelanggaran Peraturan' },
 ];
 </script>
 
@@ -129,13 +131,25 @@ const jenisOptions = [
                 <textarea v-model="form.catatan" rows="2" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"></textarea>
             </div>
 
+            <!-- Upload Foto Bukti Dokumen -->
+            <div class="sm:col-span-2 pt-2 border-t border-slate-100">
+                <PhotoUploadField
+                    v-model="form.foto"
+                    :existing-photo="form.existing_foto"
+                    :hapus-foto="form.hapus_foto"
+                    :error="form.errors?.foto"
+                    label="Foto Bukti Pelanggaran / Dokumen Surat Teguran"
+                    @update:hapus-foto="form.hapus_foto = $event"
+                />
+            </div>
+
             <SignaturePad v-model="form.ttd_karyawan" label="TTD Karyawan" />
             <SignaturePad v-model="form.ttd_atasan" label="TTD Atasan" />
             <SignaturePad v-model="form.ttd_atasan_atasan" label="TTD Atasan dari Atasan" />
         </div>
 
         <div class="mt-6 flex justify-end gap-2">
-            <a href="/one-power/pembinaan/surat-teguran" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">Batal</a>
+            <Link href="/one-power/pembinaan/surat-teguran" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Kembali</Link>
             <button
                 type="submit"
                 :disabled="form.processing"

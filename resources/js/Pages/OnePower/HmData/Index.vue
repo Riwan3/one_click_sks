@@ -1,5 +1,6 @@
 <script setup>
-import { ref } from 'vue';
+import { confirmDialog } from '@/utils/confirm';
+import { ref, computed } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { Gauge, CloudDownload, Search, RefreshCw, X } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -18,6 +19,28 @@ const props = defineProps({
     summary: { type: Object, required: true },
     hmData: { type: Array, required: true },
     pagination: { type: Object, required: true },
+});
+
+const isOperator = computed(() => {
+    return Boolean(
+        props.user?.isOperator ||
+        String(props.user?.role || '').toLowerCase() === 'operator' ||
+        String(props.user?.jabatan || '').toLowerCase().includes('operator')
+    );
+});
+
+const isGroupLeader = computed(() => {
+    const role = (props.user?.role || '').toLowerCase();
+    const jabatan = (props.user?.employee?.jabatan_ss6 || props.user?.jabatan || '').toLowerCase();
+    return (
+        role === 'group-leader' ||
+        role === 'gl' ||
+        role.includes('group-leader') ||
+        role.includes('group leader') ||
+        role.includes('gl') ||
+        jabatan.includes('group leader') ||
+        jabatan.includes('gl')
+    );
 });
 
 const searchInput = ref(props.search);
@@ -88,8 +111,8 @@ const submitForm = () => {
     }
 };
 
-const handleDelete = (row) => {
-    if (! confirm(`Hapus data HM "${row.nrp} - ${row.nama}" tanggal ${row.tanggal}?`)) return;
+const handleDelete = async (row) => {
+    if (! await confirmDialog(`Hapus data HM "${row.nrp} - ${row.nama}" tanggal ${row.tanggal}?`)) return;
     router.delete(`/one-power/personal-data/hm/${row.id}`, { preserveScroll: true });
 };
 
@@ -139,70 +162,111 @@ const bulanList = [
 </script>
 
 <template>
-    <Head title="Database HM - OneClick" />
+    <Head :title="(isOperator ? 'HM Saya' : 'Database HM') + ' - OneClick'" />
 
     <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
-        <div class="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-                <h1 class="mb-1 text-xl font-extrabold text-slate-800">Database HM (Hour Meter)</h1>
-                <p class="m-0 text-sm text-slate-500">Kelola dan monitor data penggunaan jam kerja alat.</p>
+        <div class="mx-auto max-w-2xl">
+            <!-- Header Section -->
+            <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 class="mb-0.5 flex items-center gap-2 text-xl font-black text-slate-800 tracking-tight">
+                        <Gauge class="h-5 w-5 text-blue-500" />
+                        {{ isOperator ? 'HM Saya (Hour Meter)' : 'Database HM (Hour Meter)' }}
+                    </h1>
+                    <p class="m-0 text-xs font-medium text-slate-500">
+                        {{ isOperator ? 'Rekap dan riwayat penggunaan jam kerja alat Anda.' : 'Kelola dan monitor data penggunaan jam kerja alat.' }}
+                    </p>
+                </div>
+                <div v-if="!isOperator" class="flex flex-wrap gap-2">
+                    <button v-if="!isGroupLeader" type="button" class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-indigo-700" @click="importApiModalOpen = true">
+                        <RefreshCw class="h-3.5 w-3.5" /> Import dari API HO
+                    </button>
+                    <button type="button" class="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700" @click="importModalOpen = true">
+                        <CloudDownload class="h-3.5 w-3.5" /> Import Excel
+                    </button>
+                    <button type="button" class="flex items-center gap-1.5 rounded-xl bg-blue-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-600" @click="openCreate">
+                        <Gauge class="h-3.5 w-3.5" /> Tambah Data
+                    </button>
+                </div>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <button type="button" class="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-indigo-700" @click="importApiModalOpen = true">
-                    <RefreshCw class="h-4 w-4" /> Import dari API HO
-                </button>
-                <button type="button" class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-700" @click="importModalOpen = true">
-                    <CloudDownload class="h-4 w-4" /> Import Excel
-                </button>
-                <button type="button" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-blue-600" @click="openCreate">
-                    <Gauge class="h-4 w-4" /> Tambah Data
-                </button>
-            </div>
-        </div>
 
-        <form class="mb-4 flex flex-wrap items-center gap-2" @submit.prevent="submitFilter">
-            <div class="relative w-full max-w-xs flex-1">
-                <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input v-model="searchInput" type="text" placeholder="Cari NRP, nama, atau unit..." class="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500">
-            </div>
-            <div class="flex items-center gap-1.5">
-                <span class="text-xs font-semibold text-slate-500">Dari</span>
-                <input v-model="dateFromInput" type="date" class="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
-            </div>
-            <div class="flex items-center gap-1.5">
-                <span class="text-xs font-semibold text-slate-500">S/d</span>
-                <input v-model="dateToInput" type="date" class="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
-            </div>
-            <button type="submit" class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-600">Filter</button>
-        </form>
+            <!-- Filter Card -->
+            <div class="mb-4 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-xs">
+                <form class="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between" @submit.prevent="submitFilter">
+                    <div v-if="!isOperator" class="relative w-full sm:max-w-xs flex-1">
+                        <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <input
+                            v-model="searchInput"
+                            type="text"
+                            placeholder="Cari NRP, nama, atau unit..."
+                            class="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs font-semibold outline-none focus:border-blue-500"
+                        >
+                    </div>
 
-        <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div class="rounded-xl bg-blue-500 p-4 text-white shadow-sm">
-                <div class="text-xs font-bold uppercase tracking-wide opacity-75">Total HM</div>
-                <div class="text-2xl font-extrabold">{{ summary.totalHm.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }}</div>
-                <div class="text-xs opacity-75">Periode terfilter</div>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-                <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Rata-rata HM</div>
-                <div class="text-2xl font-extrabold text-blue-600">{{ summary.avgHm.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }}</div>
-                <div class="text-xs text-slate-400">Per aktivitas</div>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-                <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Total Record</div>
-                <div class="text-2xl font-extrabold text-slate-800">{{ summary.totalRecords }}</div>
-                <div class="text-xs text-slate-400">Data terfilter</div>
-            </div>
-        </div>
+                    <div class="flex flex-wrap items-center gap-2 flex-1 justify-between sm:justify-start">
+                        <div class="flex items-center gap-1.5 flex-1 min-w-[130px]">
+                            <span class="text-xs font-bold text-slate-500 shrink-0">Dari</span>
+                            <input
+                                v-model="dateFromInput"
+                                type="date"
+                                class="w-full rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
+                            >
+                        </div>
+                        <div class="flex items-center gap-1.5 flex-1 min-w-[130px]">
+                            <span class="text-xs font-bold text-slate-500 shrink-0">S/d</span>
+                            <input
+                                v-model="dateToInput"
+                                type="date"
+                                class="w-full rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
+                            >
+                        </div>
+                    </div>
 
-        <HmDataTable :hm-data="hmData" @edit="openEdit" @delete="handleDelete" />
+                    <button
+                        type="submit"
+                        class="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white hover:bg-blue-700 transition shadow-2xs shrink-0 active:scale-95"
+                    >
+                        Filter
+                    </button>
+                </form>
+            </div>
 
-        <div class="mt-4">
-            <Pagination
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                base-url="/one-power/personal-data/hm"
-                :query="{ search, date_from: dateFrom, date_to: dateTo }"
-            />
+            <!-- Summary Stats (Modern 3-column row) -->
+            <div class="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
+                <div class="rounded-2xl border border-blue-200/80 bg-blue-50/80 p-3 text-center shadow-xs">
+                    <div class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-blue-600">Total HM</div>
+                    <div class="text-base sm:text-xl font-black text-blue-700 leading-tight mt-0.5">
+                        {{ summary.totalHm.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }}
+                    </div>
+                    <div class="text-[9px] sm:text-[10px] font-semibold text-blue-500/80">Jam Kerja</div>
+                </div>
+                <div class="rounded-2xl border border-slate-200/80 bg-white p-3 text-center shadow-xs">
+                    <div class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-500">Rata-rata</div>
+                    <div class="text-base sm:text-xl font-black text-slate-800 leading-tight mt-0.5">
+                        {{ summary.avgHm.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }}
+                    </div>
+                    <div class="text-[9px] sm:text-[10px] font-medium text-slate-400">Jam / Hari</div>
+                </div>
+                <div class="rounded-2xl border border-slate-200/80 bg-white p-3 text-center shadow-xs">
+                    <div class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-500">Record</div>
+                    <div class="text-base sm:text-xl font-black text-slate-800 leading-tight mt-0.5">
+                        {{ summary.totalRecords }}
+                    </div>
+                    <div class="text-[9px] sm:text-[10px] font-medium text-slate-400">Aktivitas</div>
+                </div>
+            </div>
+
+            <!-- Table or Mobile Cards -->
+            <HmDataTable :hm-data="hmData" :is-operator="isOperator" @edit="openEdit" @delete="handleDelete" />
+
+            <div class="mt-4">
+                <Pagination
+                    :current-page="pagination.currentPage"
+                    :last-page="pagination.lastPage"
+                    base-url="/one-power/personal-data/hm"
+                    :query="{ search, date_from: dateFrom, date_to: dateTo }"
+                />
+            </div>
         </div>
 
         <HmDataFormModal :open="formModalOpen" :row="editingRow" :form="form" @close="closeFormModal" @submit="submitForm" />

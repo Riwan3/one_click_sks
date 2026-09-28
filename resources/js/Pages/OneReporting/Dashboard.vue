@@ -1,331 +1,143 @@
 <script setup>
-import { ref } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
+import { reactive, computed } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { 
-  ClipboardCheck, 
-  CheckCircle2, 
-  Clock, 
-  AlertCircle, 
-  TrendingUp, 
-  Filter, 
-  Calendar, 
-  Layers, 
-  Award, 
-  AlertTriangle,
-  FileSpreadsheet
-} from 'lucide-vue-next';
+import { ClipboardList, CheckCircle2, Hourglass, XCircle, Percent, Trophy, AlertTriangle, ListTodo } from 'lucide-vue-next';
+import ComplianceBar from './Partials/Dashboard/ComplianceBar.vue';
+import ComplianceCharts from './Partials/Dashboard/ComplianceCharts.vue';
+import ComplianceRankingTable from './Partials/Dashboard/ComplianceRankingTable.vue';
 
 const props = defineProps({
   user: Object,
   notifCounts: Object,
   menu: Array,
-  filters: Object,
-  metrics: Object,
-  chartHarian: Array,
-  areaStats: Array,
-  topPengawas: Array,
-  areaLow: Array,
-  outstanding: Array,
-  allAreas: Array,
+  filters: { type: Object, required: true },
+  summary: { type: Object, required: true },
+  dailyTrend: { type: Array, default: () => [] },
+  perArea: { type: Array, default: () => [] },
+  perPengawas: { type: Array, default: () => [] },
+  topPengawas: { type: Array, default: () => [] },
+  lowestAreas: { type: Array, default: () => [] },
+  outstanding: { type: Array, default: () => [] },
+  areaOptions: { type: Array, default: () => [] },
+  shiftOptions: { type: Array, default: () => [] },
 });
 
-const filterForm = ref({
-  tanggal: props.filters?.tanggal || new Date().toISOString().split('T')[0],
-  shift: props.filters?.shift || '',
-  area: props.filters?.area || '',
+const form = reactive({ ...props.filters });
+
+const fieldClass = 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100';
+
+const kpiCards = computed(() => [
+  { label: 'Total Assignment', value: props.summary.total, icon: ClipboardList, bg: 'bg-blue-50', text: 'text-blue-500' },
+  { label: 'Compliance Selesai', value: props.summary.selesai, icon: CheckCircle2, bg: 'bg-green-50', text: 'text-emerald-500' },
+  { label: 'Compliance Progress', value: props.summary.progress, icon: Hourglass, bg: 'bg-yellow-50', text: 'text-amber-500' },
+  { label: 'Belum Dilaksanakan', value: props.summary.belum, icon: XCircle, bg: 'bg-rose-50', text: 'text-red-500' },
+]);
+
+const summaryTitle = computed(() => {
+  const date = new Date(`${props.filters.tanggal}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  return `Ringkasan Hari Ini — ${date}${props.filters.shift ? ` — ${props.filters.shift}` : ''}`;
 });
 
-const applyFilter = () => {
-  router.get('/one-reporting/dashboard', filterForm.value, { preserveState: true, replace: true });
-};
-
-const resetFilter = () => {
-  filterForm.value = {
-    tanggal: new Date().toISOString().split('T')[0],
-    shift: '',
-    area: '',
-  };
-  applyFilter();
+const applyFilters = () => {
+  const filled = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''));
+  router.get('/one-reporting/dashboard', filled, { preserveScroll: true, replace: true });
 };
 </script>
 
 <template>
-  <Head title="Dashboard Compliance - One-Reporting" />
+  <Head title="Dashboard Compliance - One Click" />
 
   <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
-    <div class="space-y-6">
-      <!-- Header -->
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
-        <div>
-          <div class="flex items-center gap-2 text-xs font-semibold text-sky-600 mb-1">
-            <span>Operation Compliance Report</span>
-            <span>/</span>
-            <span class="text-slate-500">Dashboard</span>
-          </div>
-          <h1 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-            <ClipboardCheck class="w-6 h-6 text-sky-500" />
-            Dashboard Compliance
-          </h1>
-          <p class="text-xs text-slate-500 mt-0.5">Monitoring tingkat kepatuhan aktivitas operasional harian &amp; tren lapangan</p>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <a href="/one-reporting/daily" class="px-4 py-2 text-xs font-semibold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition flex items-center gap-2">
-            <ClipboardCheck class="w-4 h-4" />
-            Input Daily Compliance
-          </a>
-        </div>
-      </div>
-
-      <!-- Filter Bar -->
-      <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-        <form @submit.prevent="applyFilter" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
+    <div class="mx-auto max-w-[1400px] space-y-6">
+      <div>
+        <nav class="mb-4 text-sm text-slate-500">
+          <Link href="/" class="text-blue-500">Home</Link> &gt;
+          <Link href="/one-reporting/dashboard" class="text-blue-500">Reporting</Link> &gt;
+          <span>Dashboard</span>
+        </nav>
+        <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Tanggal</label>
-            <div class="relative">
-              <input type="date" v-model="filterForm.tanggal" class="w-full pl-9 pr-3 py-2 text-xs font-medium border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-slate-50/50" />
-              <Calendar class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            </div>
+            <h1 class="text-3xl font-extrabold text-slate-800">Reporting Dashboard</h1>
+            <p class="mt-1 text-sm text-slate-500">Monitor compliance assignment harian per area &amp; pengawas</p>
           </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Shift</label>
-            <select v-model="filterForm.shift" class="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-slate-50/50">
+          <div class="flex flex-wrap items-center gap-2">
+            <input v-model="form.tanggal" type="date" :class="[fieldClass, 'w-40']" @change="applyFilters" />
+            <select v-model="form.shift" :class="[fieldClass, 'w-36']" @change="applyFilters">
               <option value="">Semua Shift</option>
-              <option value="Shift 1">Shift 1</option>
-              <option value="Shift 2">Shift 2</option>
+              <option v-for="s in shiftOptions" :key="s" :value="s">{{ s }}</option>
             </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Area</label>
-            <select v-model="filterForm.area" class="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-slate-50/50">
+            <select v-model="form.area" :class="[fieldClass, 'w-44']" @change="applyFilters">
               <option value="">Semua Area</option>
-              <option v-for="a in allAreas" :key="a" :value="a">{{ a }}</option>
+              <option v-for="a in areaOptions" :key="a" :value="a">{{ a }}</option>
             </select>
           </div>
-
-          <div class="flex items-center gap-2">
-            <button type="submit" class="flex-1 py-2 px-4 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-1.5">
-              <Filter class="w-3.5 h-3.5" />
-              Filter
-            </button>
-            <button type="button" @click="resetFilter" class="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs rounded-xl transition">
-              Reset
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- Key Metrics -->
-      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
-            <Layers class="w-5 h-5" />
-          </div>
-          <div>
-            <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Assignment</p>
-            <p class="text-xl font-black text-slate-800">{{ metrics.totalAssignment }}</p>
-          </div>
-        </div>
-
-        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <CheckCircle2 class="w-5 h-5" />
-          </div>
-          <div>
-            <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Selesai (Complete)</p>
-            <p class="text-xl font-black text-emerald-600">{{ metrics.totalSelesai }}</p>
-          </div>
-        </div>
-
-        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-            <Clock class="w-5 h-5" />
-          </div>
-          <div>
-            <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Progress</p>
-            <p class="text-xl font-black text-amber-600">{{ metrics.totalProgress }}</p>
-          </div>
-        </div>
-
-        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-            <AlertCircle class="w-5 h-5" />
-          </div>
-          <div>
-            <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Belum Dimulai</p>
-            <p class="text-xl font-black text-rose-600">{{ metrics.totalBelum }}</p>
-          </div>
-        </div>
-
-        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3 col-span-2 lg:col-span-1">
-          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-            <TrendingUp class="w-5 h-5" />
-          </div>
-          <div>
-            <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Compliance Rate</p>
-            <p class="text-xl font-black text-indigo-600">{{ metrics.persentase }}%</p>
-          </div>
         </div>
       </div>
 
-      <!-- Charts & Tables Grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- 7-Day Trend Chart -->
-        <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <TrendingUp class="w-4 h-4 text-sky-500" />
-                Tren Compliance Harian (7 Hari Terakhir)
-              </h2>
-              <span class="text-xs text-slate-400 font-medium">Auto-updated</span>
-            </div>
-
-            <!-- Custom Visual Bars -->
-            <div class="h-48 flex items-end justify-between gap-3 pt-6 pb-2 px-2">
-              <div v-for="item in chartHarian" :key="item.tgl" class="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                <div class="text-[10px] font-bold text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {{ item.total > 0 ? Math.round((item.selesai / item.total) * 100) : 0 }}%
-                </div>
-                <div class="w-full bg-slate-100 rounded-t-lg relative overflow-hidden flex flex-col justify-end" style="height: 120px;">
-                  <div 
-                    class="w-full bg-gradient-to-t from-sky-600 to-sky-400 rounded-t-lg transition-all duration-500"
-                    :style="{ height: `${item.total > 0 ? (item.selesai / item.total) * 100 : 0}%` }"
-                  ></div>
-                </div>
-                <span class="text-[11px] font-semibold text-slate-500">{{ item.tgl }}</span>
+      <section>
+        <div class="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">{{ summaryTitle }}</div>
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          <div v-for="card in kpiCards" :key="card.label" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div class="flex items-center gap-3">
+              <div :class="['flex h-12 w-12 shrink-0 items-center justify-center rounded-xl', card.bg, card.text]"><component :is="card.icon" class="h-6 w-6" /></div>
+              <div>
+                <div :class="['text-3xl font-extrabold leading-none', card.text]">{{ card.value }}</div>
+                <div class="mt-1 text-xs font-semibold text-slate-500">{{ card.label }}</div>
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- Compliance Per Area -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col">
-          <h2 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <Layers class="w-4 h-4 text-indigo-500" />
-            Compliance Per Area
-          </h2>
-          <div class="space-y-3 flex-1 overflow-y-auto max-h-56 pr-1">
-            <div v-for="st in areaStats" :key="st.area" class="space-y-1">
-              <div class="flex items-center justify-between text-xs font-semibold">
-                <span class="text-slate-700">{{ st.area }}</span>
-                <span class="text-slate-500">{{ st.total > 0 ? Math.round((st.selesai / st.total) * 100) : 0 }}% ({{ st.selesai }}/{{ st.total }})</span>
-              </div>
-              <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div 
-                  class="h-full bg-indigo-500 rounded-full transition-all duration-300"
-                  :style="{ width: `${st.total > 0 ? (st.selesai / st.total) * 100 : 0}%` }"
-                ></div>
+          <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div class="flex items-center gap-3">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-500"><Percent class="h-6 w-6" /></div>
+              <div>
+                <div class="text-3xl font-extrabold leading-none text-violet-500">{{ summary.persentase }}%</div>
+                <div class="mt-1 text-xs font-semibold text-slate-500">Persentase Compliance</div>
               </div>
             </div>
-            <div v-if="!areaStats || areaStats.length === 0" class="text-center py-6 text-xs text-slate-400">
-              Belum ada data area untuk tanggal ini
-            </div>
+            <ComplianceBar :percent="summary.persentase" :show-label="false" class="mt-2" />
           </div>
         </div>
+      </section>
+
+      <ComplianceCharts :daily-trend="dailyTrend" :per-area="perArea" :per-pengawas="perPengawas" />
+
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ComplianceRankingTable title="Top Compliance Pengawas" :icon="Trophy" icon-class="text-amber-500" label-header="Nama Pengawas" :rows="topPengawas" show-assignment />
+        <ComplianceRankingTable title="Area Compliance Terendah" :icon="AlertTriangle" icon-class="text-red-500" label-header="Area" :rows="lowestAreas" />
       </div>
 
-      <!-- Ranking Tables -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Top Supervisor -->
-        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-          <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <Award class="w-4 h-4 text-emerald-500" />
-              Top Compliance Pengawas
-            </h3>
-          </div>
-          <div class="divide-y divide-slate-100">
-            <div v-for="(p, idx) in topPengawas" :key="p.pengawas" class="p-3.5 flex items-center justify-between hover:bg-slate-50/60 transition">
-              <div class="flex items-center gap-3">
-                <span class="w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center" :class="idx === 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'">
-                  #{{ idx + 1 }}
-                </span>
-                <span class="text-xs font-bold text-slate-800">{{ p.pengawas }}</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <span class="text-xs font-semibold text-slate-500">{{ p.selesai }}/{{ p.assignment }} task</span>
-                <span class="px-2.5 py-1 text-[11px] font-black rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  {{ p.persen }}%
-                </span>
-              </div>
-            </div>
-            <div v-if="!topPengawas || topPengawas.length === 0" class="p-6 text-center text-xs text-slate-400">
-              Belum ada data pengawas
-            </div>
-          </div>
-        </div>
-
-        <!-- Area Lowest -->
-        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-          <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <AlertTriangle class="w-4 h-4 text-rose-500" />
-              Area Compliance Terendah
-            </h3>
-          </div>
-          <div class="divide-y divide-slate-100">
-            <div v-for="a in areaLow" :key="a.area" class="p-3.5 flex items-center justify-between hover:bg-slate-50/60 transition">
-              <span class="text-xs font-bold text-slate-800">{{ a.area }}</span>
-              <div class="flex items-center gap-3">
-                <span class="text-xs font-semibold text-slate-500">{{ a.selesai }}/{{ a.total }} task</span>
-                <span class="px-2.5 py-1 text-[11px] font-black rounded-lg bg-rose-50 text-rose-700 border border-rose-200">
-                  {{ a.persen }}%
-                </span>
-              </div>
-            </div>
-            <div v-if="!areaLow || areaLow.length === 0" class="p-6 text-center text-xs text-slate-400">
-              Belum ada data area
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Outstanding Tasks List -->
-      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-          <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-            <Clock class="w-4 h-4 text-amber-500" />
-            Aktivitas Belum Dilaksanakan (Outstanding)
-          </h3>
-          <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700">
-            {{ outstanding.length }} Outstanding
-          </span>
+      <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between gap-2 border-b border-slate-100 px-5 py-3 text-sm font-bold text-slate-800">
+          <span class="flex items-center gap-2"><ListTodo class="h-4 w-4 text-red-500" /> Outstanding Activity</span>
+          <span v-if="summary.belum > 0" class="rounded bg-red-100 px-2 py-0.5 text-xs text-red-800">{{ summary.belum }} belum dilaksanakan</span>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-100">
+          <table class="w-full min-w-[720px] text-left text-[13px] text-slate-700">
+            <thead class="border-b-2 border-slate-100 text-xs font-bold uppercase tracking-wide text-slate-500">
               <tr>
-                <th class="px-4 py-3">Area</th>
-                <th class="px-4 py-3">Unit</th>
-                <th class="px-4 py-3">Pengawas</th>
-                <th class="px-4 py-3">Status</th>
-                <th class="px-4 py-3 text-right">Aksi</th>
+                <th class="py-2 pl-4 pr-2">#</th>
+                <th class="px-2 py-2">Shift</th>
+                <th class="px-2 py-2">Area</th>
+                <th class="px-2 py-2">Unit</th>
+                <th class="px-2 py-2">Pengawas</th>
+                <th class="px-2 py-2">Aktivitas Belum Dilaksanakan</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100 text-slate-700">
-              <tr v-for="o in outstanding" :key="o.id" class="hover:bg-slate-50/60 transition">
-                <td class="px-4 py-3 font-semibold text-slate-800">{{ o.area }}</td>
-                <td class="px-4 py-3 text-slate-500">{{ o.unit }}</td>
-                <td class="px-4 py-3 font-medium">{{ o.pengawas }}</td>
-                <td class="px-4 py-3">
-                  <span class="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700">
-                    Belum Dimulai
-                  </span>
-                </td>
-                <td class="px-4 py-3 text-right">
-                  <a href="/one-reporting/daily" class="text-sky-600 hover:text-sky-800 font-bold hover:underline">
-                    Proses &rarr;
-                  </a>
+            <tbody class="divide-y divide-slate-100">
+              <tr v-if="outstanding.length === 0">
+                <td colspan="6" class="py-10 text-center">
+                  <CheckCircle2 class="mx-auto h-8 w-8 text-emerald-500" />
+                  <div class="mt-2 text-sm text-slate-500">Semua activity sudah dilaksanakan</div>
                 </td>
               </tr>
-              <tr v-if="!outstanding || outstanding.length === 0">
-                <td colspan="5" class="px-4 py-8 text-center text-slate-400 text-xs">
-                  Semua aktivitas untuk tanggal ini sudah diproses/selesai! 🎉
-                </td>
+              <tr v-for="(row, idx) in outstanding" :key="row.id" class="hover:bg-slate-50">
+                <td class="py-2.5 pl-4 pr-2 text-slate-400">{{ idx + 1 }}</td>
+                <td class="px-2 py-2.5"><span class="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">{{ row.shift }}</span></td>
+                <td class="px-2 py-2.5"><span class="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{{ row.area }}</span></td>
+                <td class="px-2 py-2.5 text-slate-500">{{ row.unit }}</td>
+                <td class="px-2 py-2.5 font-semibold">{{ row.pengawas }}</td>
+                <td class="px-2 py-2.5">{{ row.aktivitas }}</td>
               </tr>
             </tbody>
           </table>

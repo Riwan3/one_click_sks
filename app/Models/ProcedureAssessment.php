@@ -18,8 +18,13 @@ class ProcedureAssessment extends Model
         'timer_minutes',
         'retry_limit',
         'validity_months',
+        'randomize_questions',
+        'mandatory_read',
         'status',
         'target_roles',
+        'signed_by',
+        'signer_signature',
+        'signer_signed_at',
         'created_by',
     ];
 
@@ -29,6 +34,9 @@ class ProcedureAssessment extends Model
         'timer_minutes' => 'integer',
         'retry_limit' => 'integer',
         'validity_months' => 'integer',
+        'randomize_questions' => 'boolean',
+        'mandatory_read' => 'boolean',
+        'signer_signed_at' => 'datetime',
     ];
 
     public function procedure()
@@ -44,5 +52,15 @@ class ProcedureAssessment extends Model
     public function evaluations()
     {
         return $this->hasMany(ProcedureEvaluation::class, 'assessment_id');
+    }
+
+    public function certificates()
+    {
+        return $this->hasMany(ProcedureCertificate::class, 'assessment_id');
+    }
+
+    public function signer()
+    {
+        return $this->belongsTo(Employee::class, 'signed_by');
     }
 }

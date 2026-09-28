@@ -25,8 +25,18 @@ class IzinKaryawanController extends Controller
 
     public function index(Request $request): Response
     {
-        $isAdmin = (bool) $request->user()?->isAdmin();
-        $isMedic = (bool) $request->user()?->isMedic();
+        $user = $request->user()?->loadMissing('employee');
+        $isAdmin = (bool) $user?->isAdmin();
+        $isMedic = (bool) $user?->isMedic();
+        $isPimpinan = (bool) $user?->isPimpinan();
+        $isGlManpower = (bool) $user?->isGlManpower();
+        $isManpower = $isGlManpower || stripos($user?->employee?->jabatan_ss6 ?? $user?->jabatan ?? '', 'MANPOWER') !== false;
+        $isAdminOrManpower = $isAdmin || $isPimpinan || $isManpower || $isMedic;
+        $isOperator = (bool) ($user && (
+            strtolower((string) $user->role) === 'operator'
+            || str_contains(strtoupper((string) ($user->employee?->jabatan_ss6 ?? $user->jabatan ?? '')), 'OPERATOR')
+            || str_contains(strtoupper((string) ($user->role ?? '')), 'OPERATOR')
+        ));
 
         $filters = [
             // Medic hanya melihat/mengelola data jenis "sakit" (setara V1's
@@ -36,7 +46,8 @@ class IzinKaryawanController extends Controller
             'date_from' => trim((string) $request->string('date_from')),
             'date_to' => trim((string) $request->string('date_to')),
             'status' => trim((string) $request->string('status')),
-            'created_by' => $isAdmin ? null : $request->user()?->id,
+            'created_by' => $isAdminOrManpower ? null : $user?->id,
+            'nrp' => (! $isAdminOrManpower && $user?->employee?->nrp) ? $user->employee->nrp : null,
         ];
         $page = max(1, (int) $request->integer('page', 1));
 
@@ -48,6 +59,14 @@ class IzinKaryawanController extends Controller
             'menu' => MenuAccess::forConfig('one_power_menu'),
             'isAdmin' => $isAdmin,
             'isMedic' => $isMedic,
+            'isOperator' => $isOperator,
+            'isAdminOrManpower' => $isAdminOrManpower,
+            'currentUserEmployee' => [
+                'nrp' => $user?->employee?->nrp ?? $user?->username ?? '',
+                'nama' => $user?->employee?->nama ?? $user?->name ?? '',
+                'jabatan' => $user?->employee?->jabatan_ss6 ?? $user?->jabatan ?? '',
+                'departemen' => $user?->employee?->dept ?? '',
+            ],
             'filters' => $filters,
             'izins' => IzinKaryawanResource::collection($izins->items())->resolve(),
             'pagination' => [
@@ -60,11 +79,27 @@ class IzinKaryawanController extends Controller
 
     public function create(Request $request): Response
     {
+        $user = $request->user()?->loadMissing('employee');
+        $isAdmin = (bool) $user?->isAdmin();
+        $isMedic = (bool) $user?->isMedic();
+        $isPimpinan = (bool) $user?->isPimpinan();
+        $isGlManpower = (bool) $user?->isGlManpower();
+        $isManpower = $isGlManpower || stripos($user?->employee?->jabatan_ss6 ?? $user?->jabatan ?? '', 'MANPOWER') !== false;
+        $isAdminOrManpower = $isAdmin || $isPimpinan || $isManpower || $isMedic;
+
         return Inertia::render('OnePower/IzinKaryawan/Create', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
-            'isMedic' => (bool) $request->user()?->isMedic(),
+            'isAdmin' => $isAdmin,
+            'isMedic' => $isMedic,
+            'isAdminOrManpower' => $isAdminOrManpower,
+            'currentUserEmployee' => [
+                'nrp' => $user?->employee?->nrp ?? $user?->username ?? '',
+                'nama' => $user?->employee?->nama ?? $user?->name ?? '',
+                'jabatan' => $user?->employee?->jabatan_ss6 ?? $user?->jabatan ?? '',
+                'departemen' => $user?->employee?->dept ?? '',
+            ],
         ]);
     }
 
@@ -90,12 +125,22 @@ class IzinKaryawanController extends Controller
         // IzinKaryawanController::edit()).
         abort_if($request->user()?->isMedic() && $izin->jenis_izin !== IzinJenis::Sakit, 403);
 
+        $user = $request->user()?->loadMissing('employee');
+        $isAdmin = (bool) $user?->isAdmin();
+        $isMedic = (bool) $user?->isMedic();
+        $isPimpinan = (bool) $user?->isPimpinan();
+        $isGlManpower = (bool) $user?->isGlManpower();
+        $isManpower = $isGlManpower || stripos($user?->employee?->jabatan_ss6 ?? $user?->jabatan ?? '', 'MANPOWER') !== false;
+        $isAdminOrManpower = $isAdmin || $isPimpinan || $isManpower || $isMedic;
+
         return Inertia::render('OnePower/IzinKaryawan/Edit', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
-            'isMedic' => (bool) $request->user()?->isMedic(),
-            'targetIzin' => new IzinKaryawanResource($izin),
+            'isAdmin' => $isAdmin,
+            'isMedic' => $isMedic,
+            'isAdminOrManpower' => $isAdminOrManpower,
+            'targetIzin' => new IzinKaryawanResource($izin->loadMissing('approver')),
         ]);
     }
 
@@ -187,7 +232,9 @@ class IzinKaryawanController extends Controller
      */
     public function export(Request $request): StreamedResponse
     {
-        abort_unless($request->user()?->isAdmin(), 403);
+        $user = $request->user()?->loadMissing('employee');
+        $isAdminOrManpower = (bool) ($user?->isAdmin() || $user?->isPimpinan() || $user?->isGlManpower() || stripos($user?->employee?->jabatan_ss6 ?? $user?->jabatan ?? '', 'MANPOWER') !== false);
+        abort_unless($isAdminOrManpower, 403);
 
         $filters = [
             'jenis_izin' => trim((string) $request->string('jenis_izin')),

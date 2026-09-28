@@ -23,6 +23,7 @@ class StorePaktaIntegritasRequest extends FormRequest
             'ttd_karyawan' => ['nullable', 'string'],
             'ttd_atasan' => ['nullable', 'string'],
             'ttd_mengetahui' => ['nullable', 'string'],
+            'foto' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
         ];
     }
 

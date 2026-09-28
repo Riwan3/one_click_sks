@@ -217,7 +217,7 @@ onUnmounted(() => {
             </button>
             <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
               <MessageCircle class="w-4 h-4 text-blue-600" />
-              Pesan Internal &amp; Obrolan Direct (End-to-End Real DB)
+              Pesan Internal &amp; Obrolan
             </h3>
           </div>
           <button @click="$emit('close')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100">

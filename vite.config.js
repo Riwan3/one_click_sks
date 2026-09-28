@@ -9,6 +9,7 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': fileURLToPath(new URL('./resources/js', import.meta.url)),
+            'html2canvas': 'html2canvas-pro',
         },
     },
     plugins: [

@@ -14,7 +14,9 @@ const chartData = computed(() => ({
             type: 'bar',
             label: 'Performa (%)',
             data: props.pareto.map((item) => item.value),
-            backgroundColor: '#4472C4',
+            backgroundColor: props.pareto.map(() => '#3b82f6'), // Blue color untuk semua bars
+            borderColor: '#1e40af',
+            borderWidth: 0,
             yAxisID: 'y',
             order: 2,
         },

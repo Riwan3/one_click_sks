@@ -1,33 +1,86 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
+import { confirmDialog } from '@/utils/confirm';
 import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { 
-  Sliders, 
-  Users, 
-  Truck, 
-  Database, 
-  Calendar, 
-  Filter, 
+import {
+  Sliders,
+  Users,
+  Truck,
+  Database,
   ArrowRight,
   ShieldCheck,
-  Activity
+  History,
+  RefreshCw,
+  Trash2,
 } from 'lucide-vue-next';
 
 const props = defineProps({
   user: Object,
   notifCounts: Object,
   menu: Array,
-  filters: Object,
   stats: Object,
-  recentRoster: Array,
+  fleetImportHistory: { type: Array, default: () => [] },
+  manpowerImportHistory: { type: Array, default: () => [] },
+  historyMonth: { type: String, default: () => new Date().toISOString().slice(0, 7) },
 });
 
-const filterDate = ref(props.filters?.date || new Date().toISOString().split('T')[0]);
-const filterShift = ref(props.filters?.shift || 'D');
+const activeHistoryTab = ref('fleet');
+const historyMonthInput = ref(props.historyMonth);
 
-const applyFilter = () => {
-  router.get('/one-setting/dashboard', { date: filterDate.value, shift: filterShift.value }, { preserveState: true });
+const applyHistoryMonth = () => {
+  router.get('/one-setting/dashboard', { history_month: historyMonthInput.value }, { preserveState: true, preserveScroll: true });
+};
+
+const HISTORY_TABS = [
+  { key: 'fleet', label: 'Riwayat Import Fleet' },
+  { key: 'manpower', label: 'Riwayat Import Setting Manpower' },
+];
+
+const activeRows = computed(() => (activeHistoryTab.value === 'fleet' ? props.fleetImportHistory : props.manpowerImportHistory));
+const activeUnitLabel = computed(() => (activeHistoryTab.value === 'fleet' ? 'Jumlah Unit' : 'Jumlah Data'));
+const activeEmptyMessage = computed(() => (
+  activeHistoryTab.value === 'fleet'
+    ? 'Belum ada riwayat import alokasi fleet'
+    : 'Belum ada riwayat import setting manpower'
+));
+
+// Fleet pakai kode shift angka (1/2), Manpower pakai kode huruf (D/N) — satu fungsi label
+// yang menangani keduanya biar tabelnya bisa dipakai bareng.
+const shiftLabel = (shift) => {
+  if (shift === 'N' || Number(shift) === 2) return 'Shift 2 (Malam)';
+  return 'Shift 1 (Siang)';
+};
+
+const isNightShift = (shift) => shift === 'N' || Number(shift) === 2;
+
+const formatLastImport = (value) => {
+  if (!value) return '-';
+  return new Date(value.replace(' ', 'T')).toLocaleString('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+};
+
+const refreshHistory = () => {
+  router.reload({ only: ['fleetImportHistory', 'manpowerImportHistory'] });
+};
+
+const deleteFleetBatch = async (tanggal, shift) => {
+  if (await confirmDialog(`Hapus semua data alokasi fleet tanggal ${tanggal} shift ${shift}? Tindakan ini tidak bisa dibatalkan.`)) {
+    router.post('/one-setting/fleet/delete', { date: tanggal, shift }, { preserveScroll: true });
+  }
+};
+
+const deleteManpowerBatch = async (tanggal, shift) => {
+  if (await confirmDialog(`Hapus semua data roster manpower tanggal ${tanggal} shift ${shift}? Tindakan ini tidak bisa dibatalkan.`)) {
+    router.post('/one-setting/roster/clear', { date: tanggal, shift }, { preserveScroll: true });
+  }
+};
+
+const deleteActiveBatch = (tanggal, shift) => {
+  if (activeHistoryTab.value === 'fleet') deleteFleetBatch(tanggal, shift);
+  else deleteManpowerBatch(tanggal, shift);
 };
 </script>
 
@@ -49,13 +102,6 @@ const applyFilter = () => {
             Dashboard Setting Operasional
           </h1>
           <p class="text-xs text-slate-500 mt-0.5">Konfigurasi alokasi manpower, unit fleet, dan monitoring settingan lapangan</p>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <a href="/one-setting/settingan" class="px-4 py-2 text-xs font-semibold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition flex items-center gap-2">
-            <Sliders class="w-4 h-4" />
-            Kelola Settingan
-          </a>
         </div>
       </div>
 
@@ -104,7 +150,7 @@ const applyFilter = () => {
 
       <!-- Quick Action Cards -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <a href="/one-setting/settingan?sub=manpower" class="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-sky-300 hover:shadow-md transition">
+        <a href="/one-setting/monitoring-manpower" class="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-sky-300 hover:shadow-md transition">
           <div class="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
             <Users class="w-5 h-5" />
           </div>
@@ -115,7 +161,7 @@ const applyFilter = () => {
           <p class="text-xs text-slate-500">Sinkronkan spreadsheet Google Sheets alokasi operator &amp; roster harian.</p>
         </a>
 
-        <a href="/one-setting/settingan?sub=fleet" class="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-indigo-300 hover:shadow-md transition">
+        <a href="/one-setting/monitoring-fleet" class="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-indigo-300 hover:shadow-md transition">
           <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
             <Truck class="w-5 h-5" />
           </div>
@@ -126,64 +172,88 @@ const applyFilter = () => {
           <p class="text-xs text-slate-500">Import alokasi fleet alat berat &amp; kelola master unit staff / non-staff.</p>
         </a>
 
-        <a href="/one-setting/settingan?sub=roster" class="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-emerald-300 hover:shadow-md transition">
+        <a href="/one-setting/setting-board" class="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-emerald-300 hover:shadow-md transition">
           <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
             <Database class="w-5 h-5" />
           </div>
           <h3 class="font-bold text-slate-800 text-sm mb-1 group-hover:text-emerald-600 flex items-center justify-between">
-            Data Alokasi Manpower
+            Setting Board
             <ArrowRight class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
           </h3>
-          <p class="text-xs text-slate-500">Lihat tabel alokasi, deteksi bentrok unit/NRP, dan update manual.</p>
+          <p class="text-xs text-slate-500">Papan HD manpower &amp; fleet per site, tanggal, dan shift.</p>
         </a>
       </div>
 
-      <!-- Recent Roster Snapshot -->
+      <!-- Riwayat Import (Fleet / Setting Manpower) -->
       <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-            <Activity class="w-4 h-4 text-sky-500" />
-            Snapshot Data Roster Terkini
-          </h3>
-          <div class="flex items-center gap-2">
-            <input type="date" v-model="filterDate" @change="applyFilter" class="px-2.5 py-1 text-xs border border-slate-300 rounded-xl bg-white" />
-            <select v-model="filterShift" @change="applyFilter" class="px-2.5 py-1 text-xs border border-slate-300 rounded-xl bg-white">
-              <option value="D">Shift 1 (Siang)</option>
-              <option value="N">Shift 2 (Malam)</option>
-            </select>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              v-for="tab in HISTORY_TABS"
+              :key="tab.key"
+              type="button"
+              @click="activeHistoryTab = tab.key"
+              :class="[
+                'px-3 py-1.5 text-xs font-bold rounded-full transition flex items-center gap-1.5',
+                activeHistoryTab === tab.key ? 'bg-sky-600 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-50',
+              ]"
+            >
+              <History class="w-3.5 h-3.5" /> {{ tab.label }}
+            </button>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <input
+              type="month"
+              v-model="historyMonthInput"
+              @change="applyHistoryMonth"
+              class="px-2.5 py-1.5 text-xs font-semibold border border-slate-300 rounded-xl bg-white"
+            >
+            <button type="button" @click="refreshHistory" class="px-3 py-1.5 text-xs font-bold rounded-full bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 transition flex items-center gap-1.5">
+              <RefreshCw class="w-3.5 h-3.5" /> Refresh
+            </button>
           </div>
         </div>
 
+        <!-- Dibatasi ~10 baris kelihatan, sisanya scroll di dalam (header ikut nempel) -->
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-100">
-              <tr>
-                <th class="px-4 py-3 text-center w-12">#</th>
-                <th class="px-4 py-3">NRP</th>
-                <th class="px-4 py-3">Unit Alokasi</th>
-                <th class="px-4 py-3">Shift</th>
-                <th class="px-4 py-3">Tipe CSA</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 text-slate-700">
-              <tr v-for="(r, idx) in recentRoster" :key="r.id" class="hover:bg-slate-50/60 transition">
-                <td class="px-4 py-3 text-center font-bold text-slate-400">{{ idx + 1 }}</td>
-                <td class="px-4 py-3 font-bold text-slate-800">{{ r.nrp }}</td>
-                <td class="px-4 py-3 font-extrabold text-sky-600">{{ r.unit }}</td>
-                <td class="px-4 py-3 font-medium">{{ r.kode === 'D' ? 'Shift 1 (Siang)' : 'Shift 2 (Malam)' }}</td>
-                <td class="px-4 py-3">
-                  <span class="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-purple-50 text-purple-700 border border-purple-200">
-                    {{ r.csa_type || 'CSA GENERAL' }}
-                  </span>
-                </td>
-              </tr>
-              <tr v-if="!recentRoster || recentRoster.length === 0">
-                <td colspan="5" class="px-4 py-8 text-center text-slate-400 text-xs">
-                  Belum ada data roster untuk tanggal &amp; shift ini
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="max-h-[420px] overflow-y-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="sticky top-0 z-10 bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-100">
+                <tr>
+                  <th class="px-4 py-3">Tanggal</th>
+                  <th class="px-4 py-3">Shift</th>
+                  <th class="px-4 py-3">{{ activeUnitLabel }}</th>
+                  <th class="px-4 py-3">Terakhir Diimport</th>
+                  <th class="px-4 py-3 text-right w-24">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-slate-700">
+                <tr v-for="row in activeRows" :key="`${row.tanggal}-${row.shift}`" class="hover:bg-slate-50/60 transition">
+                  <td class="px-4 py-3 font-bold text-slate-800">{{ row.tanggal }}</td>
+                  <td class="px-4 py-3">
+                    <span :class="[
+                      'px-2 py-0.5 text-[10px] font-bold rounded-full',
+                      isNightShift(row.shift) ? 'bg-slate-800 text-white' : 'bg-amber-100 text-amber-800',
+                    ]">
+                      {{ shiftLabel(row.shift) }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 font-extrabold text-indigo-600">{{ row.jumlah_unit }}</td>
+                  <td class="px-4 py-3 font-medium text-slate-600">{{ formatLastImport(row.last_import) }}</td>
+                  <td class="px-4 py-3 text-right">
+                    <button type="button" @click="deleteActiveBatch(row.tanggal, row.shift)" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition">
+                      <Trash2 class="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="!activeRows || activeRows.length === 0">
+                  <td colspan="5" class="px-4 py-8 text-center text-slate-400 text-xs">
+                    {{ activeEmptyMessage }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

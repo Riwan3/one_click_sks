@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             MasterSpdkSeeder::class,
             RolePermissionSeeder::class,
+            MppUnitSeeder::class,
         ]);
     }
 }

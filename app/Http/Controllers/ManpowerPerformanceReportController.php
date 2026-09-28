@@ -23,7 +23,18 @@ class ManpowerPerformanceReportController extends Controller
 
     public function index(Request $request): Response
     {
+        $user = $request->user()?->loadMissing('employee');
+        $isOperator = (bool) ($user && (
+            strtolower((string) $user->role) === 'operator'
+            || str_contains(strtoupper((string) ($user->employee?->jabatan_ss6 ?? $user->jabatan ?? '')), 'OPERATOR')
+            || str_contains(strtoupper((string) ($user->role ?? '')), 'OPERATOR')
+        ));
+
         $nrp = trim((string) $request->string('nrp'));
+        if ($isOperator && $nrp === '' && $user?->employee?->nrp) {
+            $nrp = $user->employee->nrp;
+        }
+
         $monthsBack = $this->resolveMonthsBack($request);
 
         $employee = $nrp === '' ? null : $this->findEmployee($nrp);
@@ -33,6 +44,7 @@ class ManpowerPerformanceReportController extends Controller
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
+            'isOperator' => $isOperator,
             'nrp' => $nrp,
             'monthsBack' => $monthsBack,
             'employee' => $employee ? [

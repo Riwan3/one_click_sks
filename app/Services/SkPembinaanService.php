@@ -6,6 +6,7 @@ use App\Imports\SkPembinaanImport;
 use App\Models\SkPembinaan;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
 class SkPembinaanService
@@ -24,8 +25,16 @@ class SkPembinaanService
 
     public function create(array $data, ?int $createdBy): SkPembinaan
     {
-        $data['nomor_surat'] = SkPembinaan::nextNumber($data['dikeluarkan_tanggal'], $data['perusahaan'] ?? null);
+        $data['nomor_surat'] = ! empty($data['nomor_surat'])
+            ? $data['nomor_surat']
+            : SkPembinaan::nextNumber($data['dikeluarkan_tanggal'], $data['perusahaan'] ?? null);
         $data['created_by'] = $createdBy;
+
+        if (isset($data['foto']) && $data['foto'] instanceof UploadedFile) {
+            $data['foto'] = $data['foto']->store('uploads/sk_pembinaan', 'public');
+        } else {
+            unset($data['foto']);
+        }
 
         return SkPembinaan::create($data);
     }
@@ -33,6 +42,22 @@ class SkPembinaanService
     public function update(SkPembinaan $skPembinaan, array $data, ?int $updatedBy): SkPembinaan
     {
         $data['updated_by'] = $updatedBy;
+
+        if (! empty($data['hapus_foto'])) {
+            if ($skPembinaan->foto) {
+                Storage::disk('public')->delete($skPembinaan->foto);
+            }
+            $data['foto'] = null;
+        } elseif (isset($data['foto']) && $data['foto'] instanceof UploadedFile) {
+            if ($skPembinaan->foto) {
+                Storage::disk('public')->delete($skPembinaan->foto);
+            }
+            $data['foto'] = $data['foto']->store('uploads/sk_pembinaan', 'public');
+        } else {
+            unset($data['foto']);
+        }
+        unset($data['hapus_foto']);
+
         $skPembinaan->update($data);
 
         return $skPembinaan;
@@ -40,6 +65,10 @@ class SkPembinaanService
 
     public function delete(SkPembinaan $skPembinaan): void
     {
+        if ($skPembinaan->foto) {
+            Storage::disk('public')->delete($skPembinaan->foto);
+        }
+
         $skPembinaan->delete();
     }
 

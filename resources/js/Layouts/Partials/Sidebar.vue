@@ -21,14 +21,15 @@ defineEmits(['close-mobile']);
             mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         ]"
     >
-        <a href="/portal" class="flex items-center gap-2 px-6 py-5 text-slate-800 no-underline">
+        <a href="/portal" class="flex items-center justify-center gap-2.5 px-4 py-5 text-slate-800 no-underline">
             <img src="/images/title.png" alt="One Click" class="h-8 w-8 shrink-0">
             <span v-if="!collapsed" class="text-lg font-bold lowercase">one<span class="text-blue-500">click</span></span>
         </a>
 
         <div v-if="!collapsed" class="mx-4 mb-5 flex items-center gap-3 rounded-xl border border-slate-200 bg-[#F5F7FA] p-3">
-            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-500 text-lg font-extrabold text-white">
-                {{ user.displayName.charAt(0).toUpperCase() }}
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full overflow-hidden bg-blue-500 text-lg font-extrabold text-white border border-slate-200 shadow-xs">
+                <img v-if="user.foto" :src="user.foto" :alt="user.displayName" class="h-full w-full object-cover" />
+                <span v-else>{{ user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U' }}</span>
             </div>
             <div class="min-w-0">
                 <div class="truncate text-sm font-bold text-slate-800">{{ user.displayName }}</div>
@@ -41,7 +42,7 @@ defineEmits(['close-mobile']);
         </nav>
 
         <div class="border-t border-slate-100 p-3">
-            <Link href="/portal" class="flex items-center gap-3 rounded-lg border-2 border-blue-500 px-4 py-2.5 text-sm font-bold text-blue-500 no-underline">
+            <Link href="/portal" class="flex items-center justify-center gap-2.5 rounded-lg border-2 border-blue-500 px-4 py-2.5 text-sm font-bold text-blue-500 no-underline hover:bg-blue-50 transition-colors">
                 <ArrowLeft class="h-4 w-4 shrink-0" />
                 <span v-if="!collapsed">Kembali ke Home</span>
             </Link>

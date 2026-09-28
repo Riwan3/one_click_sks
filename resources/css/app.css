@@ -14,6 +14,19 @@
     .no-print {
         display: none !important;
     }
+
+    @page {
+        size: 330mm 215mm;
+    }
+
+    .print-scroll-table {
+        overflow: visible !important;
+    }
+
+    .print-scroll-table table {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
 }
 
 /* Matikan icon reveal/clear password bawaan Edge/Chromium — sudah ada toggle custom di komponennya */

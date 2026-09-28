@@ -6,6 +6,7 @@ use App\Http\Requests\StoreSuratTeguranRequest;
 use App\Http\Requests\UpdateSuratTeguranRequest;
 use App\Http\Resources\SuratTeguranResource;
 use App\Models\Employee;
+use App\Models\Setting;
 use App\Models\SuratTeguran;
 use App\Services\SuratTeguranService;
 use App\Support\MenuAccess;
@@ -25,9 +26,12 @@ class SuratTeguranController extends Controller
     public function index(Request $request): Response
     {
         $search = trim((string) $request->string('search'));
-        $dateFrom = trim((string) $request->string('date_from'));
-        $dateTo = trim((string) $request->string('date_to'));
+        $dateFrom = trim((string) $request->string('date_from', now()->startOfMonth()->toDateString()));
+        $dateTo = trim((string) $request->string('date_to', now()->toDateString()));
         $page = max(1, (int) $request->integer('page', 1));
+
+        $siteCode = Setting::getValue('surat_teguran_site_code', 'ADW') ?: 'ADW';
+        SuratTeguran::updateSiteCode($siteCode);
 
         $suratTegurans = $this->suratTeguranService->paginate($search, $dateFrom ?: null, $dateTo ?: null, $page, self::PER_PAGE);
 
@@ -45,6 +49,7 @@ class SuratTeguranController extends Controller
                 'total' => $suratTegurans->total(),
             ],
             'canManage' => ! $request->user()?->isManagement(),
+            'documentSettings' => $this->getDocumentSettings(),
         ]);
     }
 
@@ -125,9 +130,55 @@ class SuratTeguranController extends Controller
 
     public function show(SuratTeguran $suratTeguran): Response
     {
+        $suratTeguran->load(['employee', 'creator', 'updater']);
+
         return Inertia::render('OnePower/SuratTeguran/Print', [
-            'suratTeguran' => new SuratTeguranResource($suratTeguran),
+            'suratTeguran' => (new SuratTeguranResource($suratTeguran))->resolve(),
+            'documentSettings' => $this->getDocumentSettings(),
         ]);
+    }
+
+    public function saveSettings(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        if (! $user || (! $user->isAdmin() && ! $user->isPimpinan())) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'siteCode' => ['required', 'string', 'max:20'],
+            'lokasi' => ['nullable', 'string', 'max:100'],
+            'noDokumen' => ['required', 'string', 'max:100'],
+            'revisi' => ['nullable', 'string', 'max:50'],
+            'tglEfektif' => ['nullable', 'date'],
+        ]);
+
+        $siteCode = strtoupper(trim($validated['siteCode']));
+        $lokasi = trim($validated['lokasi'] ?? 'CSA Inggris');
+        $noDokumen = trim($validated['noDokumen']);
+        $revisi = trim($validated['revisi'] ?? '00');
+        $tglEfektif = $validated['tglEfektif'] ?? '2022-09-12';
+
+        Setting::setValue('surat_teguran_site_code', $siteCode);
+        Setting::setValue('surat_teguran_lokasi', $lokasi);
+        Setting::setValue('surat_teguran_no_dokumen', $noDokumen);
+        Setting::setValue('surat_teguran_revisi', $revisi);
+        Setting::setValue('surat_teguran_tgl_efektif', $tglEfektif);
+
+        SuratTeguran::updateSiteCode($siteCode);
+
+        return redirect()->back()->with('success', 'Pengaturan format dokumen & no. surat teguran berhasil dikunci.');
+    }
+
+    private function getDocumentSettings(): array
+    {
+        return [
+            'siteCode' => Setting::getValue('surat_teguran_site_code', 'ADW') ?: 'ADW',
+            'lokasi' => Setting::getValue('surat_teguran_lokasi', 'CSA Inggris') ?: 'CSA Inggris',
+            'noDokumen' => Setting::getValue('surat_teguran_no_dokumen', 'PPA-ADRO-F-HCGA-01') ?: 'PPA-ADRO-F-HCGA-01',
+            'revisi' => Setting::getValue('surat_teguran_revisi', '00') ?: '00',
+            'tglEfektif' => Setting::getValue('surat_teguran_tgl_efektif', '2022-09-12') ?: '2022-09-12',
+        ];
     }
 
     public function searchEmployee(Request $request): JsonResponse

@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -78,8 +79,8 @@ const submitUpload = () => {
   });
 };
 
-const deletePhoto = (id, unitCode) => {
-  if (confirm(`Hapus foto OJK unit ${unitCode}?`)) {
+const deletePhoto = async (id, unitCode) => {
+  if (await confirmDialog(`Hapus foto OJK unit ${unitCode}?`)) {
     router.delete(`/one-reporting/ojk/delete/${id}`, { preserveScroll: true });
   }
 };

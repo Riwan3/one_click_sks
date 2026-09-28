@@ -12,10 +12,12 @@ class Reward extends Model
 
     protected $fillable = [
         'user_id',
+        'employee_id',
         'title',
         'type',
         'category',
         'description',
+        'image_path',
         'reward_date',
     ];
 
@@ -26,5 +28,15 @@ class Reward extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class);
+    }
+
+    public function reads(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(RewardRead::class);
     }
 }

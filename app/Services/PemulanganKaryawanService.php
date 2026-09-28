@@ -10,9 +10,11 @@ class PemulanganKaryawanService
     public function paginate(?string $search, ?string $dateFrom, ?string $dateTo, int $page, int $perPage): LengthAwarePaginator
     {
         return PemulanganKaryawan::query()
+            ->with(['employee', 'creator', 'updater'])
             ->search($search)
             ->dateBetween($dateFrom, $dateTo)
-            ->orderByDesc('created_at')
+            ->orderByDesc('tanggal')
+            ->orderByDesc('id')
             ->paginate($perPage, ['*'], 'page', $page);
     }
 
@@ -20,15 +22,19 @@ class PemulanganKaryawanService
     {
         [$docRank, $noSurat] = PemulanganKaryawan::nextDocRank($data['tanggal']);
 
-        $data['doc_rank'] = $docRank;
-        $data['no_surat'] = $noSurat;
+        $data['doc_rank'] = $data['doc_rank'] ?? $docRank;
+        $data['no_surat'] = $data['no_surat'] ?? $noSurat;
         $data['created_by'] = $createdBy;
 
         return PemulanganKaryawan::create($data);
     }
 
-    public function update(PemulanganKaryawan $pemulangan, array $data): PemulanganKaryawan
+    public function update(PemulanganKaryawan $pemulangan, array $data, ?int $updatedBy = null): PemulanganKaryawan
     {
+        if ($updatedBy) {
+            $data['updated_by'] = $updatedBy;
+        }
+
         $pemulangan->update($data);
 
         return $pemulangan;

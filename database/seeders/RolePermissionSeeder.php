@@ -31,5 +31,11 @@ class RolePermissionSeeder extends Seeder
                 ['is_mobile' => in_array($role->code, self::INITIAL_MOBILE_ROLES, true)]
             );
         }
+
+        // Akun Group Leader di GMP default ke GMP Area (Dashboard GMP dinonaktifkan)
+        \App\Models\RoleMenuAccess::query()->firstOrCreate(
+            ['role' => 'group-leader', 'module_key' => 'one-gmp', 'menu_key' => 'dashboard-gmp'],
+            ['enabled' => false]
+        );
     }
 }

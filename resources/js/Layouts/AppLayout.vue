@@ -1,10 +1,10 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import Sidebar from './Partials/Sidebar.vue';
 import Topbar from './Partials/Topbar.vue';
 import FlashMessage from '@/Components/ui/FlashMessage.vue';
 
-defineProps({
+const props = defineProps({
     user: { type: Object, required: true },
     notifCounts: { 
         type: Object, 
@@ -14,6 +14,14 @@ defineProps({
     hideSidebar: { type: Boolean, default: false },
     backUrl: { type: String, default: '/portal/data' },
 });
+
+const isAdmin = computed(() => {
+    const role = String(props.user?.role || '').toLowerCase();
+    const jabatan = String(props.user?.jabatan || '').toLowerCase();
+    return role === 'admin' || role === 'admin_produksi' || role === 'management' || jabatan.includes('admin');
+});
+
+const effectiveHideSidebar = computed(() => props.hideSidebar || !isAdmin.value);
 
 const collapsed = ref(false);
 const mobileOpen = ref(false);
@@ -30,7 +38,7 @@ const toggleSidebar = () => {
 <template>
     <div class="min-h-screen bg-[#F5F7FA]">
         <Sidebar
-            v-if="!hideSidebar"
+            v-if="!effectiveHideSidebar"
             :menu="menu"
             :user="user"
             :collapsed="collapsed"
@@ -38,12 +46,12 @@ const toggleSidebar = () => {
             @close-mobile="mobileOpen = false"
         />
 
-        <div :class="hideSidebar ? 'ml-0' : (collapsed ? 'lg:ml-[75px]' : 'lg:ml-[280px]')" class="print:ml-0 transition-all duration-300">
+        <div :class="effectiveHideSidebar ? 'ml-0' : (collapsed ? 'lg:ml-[75px]' : 'lg:ml-[280px]')" class="print:ml-0 transition-all duration-300">
             <Topbar 
                 :user="user" 
                 :notif-counts="notifCounts" 
                 :collapsed="collapsed" 
-                :hide-sidebar="hideSidebar"
+                :hide-sidebar="effectiveHideSidebar"
                 :back-url="backUrl"
                 @toggle-sidebar="toggleSidebar" 
             />

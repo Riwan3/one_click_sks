@@ -26,13 +26,25 @@ class IzinKaryawanService
 
     public function paginate(array $filters, int $page, int $perPage): LengthAwarePaginator
     {
-        return IzinKaryawan::query()
+        $query = IzinKaryawan::query()
             ->with('approver')
             ->jenis($filters['jenis_izin'] ?? null)
             ->status($filters['status'] ?? null)
             ->search($filters['search'] ?? null)
-            ->createdByUser($filters['created_by'] ?? null)
-            ->dateBetween($filters['date_from'] ?? null, $filters['date_to'] ?? null)
+            ->dateBetween($filters['date_from'] ?? null, $filters['date_to'] ?? null);
+
+        if (! empty($filters['created_by']) || ! empty($filters['nrp'])) {
+            $query->where(function ($q) use ($filters) {
+                if (! empty($filters['created_by'])) {
+                    $q->where('created_by', $filters['created_by']);
+                }
+                if (! empty($filters['nrp'])) {
+                    $q->orWhere('nrp', $filters['nrp']);
+                }
+            });
+        }
+
+        return $query
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($perPage, ['*'], 'page', $page);
@@ -146,6 +158,8 @@ class IzinKaryawanService
         $payload = array_fill_keys(array_diff($allFields, $allowed), null);
         $payload = array_merge($payload, array_intersect_key($data, array_flip($allowed)));
         $payload['jenis_izin'] = $jenis->value;
+        $payload['keterangan_status'] = $payload['keterangan_status'] ?? 1;
+        $payload['dipulangkan_tidur'] = (bool) ($payload['dipulangkan_tidur'] ?? false);
 
         return $payload;
     }

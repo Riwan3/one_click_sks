@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CheckSessionSecurity;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IsAdmin;
 use App\Http\Middleware\ValidateSpDkForDocument;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
+            CheckSessionSecurity::class,
             HandleInertiaRequests::class,
         ]);
 

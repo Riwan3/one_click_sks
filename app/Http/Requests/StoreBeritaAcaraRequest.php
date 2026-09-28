@@ -14,6 +14,10 @@ class StoreBeritaAcaraRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'nomor_surat' => ['nullable', 'string', 'max:100'],
+            'no_dokumen' => ['nullable', 'string', 'max:100'],
+            'revisi' => ['nullable', 'string', 'max:20'],
+            'tgl_efektif' => ['nullable', 'date'],
             'employee_id' => ['required', 'integer', 'exists:employees,id'],
             'tanggal' => ['required', 'date'],
             'kronologi' => ['required', 'string'],

@@ -15,35 +15,39 @@ return [
         ],
     ],
     [
-        'menu_key' => 'roster', 'label' => 'Roster', 'icon' => 'CalendarRange', 'children' => [
+        'menu_key' => 'roster', 'label' => 'Roster', 'icon' => 'Calendar', 'children' => [
             ['menu_key' => 'roster-departemen', 'label' => 'Roster Departement', 'icon' => 'Users', 'href' => '/one-power/roster-departemen'],
-            ['menu_key' => 'roster-personal', 'label' => 'Roster Personal', 'icon' => 'CalendarRange', 'href' => '/one-power/roster-personal'],
+            ['menu_key' => 'roster-personal', 'label' => 'Roster Personal', 'icon' => 'Calendar', 'href' => '/one-power/roster-personal'],
         ],
     ],
     [
         'menu_key' => 'personal-data-operator', 'label' => 'Personal Data Operator', 'icon' => 'Contact', 'children' => [
             ['menu_key' => 'personal-data-hm', 'label' => 'HM', 'icon' => 'Gauge', 'href' => '/one-power/personal-data/hm'],
             ['menu_key' => 'personal-data-attendance', 'label' => 'Attendance', 'icon' => 'CalendarCheck', 'href' => '/one-power/personal-data/attendance'],
+            ['menu_key' => 'personal-data-attendance-ratio', 'label' => 'Attendance Ratio', 'icon' => 'PieChart', 'href' => '/one-power/personal-data/attendance-ratio'],
             ['menu_key' => 'personal-data-mpr', 'label' => 'Manpower Performance Report', 'icon' => 'BarChart2', 'href' => '/one-power/personal-data/mpr'],
         ],
     ],
-    ['menu_key' => 'mor', 'label' => 'MOR', 'icon' => 'BarChart', 'href' => '/one-power/mor'],
-    ['menu_key' => 'quartal-operator-report', 'label' => 'Quartal Operator Report', 'icon' => 'CalendarDays', 'href' => '/one-power/quartal-operator-report'],
+    ['menu_key' => 'quartal-operator-report', 'label' => 'Laporan Performa Operator', 'icon' => 'CalendarDays', 'href' => '/one-power/quartal-operator-report'],
     [
         'menu_key' => 'deviasi-operator', 'label' => 'Deviasi Operator', 'icon' => 'UserRoundX', 'children' => [
-            ['menu_key' => 'izin-karyawan', 'label' => 'Izin Karyawan', 'icon' => 'UserRoundX', 'href' => '/one-power/deviasi-operator/izin-karyawan'],
-            ['menu_key' => 'operator-unfit', 'label' => 'Data Unfit Karyawan', 'icon' => 'HeartPulse', 'href' => '/one-power/deviasi-operator/unfit'],
+            ['menu_key' => 'izin-karyawan', 'label' => 'Izin Karyawan', 'icon' => 'CalendarCheck', 'href' => '/one-power/deviasi-operator/izin-karyawan'],
+            ['menu_key' => 'operator-unfit', 'label' => 'Operator Unfit', 'icon' => 'HeartPulse', 'href' => '/one-power/deviasi-operator/unfit'],
+            ['menu_key' => 'rekap-pemulangan', 'label' => 'Rekap Pemulangan', 'icon' => 'LogOut', 'href' => '/one-power/deviasi-operator/rekap-pemulangan'],
         ],
     ],
     [
         'menu_key' => 'pembinaan', 'label' => 'Pembinaan', 'icon' => 'ShieldCheck', 'children' => [
             ['menu_key' => 'berita-acara', 'label' => 'Berita Acara', 'href' => '/one-power/pembinaan/berita-acara'],
             ['menu_key' => 'coaching-counseling', 'label' => 'Coaching & Counseling', 'href' => '/one-power/pembinaan/coaching-counseling'],
+            ['menu_key' => 'interview-fatigue', 'label' => 'Interview Fatigue', 'href' => '/one-power/pembinaan/interview-fatigue'],
             ['menu_key' => 'pakta-integritas', 'label' => 'Pakta Integritas', 'href' => '/one-power/pembinaan/pakta-integritas'],
             ['menu_key' => 'sk-pembinaan', 'label' => 'SK Pembinaan & Sanksi Pelubangan', 'href' => '/one-power/pembinaan/sk-pembinaan'],
             ['menu_key' => 'surat-peringatan', 'label' => 'Surat Peringatan', 'href' => '/one-power/pembinaan/surat-peringatan'],
             ['menu_key' => 'surat-teguran', 'label' => 'Surat Teguran', 'href' => '/one-power/pembinaan/surat-teguran'],
             ['menu_key' => 'pemanggilan-karyawan', 'label' => 'Pemanggilan Karyawan', 'href' => '/one-power/pembinaan/pemanggilan-karyawan'],
+            ['menu_key' => 'pemulangan-karyawan', 'label' => 'Pemulangan Karyawan', 'href' => '/one-power/pembinaan/pemulangan-karyawan'],
+            ['menu_key' => 'validasi-istirahat', 'label' => 'Validasi Istirahat', 'href' => '/one-power/pembinaan/validasi-istirahat'],
         ],
     ],
     [

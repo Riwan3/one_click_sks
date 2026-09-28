@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasHashid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class OperatorUnfit extends Model
 {
+    use HasHashid;
     protected $fillable = [
         'nrp',
         'nama',

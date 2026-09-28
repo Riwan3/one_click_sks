@@ -7,20 +7,21 @@ use Illuminate\Database\Eloquent\Model;
 
 class MasterSpdk extends Model
 {
-    public $timestamps = false;
-
     protected $fillable = [
         'no_pelanggaran',
         'kategori',
         'jenis_pelanggaran',
         'sanksi',
+        'lubang',
         'keterangan_sanksi',
     ];
 
     protected function casts(): array
     {
         return [
+            'lubang' => 'integer',
             'created_at' => 'datetime',
+            'updated_at' => 'datetime',
         ];
     }
 
@@ -31,8 +32,11 @@ class MasterSpdk extends Model
         }
 
         return $query->where(
-            fn (Builder $q) => $q->where('jenis_pelanggaran', 'like', "%{$keyword}%")
+            fn (Builder $q) => $q->where('no_pelanggaran', 'like', "%{$keyword}%")
+                ->orWhere('kategori', 'like', "%{$keyword}%")
+                ->orWhere('jenis_pelanggaran', 'like', "%{$keyword}%")
                 ->orWhere('sanksi', 'like', "%{$keyword}%")
+                ->orWhere('keterangan_sanksi', 'like', "%{$keyword}%")
         );
     }
 }

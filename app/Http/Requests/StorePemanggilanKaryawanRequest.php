@@ -14,26 +14,33 @@ class StorePemanggilanKaryawanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'employee_id' => ['required', 'integer', 'exists:employees,id'],
+            'no_surat' => ['nullable', 'string', 'max:100'],
+            'employee_id' => ['nullable'],
             'nrp' => ['required', 'string', 'max:20'],
             'nama' => ['required', 'string', 'max:150'],
             'jabatan' => ['nullable', 'string', 'max:100'],
-            'alasan_pemanggilan' => ['nullable', 'string'],
+            'alasan_pemanggilan' => ['required', 'string'],
             'tempat' => ['nullable', 'string', 'max:150'],
-            'jam_pemanggilan' => ['nullable', 'date_format:H:i'],
+            'jam_pemanggilan' => ['nullable', 'string', 'max:20'],
             'tanggal_pemanggilan' => ['required', 'date'],
+            'ttd_pemanggilan' => ['nullable', 'string', 'max:150'],
             'nama_manpower' => ['nullable', 'string', 'max:150'],
             'fatigue_periode' => ['nullable', 'string', 'max:20'],
             'ttd_pemanggil' => ['nullable', 'string'],
             'ttd_karyawan' => ['nullable', 'string'],
+            'eviden_1' => ['nullable'],
+            'eviden_2' => ['nullable'],
+            'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
+            'hapus_foto' => ['nullable', 'boolean'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'employee_id.required' => 'Karyawan wajib dipilih.',
-            'employee_id.exists' => 'Karyawan tidak ditemukan.',
+            'nrp.required' => 'NRP karyawan wajib diisi.',
+            'nama.required' => 'Nama karyawan wajib diisi.',
+            'alasan_pemanggilan.required' => 'Alasan pemanggilan wajib diisi.',
             'tanggal_pemanggilan.required' => 'Tanggal pemanggilan wajib diisi.',
         ];
     }

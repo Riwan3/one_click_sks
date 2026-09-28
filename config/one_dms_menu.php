@@ -10,6 +10,7 @@ return [
     [
         'menu_key' => 'data-icc', 'label' => 'Data ICC', 'icon' => 'Database', 'children' => [
             ['menu_key' => 'deviasi-fatigue', 'label' => 'Deviasi Fatigue', 'icon' => 'Activity', 'href' => '/one-dms/data-icc/deviasi-fatigue'],
+            ['menu_key' => 'izin-fatigue', 'label' => 'Izin Fatigue', 'icon' => 'ClipboardList', 'href' => '/one-dms/data-icc/izin-fatigue'],
             ['menu_key' => 'smoking-deviasi', 'label' => 'Smoking Deviasi', 'icon' => 'CircleSlash', 'href' => '/one-dms/data-icc/smoking-deviasi'],
             ['menu_key' => 'driver-distraction', 'label' => 'Driver Distraction', 'icon' => 'OctagonAlert', 'href' => '/one-dms/data-icc/driver-distraction'],
             ['menu_key' => 'phone-detection', 'label' => 'Phone Detection', 'icon' => 'Phone', 'href' => '/one-dms/data-icc/phone-detection'],

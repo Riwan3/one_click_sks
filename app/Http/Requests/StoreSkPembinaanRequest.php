@@ -14,10 +14,11 @@ class StoreSkPembinaanRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'nomor_surat' => ['nullable', 'string', 'max:100'],
             'employee_id' => ['required', 'integer', 'exists:employees,id'],
             'perusahaan' => ['nullable', 'string', 'max:255'],
             'tanggal_pelanggaran' => ['required', 'date'],
-            'jam_pelanggaran' => ['nullable', 'date_format:H:i'],
+            'jam_pelanggaran' => ['nullable', 'string', 'max:20'],
             'lokasi' => ['nullable', 'string', 'max:255'],
             'berlaku_sampai' => ['required', 'date', 'after_or_equal:dikeluarkan_tanggal'],
             'spdk_ref' => ['nullable', 'string', 'max:100'],
@@ -31,6 +32,7 @@ class StoreSkPembinaanRequest extends FormRequest
             'jenis_pelanggaran' => ['required', 'string'],
             'lubang' => ['nullable', 'integer', 'min:0'],
             'keterangan' => ['nullable', 'string'],
+            'foto' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
         ];
     }
 

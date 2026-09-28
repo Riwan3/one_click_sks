@@ -15,12 +15,12 @@ defineProps({
             Pilih Modul
         </div>
 
-        <div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div class="flex flex-wrap gap-[18px]">
             <Link
                 v-for="module in modules"
                 :key="module.key"
                 :href="`/${module.key}`"
-                class="relative flex h-36 flex-col justify-center rounded-2xl border border-slate-900/[0.06] bg-white p-4 px-[18px] no-underline shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_20px_rgba(15,23,42,0.03)] transition-all hover:-translate-y-0.5 hover:z-30 hover:border-blue-400/35 hover:bg-[#FAFCFF] hover:shadow-[0_2px_6px_rgba(15,23,42,0.04),0_14px_28px_rgba(74,144,226,0.14)]"
+                class="relative flex h-36 min-w-[240px] flex-1 basis-[240px] flex-col justify-center rounded-2xl border border-slate-900/[0.06] bg-white p-4 px-[18px] no-underline shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_20px_rgba(15,23,42,0.03)] transition-all hover:-translate-y-0.5 hover:z-30 hover:border-blue-400/35 hover:bg-[#FAFCFF] hover:shadow-[0_2px_6px_rgba(15,23,42,0.04),0_14px_28px_rgba(74,144,226,0.14)]"
             >
                 <div class="group/tooltip absolute right-3 top-3 z-30">
                     <button

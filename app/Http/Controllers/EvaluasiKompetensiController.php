@@ -2,151 +2,192 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\SaveAcademyMateriRequest;
+use App\Http\Resources\AcademyAssessmentResource;
+use App\Http\Resources\AcademyMateriResource;
+use App\Http\Resources\AcademyMonitoringResource;
+use App\Http\Resources\AcademyQuestionResource;
+use App\Models\AcademyAssessment;
+use App\Models\AcademyMateri;
+use App\Services\AcademyAssessmentService;
+use App\Services\AcademyMateriService;
+use App\Services\AcademyMonitoringService;
+use App\Services\AcademyRaportService;
 use App\Support\MenuAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class EvaluasiKompetensiController extends Controller
 {
+    public function __construct(
+        private AcademyMateriService $materiService,
+        private AcademyAssessmentService $assessmentService,
+        private AcademyMonitoringService $monitoringService,
+        private AcademyRaportService $raportService,
+    ) {}
+
     public function index(Request $request): Response
     {
-        $activeTab = $request->string('tab', 'materi')->toString();
-        $search = trim($request->string('search')->toString());
+        $isAdminOrGL = Gate::allows('manage-academy-evaluation');
 
-        // Materi Tab Data
-        $materiList = DB::table('academy_materi')
-            ->when($search !== '', function ($q) use ($search) {
-                $q->where('title', 'LIKE', "%{$search}%")
-                  ->orWhere('category', 'LIKE', "%{$search}%");
-            })
-            ->orderBy('id', 'desc')
-            ->get();
+        $activeTab = $request->query('tab', 'materi');
+        $filters = collect(['search', 'cat', 'risk', 'status', 'date_from', 'date_to'])
+            ->mapWithKeys(fn ($key) => [$key => $activeTab === 'materi' ? trim((string) $request->query($key, '')) : ''])
+            ->all();
 
-        // Assessment Tab Data
-        $assessments = DB::table('academy_assessments as a')
-            ->leftJoin('academy_materi as m', 'a.procedure_id', '=', 'm.id')
-            ->select('a.*', 'm.title as procedure_title')
-            ->orderBy('a.id', 'desc')
-            ->get();
-
-        foreach ($assessments as $ast) {
-            $ast->total_questions = DB::table('academy_questions')->where('assessment_id', $ast->id)->count();
-            $ast->questions = DB::table('academy_questions')->where('assessment_id', $ast->id)->get();
-            $ast->targets = DB::table('academy_targets')->where('assessment_id', $ast->id)->pluck('jabatan')->toArray();
-        }
-
-        // Monitoring Tab Data
-        $results = DB::table('academy_results as r')
-            ->join('academy_assessments as a', 'r.assessment_id', '=', 'a.id')
-            ->select('r.*', 'a.title as assessment_title')
-            ->orderBy('r.id', 'desc')
-            ->get();
-
-        // Jabatan Options from Employees
-        $jabatanList = DB::table('employees')
-            ->whereNotNull('jabatan_roster')
-            ->where('jabatan_roster', '!=', '')
-            ->distinct()
-            ->pluck('jabatan_roster')
-            ->sort()
-            ->values();
+        $this->materiService->autoExpire();
+        $materiList = in_array($activeTab, ['materi', 'assessment'], true)
+            ? AcademyMateriResource::collection($this->materiService->list($filters))->resolve()
+            : [];
 
         return Inertia::render('OneAcademy/EvaluasiKompetensi/Index', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_academy_menu'),
+            'isAdminOrGL' => $isAdminOrGL,
             'activeTab' => $activeTab,
-            'search' => $search,
+            'filters' => $filters,
             'materiList' => $materiList,
-            'assessments' => $assessments,
-            'results' => $results,
-            'jabatanList' => $jabatanList,
+            'categories' => $this->materiService->categories(),
+            'assessment' => $activeTab === 'assessment' ? $this->assessmentProps($request) : null,
+            'monitoring' => $activeTab === 'monitoring' ? $this->monitoringProps($request) : null,
+            'raport' => $activeTab === 'raport' ? $this->raportProps($request) : null,
         ]);
     }
 
-    public function storeMateri(Request $request): RedirectResponse
+    private function assessmentProps(Request $request): array
     {
-        $validated = $request->validate([
-            'title' => 'required|string',
-            'category' => 'nullable|string',
-            'revision' => 'nullable|string',
-            'description' => 'nullable|string',
-            'risk_level' => 'required|in:low,medium,high,critical',
-            'status' => 'required|in:active,revision_needed,expired',
-            'effective_date' => 'nullable|date',
-            'expired_date' => 'nullable|date',
-        ]);
+        $manageId = (int) $request->query('manage', 0);
+        $manage = $manageId
+            ? AcademyAssessment::with('materi:id,title')->withCount('questions')->find($manageId)
+            : null;
+        $targets = $manage?->target_roles ?: [];
 
-        $user = $this->currentUser();
-        $validated['created_by'] = $user['name'] ?? 'Admin';
-        $validated['created_at'] = now();
-        $validated['updated_at'] = now();
-
-        DB::table('academy_materi')->insert($validated);
-
-        return back()->with('success', 'Materi Training berhasil ditambahkan.');
+        return [
+            'createMode' => $request->boolean('create'),
+            'procId' => (int) $request->query('proc_id', 0),
+            'focus' => (string) $request->query('focus', ''),
+            'list' => AcademyAssessmentResource::collection($this->assessmentService->listAll())->resolve(),
+            'manage' => $manage ? (new AcademyAssessmentResource($manage))->resolve() : null,
+            'questions' => $manage ? AcademyQuestionResource::collection($manage->questions)->resolve() : [],
+            'stats' => $manage ? [
+                'total_questions' => $manage->questions_count,
+                'total_roles' => count($targets),
+                'total_employees' => $this->assessmentService->estimatedEmployees($targets),
+                'estimated_time' => $manage->timer_minutes,
+                'passing_grade' => $manage->passing_grade,
+            ] : null,
+            'targetRoles' => $this->assessmentService->targetRoleOptions(),
+            'signers' => $this->assessmentService->signerOptions(),
+        ];
     }
 
-    public function storeAssessment(Request $request): RedirectResponse
+    private function monitoringProps(Request $request): array
     {
-        $validated = $request->validate([
-            'title' => 'required|string',
-            'procedure_id' => 'nullable|exists:academy_materi,id',
-            'passing_grade' => 'required|integer|min:0|max:100',
-            'timer_minutes' => 'required|integer|min:1',
-            'retry_limit' => 'required|integer|min:1',
-            'validity_months' => 'required|integer|min:0',
-        ]);
+        $filters = $this->monitoringService->normalizeFilters($request->query());
+        $paginator = $this->monitoringService->paginate($filters);
 
-        $validated['status'] = 'draft';
-        $validated['created_at'] = now();
-        $validated['updated_at'] = now();
-
-        DB::table('academy_assessments')->insert($validated);
-
-        return back()->with('success', 'Assessment berhasil dibuat.');
+        return [
+            'filters' => $filters,
+            'summary' => $this->monitoringService->summary($filters['assessment_id']),
+            'dailyCompletions' => $this->monitoringService->dailyCompletions($filters['assessment_id']),
+            'assessments' => $this->monitoringService->assessmentOptions(),
+            'jabatans' => $this->monitoringService->jabatanOptions(),
+            'rows' => AcademyMonitoringResource::collection($paginator->items())->resolve(),
+            'pagination' => [
+                'currentPage' => $paginator->currentPage(),
+                'lastPage' => $paginator->lastPage(),
+                'total' => $paginator->total(),
+                'perPage' => $paginator->perPage(),
+            ],
+        ];
     }
 
-    public function storeQuestion(Request $request): RedirectResponse
+    private function raportProps(Request $request): array
     {
-        $validated = $request->validate([
-            'assessment_id' => 'required|exists:academy_assessments,id',
-            'question_type' => 'required|in:multiple_choice,true_false,case_based',
-            'question' => 'required|string',
-            'option_a' => 'nullable|string',
-            'option_b' => 'nullable|string',
-            'option_c' => 'nullable|string',
-            'option_d' => 'nullable|string',
-            'correct' => 'nullable|string',
-            'explanation' => 'nullable|string',
-        ]);
+        $filters = ['jabatan' => (string) $request->query('jabatan', '')];
+        $search = trim((string) $request->query('search', ''));
 
-        $validated['created_at'] = now();
-        $validated['updated_at'] = now();
-
-        DB::table('academy_questions')->insert($validated);
-
-        return back()->with('success', 'Soal berhasil ditambahkan ke Bank Soal.');
+        return [
+            'filters' => $filters,
+            'search' => $search,
+            'jabatans' => $this->raportService->jabatanOptions(),
+            'assessments' => $this->raportService->assessmentOptions(),
+            'rows' => $this->raportService->matrix($filters, $search),
+        ];
     }
 
-    public function saveTargets(Request $request): RedirectResponse
+    public function storeMateri(SaveAcademyMateriRequest $request): RedirectResponse
     {
-        $assessmentId = $request->input('assessment_id');
-        $targets = $request->input('targets', []);
+        $this->materiService->create($request->validated(), $request->file('file'), (string) $request->user()->name);
 
-        DB::table('academy_targets')->where('assessment_id', $assessmentId)->delete();
+        return redirect()->route('one-academy.evaluasi-kompetensi.index', ['tab' => 'materi'])->with('success', 'Materi berhasil ditambahkan');
+    }
 
-        foreach ($targets as $jabatan) {
-            DB::table('academy_targets')->insert([
-                'assessment_id' => $assessmentId,
-                'jabatan' => $jabatan,
-                'created_at' => now(),
-            ]);
-        }
+    public function updateMateri(SaveAcademyMateriRequest $request, AcademyMateri $materi): RedirectResponse
+    {
+        $this->materiService->update($materi, $request->validated(), $request->file('file'));
 
-        return back()->with('success', 'Target distribusi berhasil diperbarui.');
+        return redirect()->route('one-academy.evaluasi-kompetensi.index', ['tab' => 'materi'])->with('success', 'Materi berhasil diperbarui');
+    }
+
+    public function deleteMateri(AcademyMateri $materi): RedirectResponse
+    {
+        Gate::authorize('manage-academy-evaluation');
+
+        $this->materiService->delete($materi);
+
+        return redirect()->route('one-academy.evaluasi-kompetensi.index', ['tab' => 'materi'])->with('success', 'Materi berhasil dihapus');
+    }
+
+    public function viewMateri(AcademyMateri $materi): BinaryFileResponse
+    {
+        abort_unless($materi->file_path, 404, 'File materi tidak ditemukan');
+
+        $localPath = public_path(ltrim($materi->file_path, '/'));
+        abort_unless(file_exists($localPath), 404, 'File materi tidak ditemukan di server');
+
+        $ext = strtolower(pathinfo($localPath, PATHINFO_EXTENSION));
+        $contentType = match ($ext) {
+            'pdf' => 'application/pdf',
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            default => 'application/octet-stream',
+        };
+
+        return response()->file($localPath, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'inline; filename="'.basename($localPath).'"',
+        ]);
+    }
+
+    /** Input nilai manual (mis. dinilai instruktur/GL langsung, tanpa sesi ujian mandiri). */
+    public function recordResult(Request $request): RedirectResponse
+    {
+        Gate::authorize('manage-academy-evaluation');
+        $data = $request->validate([
+            'assessment_id' => ['required', 'exists:academy_assessments,id'],
+            'nrp' => ['required', 'string'],
+            'score' => ['required', 'numeric', 'min:0', 'max:100'],
+            'time_taken' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $assessment = AcademyAssessment::findOrFail($data['assessment_id']);
+        $this->monitoringService->recordManualResult($assessment, $data['nrp'], (float) $data['score'], $data['time_taken'] ?? null);
+
+        return back()->with('success', 'Hasil evaluasi berhasil disimpan');
+    }
+
+    public function raportDetail(string $nrp)
+    {
+        $data = $this->raportService->employeeDetail($nrp);
+        abort_unless($data, 404);
+
+        return response()->json($data);
     }
 }

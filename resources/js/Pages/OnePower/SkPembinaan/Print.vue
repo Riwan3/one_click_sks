@@ -131,5 +131,34 @@ const dikeluarkanTanggalFormatted = computed(() => formatDateIndonesia(props.skP
             <div>F-AI-IMS-18-034</div>
             <div>Rev. 01</div>
         </div>
+
+        <!-- Lampiran Dokumentasi Foto jika ada -->
+        <div v-if="skPembinaan.foto" class="mt-8 pt-6 border-t-2 border-dashed border-slate-300 print:border-none print:pt-0 print:mt-0" style="page-break-before: always;">
+            <div class="mb-4 flex items-start justify-between">
+                <div class="flex h-12 w-20 items-center justify-center rounded border border-slate-400 text-[9px] font-semibold text-slate-500">ADARO LOGO</div>
+                <div class="flex h-12 w-12 items-center justify-center rounded border border-slate-400 text-[9px] font-semibold text-slate-500">HSE LOGO</div>
+            </div>
+
+            <h2 class="mb-1 text-center text-sm font-bold uppercase leading-tight">
+                Lampiran Dokumentasi Foto Pelanggaran / Mine Permit
+            </h2>
+            <div class="text-center text-xs text-slate-600 mb-6">
+                Nomor Surat: <span class="font-bold">{{ skPembinaan.nomorSurat || '-' }}</span> &bull; 
+                Karyawan: <span class="font-bold">{{ skPembinaan.nrp }} - {{ skPembinaan.nama }}</span>
+            </div>
+
+            <div class="flex flex-col items-center justify-center">
+                <div class="max-w-md w-full border border-slate-300 rounded-lg p-2 bg-white shadow-xs">
+                    <img 
+                        :src="skPembinaan.foto" 
+                        alt="Dokumentasi Pelanggaran" 
+                        class="w-full max-h-[520px] object-contain rounded"
+                    />
+                </div>
+                <p class="mt-2 text-xs text-slate-500 italic">
+                    Dokumentasi fisik pelanggaran / sanksi pelubangan mine permit
+                </p>
+            </div>
+        </div>
     </div>
 </template>

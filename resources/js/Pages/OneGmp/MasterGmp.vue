@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import { Database, Plus, Trash2 } from 'lucide-vue-next';
@@ -33,8 +34,8 @@ const handleAddLocation = () => {
     });
 };
 
-const handleDeleteLocation = (id) => {
-    if (confirm('Hapus master lokasi ini?')) {
+const handleDeleteLocation = async (id) => {
+    if (await confirmDialog('Hapus master lokasi ini?')) {
         router.delete(`/one-gmp/master/delete/${id}`);
     }
 };
@@ -66,7 +67,7 @@ const handleDeleteLocation = (id) => {
             <select v-model="currentType" @change="handleTypeChange" class="border border-slate-300 rounded-xl px-3 py-2 text-xs bg-slate-50 text-slate-800 font-bold outline-none focus:border-sky-500">
                 <option value="MHR">MHR (Mining Haul Road)</option>
                 <option value="MFOB">MFOB (Mine Front OB)</option>
-                <option value="MFOC">MFOC (Mine Front Coal)</option>
+                <option value="MFCO">MFCO (Mine Front Coal)</option>
                 <option value="DISPOSAL">DISPOSAL</option>
                 <option value="DEWATERING">DEWATERING</option>
             </select>

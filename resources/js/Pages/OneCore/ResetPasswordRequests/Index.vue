@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { Head, router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { KeyRound, CheckCircle2, Clock, MessageSquare } from 'lucide-vue-next'
@@ -22,8 +23,8 @@ const formatDate = (dateStr) => {
   })
 }
 
-const completeRequest = (id) => {
-  if (confirm('Tandai request reset password ini sebagai Selesai?')) {
+const completeRequest = async (id) => {
+  if (await confirmDialog('Tandai request reset password ini sebagai Selesai?')) {
     router.put(`/one-core/reset-password-requests/${id}/complete`, {}, {
       preserveScroll: true,
     })

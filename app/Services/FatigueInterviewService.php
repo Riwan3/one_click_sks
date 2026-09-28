@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Imports\FatigueInterviewImport;
 use App\Models\Employee;
 use App\Models\FatigueInterview;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
 
 class FatigueInterviewService
 {
@@ -14,7 +17,7 @@ class FatigueInterviewService
         $user = Auth::user();
 
         return FatigueInterview::query()
-            ->with(['employee', 'pengawas'])
+            ->with(['employee', 'pengawas', 'creator', 'updater'])
             ->search($search)
             ->dateBetween($dateFrom, $dateTo)
             // Row-level scoping: GL non-Manpower hanya lihat records mereka handle (sebagai pengawas)
@@ -69,5 +72,16 @@ class FatigueInterviewService
     public function delete(FatigueInterview $fatigueInterview): void
     {
         $fatigueInterview->delete();
+    }
+
+    public function importFromExcel(UploadedFile $file, ?int $createdBy): array
+    {
+        $import = new FatigueInterviewImport($createdBy);
+        Excel::import($import, $file);
+
+        return [
+            'imported' => $import->importedCount(),
+            'invalidDates' => $import->invalidDateCount(),
+        ];
     }
 }

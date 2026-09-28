@@ -37,6 +37,9 @@ const typeIcons = {
                     <div class="text-sm font-bold text-slate-800 leading-snug">{{ announcement.title }}</div>
                     <div class="text-[0.65rem] font-semibold text-slate-400 mt-0.5">{{ announcement.date }}</div>
                     <div class="mt-1 text-xs text-slate-600 leading-relaxed line-clamp-2">{{ announcement.content }}</div>
+                    <div v-if="announcement.image_url" class="mt-2 overflow-hidden rounded-lg border border-slate-200">
+                        <img :src="announcement.image_url" :alt="announcement.title" class="h-28 w-full object-cover">
+                    </div>
                 </div>
             </div>
         </div>

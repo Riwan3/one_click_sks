@@ -27,11 +27,18 @@ class UnitController extends Controller
         $nonStaffCountByPattern = [];
 
         foreach ($units as $unit) {
-            $pattern = trim($unit->patterns ?: $unit->name);
-            $query = Employee::query()->where(function ($q) use ($pattern) {
-                $q->where('jabatan', 'LIKE', "%{$pattern}%")
-                  ->orWhere('jabatan_ss6', 'LIKE', "%{$pattern}%")
-                  ->orWhere('unit', 'LIKE', "%{$pattern}%");
+            $rawPatterns = trim($unit->patterns ?: $unit->name);
+            $patterns = array_filter(array_map('trim', explode(',', $rawPatterns)));
+            if (empty($patterns)) {
+                $patterns = [$unit->name];
+            }
+
+            $query = Employee::query()->where(function ($q) use ($patterns) {
+                foreach ($patterns as $pattern) {
+                    $q->orWhere('jabatan_ss6', 'LIKE', "%{$pattern}%")
+                      ->orWhere('jabatan_roster', 'LIKE', "%{$pattern}%")
+                      ->orWhere('unit', 'LIKE', "%{$pattern}%");
+                }
             });
 
             if ($unit->category_type === 'staff') {

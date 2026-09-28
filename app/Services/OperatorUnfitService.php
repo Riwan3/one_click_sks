@@ -13,6 +13,9 @@ class OperatorUnfitService
 {
     private const UPLOAD_DIR = 'operator-unfit';
 
+    /** Sama dengan default kolom `perusahaan` di migration — dipakai saat form dikirim kosong. */
+    private const DEFAULT_PERUSAHAAN = 'PT. PUTRA PERKASA ABADI';
+
     public function paginate(?string $search, int $page, int $perPage): LengthAwarePaginator
     {
         return OperatorUnfit::query()
@@ -27,6 +30,7 @@ class OperatorUnfitService
         if ($bukti) {
             $data['bukti'] = $bukti->store(self::UPLOAD_DIR, 'public');
         }
+        $data['perusahaan'] = ($data['perusahaan'] ?? null) ?: self::DEFAULT_PERUSAHAAN;
         $data['created_by'] = $createdBy;
 
         $unfit = OperatorUnfit::create($data);
@@ -43,6 +47,7 @@ class OperatorUnfitService
             }
             $data['bukti'] = $bukti->store(self::UPLOAD_DIR, 'public');
         }
+        $data['perusahaan'] = ($data['perusahaan'] ?? null) ?: self::DEFAULT_PERUSAHAAN;
 
         $unfit->update($data);
         $this->syncEmployeeStatus($unfit);

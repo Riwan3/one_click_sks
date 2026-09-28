@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\NomorPenting;
 use App\Support\MenuAccess;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -30,8 +31,46 @@ class NomorPentingController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    /**
+     * API untuk mengambil daftar nomor penting untuk Modal & Quick Access.
+     */
+    public function apiList(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $isAdmin = (bool) $user?->isAdmin()
+            || ($user && in_array(strtolower((string) $user->role), ['admin', 'admin_produksi'], true))
+            || ($user && str_contains(strtolower((string) $user->jabatan), 'admin'));
+
+        $query = NomorPenting::query();
+        if (! $isAdmin) {
+            $query->where('aktif', true);
+        }
+
+        $list = $query
+            ->orderBy('kategori')
+            ->orderBy('urutan')
+            ->orderBy('nama')
+            ->get();
+
+        $grouped = $list->groupBy('kategori');
+
+        return response()->json([
+            'status' => 'success',
+            'list' => $list,
+            'grouped' => $grouped,
+            'isAdmin' => $isAdmin,
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse|JsonResponse
+    {
+        $user = $request->user();
+        $isAdmin = (bool) $user?->isAdmin()
+            || ($user && in_array(strtolower((string) $user->role), ['admin', 'admin_produksi'], true))
+            || ($user && str_contains(strtolower((string) $user->jabatan), 'admin'));
+
+        abort_unless($isAdmin, 403, 'Akses ditolak. Hanya role Admin yang dapat menambah nomor penting.');
+
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'jabatan' => 'nullable|string|max:255',
@@ -41,7 +80,7 @@ class NomorPentingController extends Controller
             'aktif' => 'boolean',
         ]);
 
-        NomorPenting::create([
+        $item = NomorPenting::create([
             'nama' => $validated['nama'],
             'jabatan' => $validated['jabatan'] ?? null,
             'no_telepon' => $validated['no_telepon'] ?? null,
@@ -50,11 +89,26 @@ class NomorPentingController extends Controller
             'aktif' => $request->boolean('aktif', true),
         ]);
 
+        if ($request->wantsJson() || $request->is('*/api/*')) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Nomor penting berhasil ditambahkan.',
+                'item' => $item,
+            ]);
+        }
+
         return redirect()->back()->with('success', 'Nomor penting berhasil ditambahkan.');
     }
 
-    public function update(Request $request, NomorPenting $nomorPenting): RedirectResponse
+    public function update(Request $request, NomorPenting $nomorPenting): RedirectResponse|JsonResponse
     {
+        $user = $request->user();
+        $isAdmin = (bool) $user?->isAdmin()
+            || ($user && in_array(strtolower((string) $user->role), ['admin', 'admin_produksi'], true))
+            || ($user && str_contains(strtolower((string) $user->jabatan), 'admin'));
+
+        abort_unless($isAdmin, 403, 'Akses ditolak. Hanya role Admin yang dapat mengubah nomor penting.');
+
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'jabatan' => 'nullable|string|max:255',
@@ -73,12 +127,34 @@ class NomorPentingController extends Controller
             'aktif' => $request->boolean('aktif', true),
         ]);
 
+        if ($request->wantsJson() || $request->is('*/api/*')) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Nomor penting berhasil diperbarui.',
+                'item' => $nomorPenting,
+            ]);
+        }
+
         return redirect()->back()->with('success', 'Nomor penting berhasil diperbarui.');
     }
 
-    public function destroy(NomorPenting $nomorPenting): RedirectResponse
+    public function destroy(Request $request, NomorPenting $nomorPenting): RedirectResponse|JsonResponse
     {
+        $user = $request->user();
+        $isAdmin = (bool) $user?->isAdmin()
+            || ($user && in_array(strtolower((string) $user->role), ['admin', 'admin_produksi'], true))
+            || ($user && str_contains(strtolower((string) $user->jabatan), 'admin'));
+
+        abort_unless($isAdmin, 403, 'Akses ditolak. Hanya role Admin yang dapat menghapus nomor penting.');
+
         $nomorPenting->delete();
+
+        if ($request->wantsJson() || $request->is('*/api/*')) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Nomor penting berhasil dihapus.',
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Nomor penting berhasil dihapus.');
     }

@@ -1,275 +1,513 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { CalendarCheck, Plus, Search, Pencil, Trash2, CloudDownload, Info } from '@lucide/vue';
+import { CloudDownload, RefreshCw, X, Loader2, Calendar, Clock, Briefcase, MapPin } from '@lucide/vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import Pagination from '@/Components/ui/Pagination.vue';
-import AttendanceFormModal from './Partials/AttendanceFormModal.vue';
-import AttendanceImportModal from './Partials/AttendanceImportModal.vue';
 
 const props = defineProps({
     user: { type: Object, required: true },
+    isPersonalOnly: { type: Boolean, default: false },
     notifCounts: { type: Object, required: true },
     menu: { type: Array, required: true },
     search: { type: String, default: '' },
-    bulan: { type: Number, required: true },
-    tahun: { type: Number, required: true },
-    kategori: { type: String, default: null },
-    atrThreshold: { type: Number, required: true },
-    filterLowAtr: { type: Boolean, default: false },
+    dateFrom: { type: String, default: '' },
+    dateTo: { type: String, default: '' },
+    category: { type: String, default: '' },
     summary: { type: Object, required: true },
-    codeColumns: { type: Array, required: true },
     items: { type: Array, required: true },
     pagination: { type: Object, required: true },
+    lastSync: { type: String, default: '' },
 });
 
-const monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-];
+const isOperator = computed(() => {
+    const role = (props.user?.role || '').toLowerCase();
+    const jabatan = (props.user?.employee?.jabatan_ss6 || props.user?.jabatan || '').toLowerCase();
+    return role.includes('operator') || jabatan.includes('operator');
+});
 
-const kategoriOptions = [
-    { value: 'd', label: 'Shift Siang (D)' },
-    { value: 'n', label: 'Shift Malam (N)' },
-    { value: 's', label: 'Sakit (S)' },
-    { value: 'i', label: 'Izin (I)' },
-    { value: 'a', label: 'Alfa (A)' },
-];
+const isGroupLeader = computed(() => {
+    const role = (props.user?.role || '').toLowerCase();
+    const jabatan = (props.user?.employee?.jabatan_ss6 || props.user?.jabatan || '').toLowerCase();
+    return (
+        role === 'group-leader' ||
+        role === 'gl' ||
+        role.includes('group-leader') ||
+        role.includes('group leader') ||
+        role.includes('gl') ||
+        jabatan.includes('group leader') ||
+        jabatan.includes('gl')
+    );
+});
 
-/** Legend for the 15 status-code columns — see AttendanceMonthlyRoster migration for V1 parity notes. */
-const codeLegend = [
-    { code: 'd', meaning: 'Shift Siang' },
-    { code: 'n', meaning: 'Shift Malam' },
-    { code: 's', meaning: 'Sakit' },
-    { code: 'i', meaning: 'Izin' },
-    { code: 'a', meaning: 'Alfa' },
-    { code: 'io', meaning: null },
-    { code: 'nc', meaning: null },
-    { code: 'l', meaning: null },
-    { code: 't', meaning: null },
-    { code: 'o', meaning: null },
-    { code: 'k', meaning: null },
-    { code: 'p', meaning: null },
-    { code: 'r', meaning: null },
-    { code: 'h', meaning: null },
-    { code: 'nr', meaning: null },
-];
+const isPersonal = computed(() => props.isPersonalOnly || isOperator.value || isGroupLeader.value);
 
 const searchInput = ref(props.search);
-const bulanInput = ref(props.bulan);
-const tahunInput = ref(props.tahun);
-const kategoriInput = ref(props.kategori ?? '');
-const filterLowAtrInput = ref(props.filterLowAtr);
-const atrThresholdInput = ref(props.atrThreshold);
-const legendOpen = ref(false);
+const dateFromInput = ref(props.dateFrom);
+const dateToInput = ref(props.dateTo);
+const categoryInput = ref(props.category);
+
+const getStatusBadge = (code, siaCat) => {
+    const cat = (siaCat || '').toUpperCase();
+    if (cat === 'D') return { label: 'Shift Siang (D)', bg: 'bg-blue-50 text-blue-700 border-blue-200' };
+    if (cat === 'N') return { label: 'Shift Malam (N)', bg: 'bg-sky-50 text-sky-700 border-sky-200' };
+    if (cat === 'S') return { label: 'Sakit (S)', bg: 'bg-amber-50 text-amber-700 border-amber-200' };
+    if (cat === 'I') return { label: 'Izin (I)', bg: 'bg-slate-100 text-slate-700 border-slate-200' };
+    if (cat === 'A') return { label: 'Alpa (A)', bg: 'bg-red-50 text-red-700 border-red-200' };
+    return { label: code || '-', bg: 'bg-slate-50 text-slate-600 border-slate-200' };
+};
 
 const submitFilter = () => {
     router.get('/one-power/personal-data/attendance', {
-        search: searchInput.value,
-        bulan: bulanInput.value,
-        tahun: tahunInput.value,
-        kategori: kategoriInput.value,
-        filter_low_atr: filterLowAtrInput.value ? 1 : 0,
-        atr_threshold: atrThresholdInput.value,
+        search: isPersonal.value ? '' : searchInput.value,
+        date_from: dateFromInput.value,
+        date_to: dateToInput.value,
+        category: categoryInput.value,
     }, { preserveScroll: true, preserveState: true });
 };
 
-const blankRosterForm = () => {
-    const codes = Object.fromEntries(props.codeColumns.map((code) => [code, 0]));
-    return { employee_id: null, bulan: props.bulan, tahun: props.tahun, dept: '', atr_percentage: null, ...codes };
+const goToPage = (page) => {
+    if (page < 1 || page > props.pagination.lastPage || page === props.pagination.currentPage) return;
+    router.get('/one-power/personal-data/attendance', {
+        search: searchInput.value,
+        date_from: dateFromInput.value,
+        date_to: dateToInput.value,
+        category: categoryInput.value,
+        page: page,
+    }, { preserveScroll: true, preserveState: true });
 };
 
-const formModalOpen = ref(false);
-const editingRow = ref(null);
-const form = useForm(blankRosterForm());
+const importApiModalOpen = ref(false);
+const importApiForm = useForm({
+    bulan: new Date().getMonth() + 1,
+    tahun: new Date().getFullYear(),
+    dept: 'PRO',
+});
 
-const openCreate = () => {
-    editingRow.value = null;
-    form.defaults(blankRosterForm());
-    form.reset();
-    formModalOpen.value = true;
-};
-
-const openEdit = (row) => {
-    editingRow.value = row;
-    const codes = Object.fromEntries(props.codeColumns.map((code) => [code, row[code] ?? 0]));
-    form.defaults({ employee_id: row.employeeId, bulan: row.bulan, tahun: row.tahun, dept: row.dept ?? '', atr_percentage: row.atrPercent ?? null, ...codes });
-    form.reset();
-    formModalOpen.value = true;
-};
-
-const closeFormModal = () => {
-    formModalOpen.value = false;
-    editingRow.value = null;
-};
-
-const submitForm = () => {
-    const options = { preserveScroll: true, onSuccess: () => closeFormModal() };
-    editingRow.value ? form.put(`/one-power/personal-data/attendance/${editingRow.value.id}`, options) : form.post('/one-power/personal-data/attendance', options);
-};
-
-const handleDelete = (row) => {
-    if (! confirm(`Hapus roster absensi "${row.nrp} - ${row.nama}" periode ${row.bulan}/${row.tahun}?`)) return;
-    router.delete(`/one-power/personal-data/attendance/${row.id}`, { preserveScroll: true });
-};
-
-const importModalOpen = ref(false);
-const importForm = useForm({ file: null, bulan: props.bulan, tahun: props.tahun });
-
-const submitImport = () => {
-    importForm.post('/one-power/personal-data/attendance/import', {
+const submitImportApi = () => {
+    importApiForm.post('/one-power/personal-data/attendance/import-api', {
         preserveScroll: true,
-        forceFormData: true,
         onSuccess: () => {
-            importModalOpen.value = false;
-            importForm.reset('file');
+            importApiModalOpen.value = false;
         },
     });
 };
 
-const atrColor = (value) => {
-    if (value === null || value === undefined) return 'text-slate-400';
-    if (value < 80) return 'text-red-600';
-    if (value < 90) return 'text-amber-600';
-    return 'text-emerald-600';
+const bulanList = [
+    { value: 1, label: 'Januari' },
+    { value: 2, label: 'Februari' },
+    { value: 3, label: 'Maret' },
+    { value: 4, label: 'April' },
+    { value: 5, label: 'Mei' },
+    { value: 6, label: 'Juni' },
+    { value: 7, label: 'Juli' },
+    { value: 8, label: 'Agustus' },
+    { value: 9, label: 'September' },
+    { value: 10, label: 'Oktober' },
+    { value: 11, label: 'November' },
+    { value: 12, label: 'Desember' },
+];
+
+const computedPages = () => {
+    const current = props.pagination.currentPage;
+    const last = props.pagination.lastPage;
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= last; i++) {
+        if (i === 1 || i === last || (i >= current - delta && i <= current + delta)) {
+            range.push(i);
+        }
+    }
+
+    for (const i of range) {
+        if (l) {
+            if (i - l === 2) {
+                rangeWithDots.push(l + 1);
+            } else if (i - l !== 1) {
+                rangeWithDots.push('...');
+            }
+        }
+        rangeWithDots.push(i);
+        l = i;
+    }
+
+    return rangeWithDots;
 };
 </script>
 
 <template>
-    <Head title="Attendance - OneClick" />
+    <Head :title="isPersonal ? 'Absensi Saya - OneClick' : 'Attendance - OneClick'" />
 
     <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
-        <div class="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <!-- Header -->
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h1 class="mb-1 flex items-center gap-2 text-xl font-extrabold text-slate-800"><CalendarCheck class="h-5 w-5 text-blue-500" /> Attendance</h1>
-                <p class="m-0 text-sm text-slate-500">Roster absensi bulanan. Total ditemukan: <strong class="text-slate-700">{{ pagination.total }}</strong> data.</p>
+                <h1 class="mb-0.5 text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
+                    {{ isPersonal ? 'Absensi Saya' : 'Attendance' }}
+                </h1>
+                <p class="m-0 text-xs sm:text-sm text-slate-500 font-medium">
+                    {{ isPersonal ? 'Riwayat dan rekapitulasi absensi harian Anda.' : 'Data absensi detail (per NRP per hari) tersimpan di database.' }}
+                </p>
+                <div v-if="lastSync" class="mt-1 flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                    <RefreshCw class="h-3 w-3 inline text-slate-400" />
+                    <span>Terakhir sync otomatis: {{ lastSync }}</span>
+                </div>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <button type="button" class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700" @click="importModalOpen = true">
-                    <CloudDownload class="h-4 w-4" /> Import Excel
-                </button>
-                <button type="button" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600" @click="openCreate">
-                    <Plus class="h-4 w-4" /> Tambah Data
+
+            <div v-if="!isPersonal">
+                <button
+                    type="button"
+                    class="flex items-center gap-2 rounded-lg bg-[#107c41] px-4 py-2.5 text-xs font-black text-white uppercase tracking-wider shadow-sm hover:bg-[#0e6b37] active:scale-95 transition"
+                    @click="importApiModalOpen = true"
+                >
+                    <CloudDownload class="h-4 w-4" />
+                    <span>IMPORT DARI API</span>
                 </button>
             </div>
         </div>
 
-        <form class="mb-4 flex flex-wrap items-center gap-2" @submit.prevent="submitFilter">
-            <div class="relative w-full max-w-xs flex-1">
-                <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input v-model="searchInput" type="text" placeholder="Cari NRP atau nama..." class="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500">
-            </div>
-            <select v-model.number="bulanInput" class="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
-                <option v-for="(name, idx) in monthNames" :key="idx" :value="idx + 1">{{ name }}</option>
-            </select>
-            <input v-model.number="tahunInput" type="number" min="2000" max="2100" class="w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
-            <select v-model="kategoriInput" class="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
-                <option value="">Semua Ket.</option>
-                <option v-for="opt in kategoriOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-            </select>
-            <label class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
-                <input v-model="filterLowAtrInput" type="checkbox" class="h-4 w-4 rounded border-slate-300">
-                ATR &lt;
-                <input v-model.number="atrThresholdInput" type="number" step="0.1" min="0" max="100" class="w-14 rounded border border-slate-200 px-1.5 py-0.5 text-xs outline-none focus:border-blue-500">
-                %
-            </label>
-            <button type="submit" class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-600">Filter</button>
-        </form>
+        <!-- Filter Card -->
+        <div class="mb-4 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-xs">
+            <form class="flex flex-col gap-2.5 lg:flex-row lg:items-center" @submit.prevent="submitFilter">
+                <!-- Search Input (Only for Non-Personal View) -->
+                <div v-if="!isPersonal" class="flex-1">
+                    <input
+                        v-model="searchInput"
+                        type="text"
+                        placeholder="Cari NRP atau Nama..."
+                        class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition"
+                    >
+                </div>
 
-        <div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <div class="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-                <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Shift D</div>
-                <div class="text-2xl font-extrabold text-emerald-600">{{ summary.total_d }}</div>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-                <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Shift N</div>
-                <div class="text-2xl font-extrabold text-slate-800">{{ summary.total_n }}</div>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-                <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Sakit (S)</div>
-                <div class="text-2xl font-extrabold text-amber-600">{{ summary.total_s }}</div>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-                <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Izin (I)</div>
-                <div class="text-2xl font-extrabold text-sky-600">{{ summary.total_i }}</div>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-                <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Alfa (A)</div>
-                <div class="text-2xl font-extrabold text-red-600">{{ summary.total_a }}</div>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-blue-50 p-4 text-center shadow-sm">
-                <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Avg ATR</div>
-                <div class="text-2xl font-extrabold text-blue-700">{{ summary.avg_atr }}%</div>
+                <!-- Date Range & Status Controls -->
+                <div class="flex flex-wrap items-center gap-2" :class="{ 'w-full justify-between sm:justify-start': isPersonal }">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-slate-600">Dari</span>
+                        <input
+                            v-model="dateFromInput"
+                            type="date"
+                            class="rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                        >
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-bold text-slate-600">S/d</span>
+                        <input
+                            v-model="dateToInput"
+                            type="date"
+                            class="rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                        >
+                    </div>
+
+                    <select
+                        v-model="categoryInput"
+                        class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                    >
+                        <option value="">Semua Status</option>
+                        <option value="D">D - Shift Siang</option>
+                        <option value="N">N - Shift Malam</option>
+                        <option value="S">S - Sakit</option>
+                        <option value="I">I - Izin</option>
+                        <option value="A">A - Alpa</option>
+                    </select>
+
+                    <button
+                        type="submit"
+                        class="rounded-xl bg-blue-600 px-6 py-2 text-xs font-black text-white uppercase tracking-wider shadow-xs hover:bg-blue-700 active:scale-95 transition ml-auto lg:ml-0"
+                    >
+                        FILTER
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Summary Bar (5 Stat Columns in Unified White Card) -->
+        <div class="mb-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
+            <div class="grid grid-cols-2 gap-4 text-center sm:grid-cols-5 sm:divide-x sm:divide-slate-100">
+                <div class="px-2">
+                    <div class="text-[11px] font-black uppercase tracking-wider text-slate-500">SHIFT SIANG</div>
+                    <div class="mt-1 text-2xl font-black text-blue-600">
+                        {{ (summary.totalSiang ?? 0).toLocaleString('id-ID') }}
+                    </div>
+                </div>
+
+                <div class="px-2">
+                    <div class="text-[11px] font-black uppercase tracking-wider text-slate-500">SHIFT MALAM</div>
+                    <div class="mt-1 text-2xl font-black text-sky-600">
+                        {{ (summary.totalMalam ?? 0).toLocaleString('id-ID') }}
+                    </div>
+                </div>
+
+                <div class="px-2">
+                    <div class="text-[11px] font-black uppercase tracking-wider text-slate-500">SAKIT</div>
+                    <div class="mt-1 text-2xl font-black text-amber-500">
+                        {{ (summary.totalSakit ?? 0).toLocaleString('id-ID') }}
+                    </div>
+                </div>
+
+                <div class="px-2">
+                    <div class="text-[11px] font-black uppercase tracking-wider text-slate-500">IZIN</div>
+                    <div class="mt-1 text-2xl font-black text-slate-600">
+                        {{ (summary.totalIzin ?? 0).toLocaleString('id-ID') }}
+                    </div>
+                </div>
+
+                <div class="col-span-2 px-2 sm:col-span-1">
+                    <div class="text-[11px] font-black uppercase tracking-wider text-slate-500">ALPA</div>
+                    <div class="mt-1 text-2xl font-black text-red-600">
+                        {{ (summary.totalAlpa ?? 0).toLocaleString('id-ID') }}
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-            <table class="w-full min-w-[1400px] text-left text-sm">
+        <!-- Mobile Card List (sm:hidden) -->
+        <div class="mb-4 space-y-3 sm:hidden">
+            <div v-if="items.length === 0" class="rounded-2xl border border-slate-200/80 bg-white p-8 text-center text-slate-400 text-xs font-medium">
+                Tidak ada data absensi untuk filter ini.
+            </div>
+
+            <div
+                v-for="row in items"
+                :key="row.id"
+                class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs"
+            >
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div class="flex items-center gap-2">
+                        <Calendar class="h-4 w-4 text-blue-600" />
+                        <span class="text-xs font-bold text-slate-800">{{ row.tanggal }}</span>
+                    </div>
+                    <span
+                        class="rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider"
+                        :class="getStatusBadge(row.code, row.siaCategory).bg"
+                    >
+                        {{ getStatusBadge(row.code, row.siaCategory).label }}
+                    </span>
+                </div>
+
+                <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div class="rounded-xl bg-slate-50 p-2.5">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Jam Masuk (IN)</div>
+                        <div class="mt-1 flex items-center gap-1.5 font-mono font-bold text-emerald-600">
+                            <Clock class="h-3.5 w-3.5" />
+                            <span>{{ row.jamIn }}</span>
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl bg-slate-50 p-2.5">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Jam Keluar (OUT)</div>
+                        <div class="mt-1 flex items-center gap-1.5 font-mono font-bold text-rose-600">
+                            <Clock class="h-3.5 w-3.5" />
+                            <span>{{ row.jamOut }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-2.5 space-y-1 text-[11px] text-slate-500">
+                    <div v-if="!isPersonal" class="flex items-center justify-between">
+                        <span class="text-slate-400">Karyawan:</span>
+                        <span class="font-bold text-slate-700">{{ row.name }} ({{ row.nrp }})</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Jabatan:</span>
+                        <span class="font-semibold text-slate-700">{{ row.job || row.position }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Departemen:</span>
+                        <span class="font-semibold text-slate-700">{{ row.dept }} - {{ row.company }}</span>
+                    </div>
+                    <div v-if="row.device && row.device !== '-'" class="flex items-center justify-between">
+                        <span class="text-slate-400">Perangkat:</span>
+                        <span class="font-mono text-[10px] text-slate-600">{{ row.device }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table (Exact Columns Matching Image 1 for Desktop) -->
+        <div class="hidden sm:block overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+            <table class="w-full text-left text-xs whitespace-nowrap">
                 <thead>
-                    <tr class="border-b border-slate-100 text-[0.7rem] uppercase tracking-wide text-slate-500">
-                        <th class="sticky left-0 bg-white px-4 py-3 font-semibold">NRP / Nama</th>
-                        <th class="px-3 py-3 font-semibold">Periode</th>
-                        <th v-for="code in codeColumns" :key="code" class="px-2 py-3 text-center font-semibold uppercase">{{ code }}</th>
-                        <th class="px-3 py-3 text-center font-semibold">ATR%</th>
-                        <th class="px-4 py-3 font-semibold">
-                            <span class="relative inline-flex items-center gap-1">
-                                Aksi
-                                <button
-                                    type="button"
-                                    title="Keterangan kode kolom"
-                                    class="flex h-4 w-4 items-center justify-center rounded-full text-slate-400 hover:text-blue-600"
-                                    @click="legendOpen = !legendOpen"
-                                    @blur="legendOpen = false"
-                                >
-                                    <Info class="h-3.5 w-3.5" />
-                                </button>
-                                <div
-                                    v-if="legendOpen"
-                                    class="absolute right-0 top-6 z-20 w-64 rounded-lg border border-slate-200 bg-white p-3 text-left normal-case tracking-normal text-slate-600 shadow-lg"
-                                >
-                                    <p class="mb-2 text-[0.7rem] font-bold uppercase text-slate-400">Keterangan Kode</p>
-                                    <ul class="space-y-1 text-xs">
-                                        <li v-for="entry in codeLegend" :key="entry.code" class="flex justify-between gap-2">
-                                            <span class="font-bold uppercase text-slate-700">{{ entry.code }}</span>
-                                            <span :class="entry.meaning ? 'text-slate-600' : 'italic text-slate-400'">{{ entry.meaning ?? 'kode internal (belum didokumentasikan)' }}</span>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </span>
-                        </th>
+                    <tr class="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                        <th class="px-4 py-3">NRP</th>
+                        <th class="px-4 py-3">NAME</th>
+                        <th class="px-4 py-3">POSITION</th>
+                        <th class="px-4 py-3">DATE</th>
+                        <th class="px-3 py-3 text-center">IN</th>
+                        <th class="px-3 py-3 text-center">OUT</th>
+                        <th class="px-3 py-3">JOB</th>
+                        <th class="px-3 py-3">DEPT</th>
+                        <th class="px-3 py-3">COMPANY</th>
+                        <th class="px-3 py-3 text-center">CODE</th>
+                        <th class="px-3 py-3">DEVICE</th>
+                        <th class="px-3 py-3">OWNER</th>
+                        <th class="px-3 py-3 text-center">DEVICE COUNT</th>
+                        <th class="px-3 py-3 text-center">DEVICE ID</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <tr v-if="items.length === 0"><td :colspan="codeColumns.length + 4" class="px-4 py-8 text-center text-slate-400">Belum ada data roster absensi untuk periode ini.</td></tr>
-                    <tr v-for="row in items" :key="row.id" class="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
-                        <td class="sticky left-0 bg-white px-4 py-3 align-middle">
-                            <div class="font-bold text-slate-700">{{ row.nrp }}</div>
-                            <div class="text-xs uppercase text-slate-500">{{ row.nama }}</div>
+                <tbody class="divide-y divide-slate-100">
+                    <tr v-if="items.length === 0">
+                        <td colspan="14" class="px-4 py-12 text-center text-slate-400 font-medium">
+                            Tidak ada data absensi untuk filter ini.
                         </td>
-                        <td class="px-3 py-3 align-middle text-xs text-slate-600">{{ monthNames[row.bulan - 1] }} {{ row.tahun }}</td>
-                        <td v-for="code in codeColumns" :key="code" class="px-2 py-3 text-center align-middle text-slate-600">{{ row[code] }}</td>
-                        <td class="px-3 py-3 text-center align-middle font-bold" :class="atrColor(row.atrPercent)">{{ row.atrPercent }}%</td>
-                        <td class="px-4 py-3 align-middle">
-                            <div class="flex gap-1.5">
-                                <button type="button" title="Edit" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-amber-500 hover:bg-amber-50" @click="openEdit(row)"><Pencil class="h-3.5 w-3.5" /></button>
-                                <button type="button" title="Hapus" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-red-500 hover:bg-red-50" @click="handleDelete(row)"><Trash2 class="h-3.5 w-3.5" /></button>
+                    </tr>
+                    <tr
+                        v-for="row in items"
+                        :key="row.id"
+                        class="hover:bg-slate-50/60 transition"
+                    >
+                        <td class="px-4 py-3 align-middle font-bold text-blue-600">
+                            <div class="flex items-center gap-1.5">
+                                <span class="h-2 w-2 shrink-0 rounded-full bg-emerald-500 inline-block"></span>
+                                <span>{{ row.nrp }}</span>
                             </div>
+                        </td>
+                        <td class="px-4 py-3 align-middle font-bold uppercase text-slate-800">
+                            {{ row.name }}
+                        </td>
+                        <td class="px-4 py-3 align-middle font-semibold uppercase text-slate-600 text-[11px]">
+                            {{ row.position }}
+                        </td>
+                        <td class="px-4 py-3 align-middle font-medium text-slate-600">
+                            {{ row.tanggal }}
+                        </td>
+                        <td class="px-3 py-3 align-middle text-center font-mono text-[11px] text-slate-700">
+                            {{ row.jamIn }}
+                        </td>
+                        <td class="px-3 py-3 align-middle text-center font-mono text-[11px] text-slate-700">
+                            {{ row.jamOut }}
+                        </td>
+                        <td class="px-3 py-3 align-middle uppercase text-slate-600">
+                            {{ row.job }}
+                        </td>
+                        <td class="px-3 py-3 align-middle uppercase font-semibold text-slate-600">
+                            {{ row.dept }}
+                        </td>
+                        <td class="px-3 py-3 align-middle uppercase font-semibold text-slate-600">
+                            {{ row.company }}
+                        </td>
+                        <td class="px-3 py-3 align-middle text-center uppercase font-bold text-slate-700">
+                            {{ row.code }}
+                        </td>
+                        <td class="px-3 py-3 align-middle font-mono text-[11px] text-slate-600">
+                            {{ row.device }}
+                        </td>
+                        <td class="px-3 py-3 align-middle font-mono text-[11px] text-slate-600">
+                            {{ row.owner }}
+                        </td>
+                        <td class="px-3 py-3 align-middle text-center font-semibold text-slate-600">
+                            {{ row.deviceCount }}
+                        </td>
+                        <td class="px-3 py-3 align-middle text-center text-slate-400">
+                            {{ row.deviceId }}
                         </td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
-        <div class="mt-4">
-            <Pagination
-                :current-page="pagination.currentPage"
-                :last-page="pagination.lastPage"
-                base-url="/one-power/personal-data/attendance"
-                :query="{ search, bulan, tahun, kategori, filter_low_atr: filterLowAtr ? 1 : 0, atr_threshold: atrThreshold }"
-            />
+        <!-- Pagination & Entries Summary -->
+        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-600">
+            <div>
+                Showing
+                <strong class="text-slate-800">{{ pagination.from }}</strong>
+                to
+                <strong class="text-slate-800">{{ pagination.to }}</strong>
+                of
+                <strong class="text-slate-800">{{ (pagination.total ?? 0).toLocaleString('id-ID') }}</strong>
+                entries
+            </div>
+
+            <div v-if="pagination.lastPage > 1" class="flex items-center gap-1 overflow-x-auto">
+                <button
+                    type="button"
+                    class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                    :disabled="pagination.currentPage <= 1"
+                    @click="goToPage(pagination.currentPage - 1)"
+                >
+                    Previous
+                </button>
+
+                <template v-for="(p, idx) in computedPages()" :key="idx">
+                    <span v-if="p === '...'" class="px-2 text-slate-400">...</span>
+                    <button
+                        v-else
+                        type="button"
+                        class="h-8 min-w-8 rounded-lg px-2 text-xs font-bold transition"
+                        :class="[
+                            p === pagination.currentPage
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        ]"
+                        @click="goToPage(p)"
+                    >
+                        {{ p }}
+                    </button>
+                </template>
+
+                <button
+                    type="button"
+                    class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                    :disabled="pagination.currentPage >= pagination.lastPage"
+                    @click="goToPage(pagination.currentPage + 1)"
+                >
+                    Next
+                </button>
+            </div>
         </div>
 
-        <AttendanceFormModal :open="formModalOpen" :row="editingRow" :form="form" :code-columns="codeColumns" @close="closeFormModal" @submit="submitForm" />
-        <AttendanceImportModal :open="importModalOpen" :form="importForm" @close="importModalOpen = false" @submit="submitImport" />
+        <!-- Import Modal -->
+        <div
+            v-if="importApiModalOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
+            @click.self="importApiModalOpen = false"
+        >
+            <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                <div class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                        <CloudDownload class="h-5 w-5 text-emerald-600" />
+                        Import Data dari API HO
+                    </h3>
+                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="importApiModalOpen = false">
+                        <X class="h-5 w-5" />
+                    </button>
+                </div>
+
+                <form class="space-y-4" @submit.prevent="submitImportApi">
+                    <div>
+                        <label class="mb-1 block text-xs font-bold text-slate-600">Bulan</label>
+                        <select v-model.number="importApiForm.bulan" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500">
+                            <option v-for="b in bulanList" :key="b.value" :value="b.value">{{ b.label }}</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block text-xs font-bold text-slate-600">Tahun</label>
+                        <input v-model.number="importApiForm.tahun" type="number" min="2020" max="2035" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500">
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block text-xs font-bold text-slate-600">Departemen</label>
+                        <input v-model="importApiForm.dept" type="text" placeholder="PRO" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-500">
+                    </div>
+
+                    <div class="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
+                        <button type="button" class="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50" @click="importApiModalOpen = false">
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            class="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                            :disabled="importApiForm.processing"
+                        >
+                            <Loader2 v-if="importApiForm.processing" class="h-4 w-4 animate-spin" />
+                            <span>{{ importApiForm.processing ? 'Mengimport...' : 'Mulai Import' }}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </AppLayout>
 </template>

@@ -37,6 +37,7 @@ class StoreSuratTeguranRequest extends FormRequest
             'ttd_atasan' => ['nullable', 'string'],
             'ttd_atasan_atasan' => ['nullable', 'string'],
             'catatan' => ['nullable', 'string'],
+            'foto' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
         ];
     }
 

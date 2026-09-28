@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue';
 import { Menu, ArrowLeft } from 'lucide-vue-next';
 import { router } from '@inertiajs/vue3';
 import TopbarActions from '@/Components/shared/TopbarActions.vue';
@@ -12,6 +13,12 @@ const props = defineProps({
 });
 
 defineEmits(['toggle-sidebar']);
+
+const isAdmin = computed(() => {
+    const role = String(props.user?.role || '').toLowerCase();
+    const jabatan = String(props.user?.jabatan || '').toLowerCase();
+    return role === 'admin' || role === 'admin_produksi' || role === 'management' || jabatan.includes('admin');
+});
 
 const goBack = () => {
     if (window.history.length > 2) {
@@ -29,8 +36,9 @@ const goBack = () => {
             hideSidebar ? 'left-0' : (collapsed ? 'lg:left-[75px]' : 'lg:left-[280px]'),
         ]"
     >
-        <!-- Button Kembali -->
+        <!-- Button Kembali (Hanya muncul untuk selain admin) -->
         <button 
+            v-if="!isAdmin"
             type="button" 
             @click="goBack"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-extrabold transition shrink-0 border border-slate-200/80 shadow-2xs"
@@ -40,12 +48,13 @@ const goBack = () => {
             <span class="hidden xs:inline">Kembali</span>
         </button>
 
-        <!-- Toggle Sidebar (Desktop / Non-hidden) -->
+        <!-- Toggle Sidebar (Burger Bar) - Hanya muncul untuk role Admin -->
         <button 
-            v-if="!hideSidebar"
+            v-if="!hideSidebar && isAdmin"
             type="button" 
-            class="hidden lg:flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" 
+            class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 shrink-0" 
             @click="$emit('toggle-sidebar')"
+            title="Menu Sidebar"
         >
             <Menu class="h-5 w-5" />
         </button>

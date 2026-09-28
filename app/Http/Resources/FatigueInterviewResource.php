@@ -10,18 +10,20 @@ class FatigueInterviewResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->getRouteKey(),
+            'rawId' => $this->id,
+            'hashid' => $this->getRouteKey(),
             'noSurat' => $this->no_surat,
             'employeeId' => $this->employee_id,
-            'nrp' => $this->whenLoaded('employee', fn () => $this->employee?->nrp),
-            'nama' => $this->whenLoaded('employee', fn () => $this->employee?->name),
+            'nrp' => $this->whenLoaded('employee', fn () => $this->employee?->nrp) ?? $this->nrp_operator,
+            'nama' => $this->whenLoaded('employee', fn () => $this->employee?->name) ?? $this->nama_operator,
             'nomorUnit' => $this->nomor_unit,
             'area' => $this->area,
-            'nrpOperator' => $this->nrp_operator,
-            'namaOperator' => $this->nama_operator,
+            'nrpOperator' => $this->nrp_operator ?? $this->whenLoaded('employee', fn () => $this->employee?->nrp),
+            'namaOperator' => $this->nama_operator ?? $this->whenLoaded('employee', fn () => $this->employee?->name),
             'pengawasId' => $this->pengawas_id,
-            'nrpPengawas' => $this->nrp_pengawas,
-            'namaPengawas' => $this->whenLoaded('pengawas', fn () => $this->pengawas?->name) ?? $this->nama_pengawas,
+            'nrpPengawas' => $this->nrp_pengawas ?? $this->whenLoaded('pengawas', fn () => $this->pengawas?->nrp),
+            'namaPengawas' => $this->nama_pengawas ?? $this->whenLoaded('pengawas', fn () => $this->pengawas?->name),
             'tanggal' => $this->tanggal?->format('Y-m-d'),
             'jam' => $this->jam,
             'q1ShiftDay' => $this->q1_shift_day,
@@ -40,7 +42,8 @@ class FatigueInterviewResource extends JsonResource
             'q10FitPlan' => $this->q10_fit_plan,
             'q11Suggestions' => $this->q11_suggestions,
             'ttdPengawas' => $this->ttd_pengawas,
-            'createdByName' => $this->whenLoaded('creator', fn () => $this->creator?->name),
+            'createdByName' => $this->whenLoaded('creator', fn () => $this->creator?->name) ?? $this->created_by,
+            'updatedByName' => $this->whenLoaded('updater', fn () => $this->updater?->name) ?? $this->updated_by,
             'createdAt' => $this->created_at?->format('Y-m-d H:i'),
         ];
     }

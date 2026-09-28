@@ -1,11 +1,13 @@
 <script setup>
-import { ref } from 'vue';
+import { confirmDialog } from '@/utils/confirm';
+import { ref, computed, watch } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { FilePlus, Search, Upload } from '@lucide/vue';
+import { FilePlus, Lock, Search, Upload } from '@lucide/vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/ui/Pagination.vue';
 import PaktaIntegritasTable from './Partials/PaktaIntegritasTable.vue';
 import PaktaIntegritasImportModal from './Partials/PaktaIntegritasImportModal.vue';
+import PaktaIntegritasSettingModal from './Partials/PaktaIntegritasSettingModal.vue';
 
 const props = defineProps({
     user: { type: Object, required: true },
@@ -17,6 +19,13 @@ const props = defineProps({
     items: { type: Array, required: true },
     pagination: { type: Object, required: true },
     canManage: { type: Boolean, default: false },
+    documentSettings: { type: Object, default: () => ({}) },
+});
+
+const isAdmin = computed(() => {
+    const role = String(props.user?.role || '').toLowerCase();
+    const jabatan = String(props.user?.jabatan || '').toLowerCase();
+    return role === 'admin' || role === 'admin_produksi' || role === 'management' || jabatan.includes('admin');
 });
 
 const baseUrl = '/one-power/pembinaan/pakta-integritas';
@@ -24,6 +33,11 @@ const searchInput = ref(props.search);
 const dateFromInput = ref(props.dateFrom);
 const dateToInput = ref(props.dateTo);
 const importModalOpen = ref(false);
+const settingModalOpen = ref(false);
+
+watch(() => props.search, (val) => { searchInput.value = val; });
+watch(() => props.dateFrom, (val) => { dateFromInput.value = val; });
+watch(() => props.dateTo, (val) => { dateToInput.value = val; });
 
 const importForm = useForm({
     file: null,
@@ -33,8 +47,8 @@ const submitFilter = () => {
     router.get(baseUrl, { search: searchInput.value, date_from: dateFromInput.value, date_to: dateToInput.value }, { preserveScroll: true, preserveState: true });
 };
 
-const handleDelete = (row) => {
-    if (! confirm(`Hapus pakta integritas "${row.nomorSurat}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+const handleDelete = async (row) => {
+    if (! await confirmDialog(`Hapus pakta integritas "${row.nomorSurat}"? Tindakan ini tidak bisa dibatalkan.`)) return;
     router.delete(`${baseUrl}/${row.id}`, { preserveScroll: true });
 };
 
@@ -56,15 +70,23 @@ const submitImport = () => {
             <div>
                 <h1 class="mb-1 text-xl font-extrabold text-slate-800">Pakta Integritas</h1>
                 <p class="m-0 text-sm text-slate-500">
-                    Total ditemukan: <strong class="text-slate-700">{{ pagination.total }}</strong> data.
+                    Komitmen karyawan untuk menjaga ATR &amp; Kinerja sesuai standar perusahaan.
                 </p>
             </div>
 
-            <div v-if="canManage" class="flex flex-col gap-2 sm:flex-row">
-                <button type="button" @click="importModalOpen = true" class="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-600">
+            <div v-if="canManage" class="flex flex-wrap gap-2">
+                <button
+                    v-if="isAdmin"
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 shadow-xs hover:bg-amber-100 transition"
+                    @click="settingModalOpen = true"
+                >
+                    <Lock class="h-4 w-4 text-amber-600" /> Kunci Dokumen &amp; No. Surat
+                </button>
+                <button type="button" @click="importModalOpen = true" class="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-600 shadow-sm">
                     <Upload class="h-4 w-4" /> Import Excel
                 </button>
-                <Link :href="`${baseUrl}/create`" class="flex items-center justify-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600">
+                <Link :href="`${baseUrl}/create`" class="flex items-center justify-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600 shadow-sm">
                     <FilePlus class="h-4 w-4" /> Buat Pakta Integritas
                 </Link>
             </div>
@@ -101,6 +123,12 @@ const submitImport = () => {
             :form="importForm"
             @close="importModalOpen = false"
             @submit="submitImport"
+        />
+
+        <PaktaIntegritasSettingModal
+            :open="settingModalOpen"
+            :settings="documentSettings"
+            @close="settingModalOpen = false"
         />
     </AppLayout>
 </template>

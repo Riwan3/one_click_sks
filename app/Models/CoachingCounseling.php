@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasHashid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class CoachingCounseling extends Model
 {
+    use HasHashid;
     protected $fillable = [
         'nomor_surat',
         'employee_id',
@@ -82,7 +84,7 @@ class CoachingCounseling extends Model
             ->when($to, fn (Builder $q) => $q->whereDate('tanggal', '<=', $to));
     }
 
-    public static function nextNomorSurat(string $tanggal): string
+    public static function nextNomorSurat(string $tanggal, ?string $site = null): string
     {
         $year = date('Y', strtotime($tanggal));
         $month = (int) date('n', strtotime($tanggal));
@@ -90,23 +92,37 @@ class CoachingCounseling extends Model
         $rank = (int) static::query()->whereYear('tanggal', $year)->count() + 1;
 
         $monthRomans = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+        $siteCode = $site ?: (Setting::getValue('coaching_counseling_site_code', 'ADW') ?: 'ADW');
 
-        return sprintf('%04d', $rank).'/CC/PPA/ADW/PRO/'.$monthRomans[$month - 1].'/'.$year;
+        return sprintf('%04d', $rank).'/CC/PPA/'.$siteCode.'/PRO/'.$monthRomans[$month - 1].'/'.$year;
+    }
+
+    public static function updateSiteCode(string $newSiteCode): void
+    {
+        $rows = static::query()->whereNotNull('nomor_surat')->get();
+        foreach ($rows as $row) {
+            $updated = preg_replace('#(/CC/PPA/)[^/]+(/PRO/)#i', '$1'.$newSiteCode.'$2', $row->nomor_surat);
+            if ($updated !== $row->nomor_surat) {
+                $row->nomor_surat = $updated;
+                $row->save();
+            }
+        }
     }
 
     public static function resyncNomorSurat(): void
     {
         $year = date('Y');
         $items = static::query()->whereYear('tanggal', $year)->orderBy('tanggal')->get();
+        $siteCode = Setting::getValue('coaching_counseling_site_code', 'ADW') ?: 'ADW';
+        $monthRomans = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
         foreach ($items as $index => $item) {
             $tanggal = $item->tanggal->format('Y-m-d');
             $month = (int) date('n', strtotime($tanggal));
-            $monthRomans = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
             $rank = $index + 1;
 
             $item->update([
-                'nomor_surat' => sprintf('%04d', $rank).'/CC/PPA/ADW/PRO/'.$monthRomans[$month - 1].'/'.$year,
+                'nomor_surat' => sprintf('%04d', $rank).'/CC/PPA/'.$siteCode.'/PRO/'.$monthRomans[$month - 1].'/'.$year,
             ]);
         }
     }

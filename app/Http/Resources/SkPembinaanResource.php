@@ -10,7 +10,9 @@ class SkPembinaanResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->getRouteKey(),
+            'rawId' => $this->id,
+            'hashid' => $this->getRouteKey(),
             'nomorSurat' => $this->nomor_surat,
             'perusahaan' => $this->perusahaan,
             'employeeId' => $this->employee_id,
@@ -34,6 +36,7 @@ class SkPembinaanResource extends JsonResource
             'jenisPelanggaran' => $this->jenis_pelanggaran,
             'lubang' => $this->lubang,
             'keterangan' => $this->keterangan,
+            'foto' => $this->foto_url,
             'statusPembinaan' => $this->statusPembinaan(),
             'createdAt' => $this->created_at?->format('Y-m-d H:i'),
         ];

@@ -170,7 +170,7 @@ const handleLogout = () => {
         <SignatureModal :show="showSignatureModal" @close="showSignatureModal = false" />
         <NotificationModal :show="showNotifModal" @close="showNotifModal = false" />
         <PesanModal :show="showPesanModal" @close="showPesanModal = false" />
-        <NomorPentingModal :show="showNomorPentingModal" @close="showNomorPentingModal = false" />
+        <NomorPentingModal :show="showNomorPentingModal" :user="user" @close="showNomorPentingModal = false" />
         <PengumumanModal :show="showPengumumanModal" @close="showPengumumanModal = false" />
     </div>
 </template>

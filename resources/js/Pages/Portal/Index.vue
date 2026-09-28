@@ -23,19 +23,19 @@ defineProps({
 <template>
     <Head title="Portal - OneClick" />
 
-    <div class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/60 pb-20 pt-[92px]">
+    <div class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/60 pb-20 pt-[84px] lg:pt-[92px]">
         <Navbar :user="user" :notif-counts="notifCounts" />
 
-        <div class="mx-auto grid max-w-[1400px] grid-cols-1 gap-8 px-5 lg:grid-cols-[1fr_360px] lg:px-10">
-            <div class="flex flex-col gap-6">
+        <div class="w-full grid grid-cols-1 gap-6 px-4 sm:px-6 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px] 2xl:grid-cols-[1fr_400px] lg:px-8 xl:px-10">
+            <div class="flex flex-col gap-6 min-w-0">
                 <HeroBanner :user="user" :greeting="greeting" />
                 <ModuleGrid :modules="modules" />
             </div>
 
-            <aside class="flex flex-col gap-5">
+            <aside class="flex flex-col gap-5 min-w-0">
                 <InfoTodayCard :today="today" />
                 <AnnouncementCard :announcements="announcements" />
-                <RewardCard :rewards="rewards" />
+                <RewardCard :rewards="rewards" :current-user-nrp="user?.username" />
                 <QuickAccessCard :quick-access="quickAccess" />
             </aside>
         </div>

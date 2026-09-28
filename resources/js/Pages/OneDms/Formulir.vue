@@ -1,5 +1,6 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { confirmDialog } from '@/utils/confirm';
+import { computed, ref, watch } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Toolbar from './Partials/Toolbar.vue';
@@ -14,20 +15,33 @@ const props = defineProps({
     notifCounts: { type: Object, required: true },
     menu: { type: Array, required: true },
     filters: { type: Object, required: true },
+    petugas: { type: Object, required: true },
     petugasOptions: { type: Array, required: true },
     formOptions: { type: Object, required: true },
     rows: { type: Array, required: true },
     tally: { type: Object, required: true },
+    rosterLookup: { type: Object, required: true },
+    docSettings: { type: Object, required: true },
 });
 
 const rows = ref(props.rows.map((row) => ({ ...row })));
+watch(() => props.rows, (newRows) => {
+    rows.value = newRows.map((row) => ({ ...row }));
+});
+
 const editingRow = ref(null);
 const showModal = ref(false);
 const previewSrc = ref(null);
 
-const unitLookup = computed(() => Object.fromEntries(
-    rows.value.map((row) => [row.noUnit, { nama: row.namaOperator, nrp: row.nrp }]),
-));
+const unitLookup = computed(() => {
+    const lookup = { ...props.rosterLookup };
+    props.rows.forEach((row) => {
+        if (!lookup[row.noUnit]) {
+            lookup[row.noUnit] = { nama: row.namaOperator, nrp: row.nrp, gl: row.groupLeader };
+        }
+    });
+    return lookup;
+});
 
 const tally = computed(() => {
     const counts = Object.fromEntries(Object.keys(props.tally).map((key) => [key, 0]));
@@ -69,10 +83,21 @@ const saveRow = (data) => {
         status: data.status,
         remark: data.remark,
     }, {
+        preserveScroll: true,
+        preserveState: false,
         onSuccess: () => {
             showModal.value = false;
         },
     });
+};
+
+const confirmDelete = async (row) => {
+    if (await confirmDialog('Yakin ingin menghapus data DMS ini?')) {
+        router.delete(`/one-dms/delete/${row.id}`, {
+            preserveScroll: true,
+            preserveState: false
+        });
+    }
 };
 </script>
 
@@ -83,13 +108,20 @@ const saveRow = (data) => {
         <Toolbar :filters="filters" @add="openAdd" />
 
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <MetaHeader :tanggal="filters.tanggal" :shift-label="filters.shiftOptions[filters.shift]" :petugas-options="petugasOptions" />
+            <MetaHeader
+                :tanggal="filters.tanggal"
+                :shift="filters.shift"
+                :shift-label="filters.shiftOptions[filters.shift]"
+                :petugas="petugas"
+                :petugas-options="petugasOptions"
+                :doc-settings="docSettings"
+            />
 
             <div class="mb-5">
-                <DmsTable :rows="rows" @edit="openEdit" @preview-photo="(src) => (previewSrc = src)" />
+                <DmsTable :rows="rows" @edit="openEdit" @delete="confirmDelete" @preview-photo="(src) => (previewSrc = src)" />
             </div>
 
-            <TallySummary :tally="tally" :tanggal="filters.tanggal" :shift-label="filters.shiftOptions[filters.shift]" />
+            <TallySummary :tally="tally" :tanggal="filters.tanggal" :shift-label="filters.shiftOptions[filters.shift]" :tally-title="docSettings.tallyTitle" />
         </div>
 
         <DmsFormModal

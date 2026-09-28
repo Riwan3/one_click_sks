@@ -4,11 +4,13 @@ namespace App\Models;
 
 use App\Enums\IzinJenis;
 use App\Enums\IzinStatus;
+use App\Models\Concerns\HasHashid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class IzinKaryawan extends Model
 {
+    use HasHashid;
     protected $fillable = [
         'jenis_izin',
         'no_surat',

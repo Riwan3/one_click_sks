@@ -15,7 +15,7 @@ class IsAdmin
 
         $user = auth()->user();
 
-        if ($user->role !== 'admin' && ! $user->hasRole('admin')) {
+        if (! $user->isAdmin()) {
             abort(403, 'Unauthorized access');
         }
 

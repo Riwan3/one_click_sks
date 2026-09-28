@@ -1,5 +1,6 @@
 <script setup>
-import { ref } from 'vue';
+import { confirmDialog } from '@/utils/confirm';
+import { ref, watch } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { CloudDownload, FilePlus, Search } from '@lucide/vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -26,12 +27,17 @@ const dateFromInput = ref(props.dateFrom);
 const dateToInput = ref(props.dateTo);
 const statusInput = ref(props.status);
 
+watch(() => props.search, (val) => { searchInput.value = val; });
+watch(() => props.dateFrom, (val) => { dateFromInput.value = val; });
+watch(() => props.dateTo, (val) => { dateToInput.value = val; });
+watch(() => props.status, (val) => { statusInput.value = val; });
+
 const submitFilter = () => {
     router.get(baseUrl, { search: searchInput.value, date_from: dateFromInput.value, date_to: dateToInput.value, status: statusInput.value }, { preserveScroll: true, preserveState: true });
 };
 
-const handleDelete = (row) => {
-    if (! confirm(`Hapus SK Pembinaan "${row.nama}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+const handleDelete = async (row) => {
+    if (! await confirmDialog(`Hapus SK Pembinaan "${row.nama}"? Tindakan ini tidak bisa dibatalkan.`)) return;
     router.delete(`${baseUrl}/${row.id}`, { preserveScroll: true });
 };
 

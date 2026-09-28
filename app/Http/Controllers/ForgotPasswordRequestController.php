@@ -48,6 +48,13 @@ class ForgotPasswordRequestController extends Controller
     {
         $forgotPasswordRequest->update(['status' => 'completed']);
 
-        return redirect()->back()->with('success', 'Request reset password berhasil diselesaikan.');
+        // Otomatis buka lock akun saat reset password diselesaikan
+        if ($forgotPasswordRequest->nrp) {
+            \Illuminate\Support\Facades\RateLimiter::clear(
+                \App\Http\Controllers\AuthController::getThrottleKey($forgotPasswordRequest->nrp)
+            );
+        }
+
+        return redirect()->back()->with('success', 'Request reset password berhasil diselesaikan dan akun telah dibuka kuncinya (unlocked).');
     }
 }

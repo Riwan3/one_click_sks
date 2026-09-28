@@ -13,6 +13,7 @@ const props = defineProps({
     user: { type: Object, required: true },
     notifCounts: { type: Object, required: true },
     menu: { type: Array, required: true },
+    isOperator: { type: Boolean, default: false },
     nrp: { type: String, default: '' },
     monthsBack: { type: Number, required: true },
     employee: { type: Object, default: null },
@@ -73,25 +74,31 @@ const chartOptions = {
 </script>
 
 <template>
-    <Head title="Manpower Performance Report - OneClick" />
+    <Head :title="isOperator ? 'MOR Saya - OneClick' : 'Manpower Performance Report - OneClick'" />
 
     <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
-        <h1 class="mb-1 flex items-center gap-2 text-xl font-extrabold text-slate-800"><BarChart2 class="h-5 w-5 text-blue-500" /> Manpower Performance Report</h1>
-        <p class="mb-5 text-sm text-slate-500">Rekap ATR%, S-I-A, dan HM per bulan untuk satu karyawan.</p>
+        <h1 class="mb-1 flex items-center gap-2 text-xl font-extrabold text-slate-800">
+            <BarChart2 class="h-5 w-5 text-blue-500" />
+            {{ isOperator ? 'MOR Saya' : 'Manpower Performance Report' }}
+        </h1>
+        <p class="mb-5 text-sm text-slate-500">
+            {{ isOperator ? 'Rekapitulasi pencapaian ATR%, S-I-A, dan HM per bulan Anda.' : 'Rekap ATR%, S-I-A, dan HM per bulan untuk satu karyawan.' }}
+        </p>
 
+        <!-- Filter Card -->
         <div class="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div class="w-full max-w-xs">
+            <div v-if="!isOperator" class="w-full max-w-xs">
                 <label class="mb-1 block text-xs font-bold uppercase text-slate-500">NRP / Nama</label>
                 <EmployeeSearchInput v-model="searchValue" @select="search" />
             </div>
-            <div>
+            <div :class="{ 'w-full sm:w-auto': isOperator }">
                 <label class="mb-1 block text-xs font-bold uppercase text-slate-500">Rentang Bulan</label>
-                <select v-model.number="monthsBackInput" class="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                <select v-model.number="monthsBackInput" class="w-full sm:w-auto rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500" @change="search()">
                     <option :value="6">6 Bulan Terakhir</option>
                     <option :value="12">12 Bulan Terakhir</option>
                 </select>
             </div>
-            <button type="button" class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-600" @click="search()">Cari</button>
+            <button v-if="!isOperator" type="button" class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-600" @click="search()">Cari</button>
         </div>
 
         <div v-if="! nrp" class="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white py-16 text-center text-slate-500">
@@ -104,10 +111,27 @@ const chartOptions = {
         </div>
 
         <template v-else-if="employee">
+            <!-- Employee Info Header Card -->
             <div class="mb-4 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-sm sm:grid-cols-3">
                 <div><span class="text-xs font-bold uppercase text-slate-400">Nama</span><div class="font-bold text-slate-700">{{ employee.name }}</div></div>
                 <div><span class="text-xs font-bold uppercase text-slate-400">NRP</span><div class="font-bold text-slate-700">{{ employee.nrp }}</div></div>
                 <div><span class="text-xs font-bold uppercase text-slate-400">Jabatan</span><div class="font-bold text-slate-700">{{ employee.jabatan ?? '-' }}</div></div>
+            </div>
+
+            <!-- Key Summary Metric Cards -->
+            <div v-if="summary" class="mb-4 grid grid-cols-3 gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
+                <div class="text-center">
+                    <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Rata-rata ATR</div>
+                    <div class="mt-1 text-lg sm:text-2xl font-black text-blue-600">{{ summary.avgAtr.toFixed(2) }}%</div>
+                </div>
+                <div class="text-center border-x border-slate-100 px-2">
+                    <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Total HM</div>
+                    <div class="mt-1 text-lg sm:text-2xl font-black text-amber-500">{{ summary.totalHm.toFixed(1) }}</div>
+                </div>
+                <div class="text-center flex flex-col items-center justify-center">
+                    <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Status</div>
+                    <span class="mt-1 inline-block rounded-full px-3 py-0.5 text-xs font-black uppercase tracking-wider" :class="statusStyle[summary.status]">{{ summary.status }}</span>
+                </div>
             </div>
 
             <div class="grid gap-4 lg:grid-cols-5">
@@ -151,21 +175,6 @@ const chartOptions = {
                     <div class="relative h-80">
                         <Bar :data="chartData" :options="chartOptions" />
                     </div>
-                </div>
-            </div>
-
-            <div v-if="summary" class="mt-4 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-3">
-                <div class="text-center">
-                    <div class="text-xs font-bold uppercase text-slate-400">Rata-rata ATR</div>
-                    <div class="text-xl font-extrabold text-slate-700">{{ summary.avgAtr.toFixed(2) }}%</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-xs font-bold uppercase text-slate-400">Total HM</div>
-                    <div class="text-xl font-extrabold text-slate-700">{{ summary.totalHm.toFixed(1) }}</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-xs font-bold uppercase text-slate-400">Status</div>
-                    <span class="inline-block rounded-full px-3 py-1 text-sm font-bold" :class="statusStyle[summary.status]">{{ summary.status }}</span>
                 </div>
             </div>
         </template>

@@ -13,10 +13,13 @@ const tanggal = ref(props.filters.tanggal);
 const shift = ref(props.filters.shift);
 
 const applyFilter = () => {
-    router.get('/one-dms', { tanggal: tanggal.value, shift: shift.value }, { preserveScroll: true, preserveState: true });
+    router.get('/one-dms/formulir', { tanggal: tanggal.value, shift: shift.value }, { preserveScroll: true, preserveState: true });
 };
 
-const handlePrint = () => window.print();
+const handlePrint = () => {
+    const params = new URLSearchParams({ tanggal: tanggal.value, shift: shift.value });
+    window.open(`/one-dms/formulir/print?${params.toString()}`, '_blank');
+};
 </script>
 
 <template>

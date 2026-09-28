@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { ref } from 'vue'
 import { Head, useForm, router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
@@ -64,8 +65,8 @@ const closeModal = () => {
   nomorForm.reset()
 }
 
-const deleteNomor = (item) => {
-  if (confirm(`Hapus nomor penting "${item.nama}"?`)) {
+const deleteNomor = async (item) => {
+  if (await confirmDialog(`Hapus nomor penting "${item.nama}"?`)) {
     router.delete(`/one-core/nomor-penting/${item.id}`, {
       preserveScroll: true,
     })

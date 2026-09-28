@@ -18,7 +18,8 @@ class AttendanceMonthlyRosterService
         int $perPage,
         ?string $kategori = null,
         bool $filterLowAtr = false,
-        float $atrThreshold = 95.0
+        float $atrThreshold = 95.0,
+        ?int $employeeId = null
     ): LengthAwarePaginator {
         return AttendanceMonthlyRoster::query()
             ->with('employee')
@@ -26,6 +27,7 @@ class AttendanceMonthlyRosterService
             ->period($bulan, $tahun)
             ->kategori($kategori)
             ->lowAtr($filterLowAtr, $atrThreshold)
+            ->forEmployee($employeeId)
             ->orderByDesc('tahun')
             ->orderByDesc('bulan')
             ->orderBy('employee_id')
@@ -38,12 +40,13 @@ class AttendanceMonthlyRosterService
      * average ATR% — all computed over the same filtered (search/period/
      * kategori) period, mirroring V1's AttendanceRepository::getDashboardStats().
      */
-    public function summaryStats(?string $search, ?int $bulan, ?int $tahun, ?string $kategori = null): array
+    public function summaryStats(?string $search, ?int $bulan, ?int $tahun, ?string $kategori = null, ?int $employeeId = null): array
     {
         $query = AttendanceMonthlyRoster::query()
             ->search($search)
             ->period($bulan, $tahun)
-            ->kategori($kategori);
+            ->kategori($kategori)
+            ->forEmployee($employeeId);
 
         $totals = $query->selectRaw('SUM(d) as total_d, SUM(n) as total_n, SUM(s) as total_s, SUM(i) as total_i, SUM(a) as total_a, SUM(atr_percentage) as total_atr, COUNT(*) as row_count')
             ->first();

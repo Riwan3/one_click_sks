@@ -57,19 +57,31 @@ class EmployeeService
         return Employee::query()->inactiveOnly()->delete();
     }
 
+    public function deleteAll(): int
+    {
+        // Delete all users associated with employees first
+        \App\Models\User::whereNotNull('employee_id')->delete();
+        // Then delete all employees
+        return Employee::query()->delete();
+    }
+
     /**
      * Employees for export, respecting the same search/jabatan/active-inactive
      * filters as the list view so exporting from a filtered page only exports
      * what's shown (mirrors V1's export-follows-current-view behaviour).
      */
-    public function listAllGL(?string $search = null): Collection
+    public function listAllGL(?string $search = null, ?int $restrictGlId = null): Collection
     {
         return Employee::query()
             ->activeOnly()
-            ->where(function ($q) {
-                $q->where('jabatan_ss6', 'like', '%GROUP LEADER%')
-                    ->orWhere('jabatan_ss6', 'like', '%GL%')
-                    ->orWhereHas('anakAsuh');
+            ->when($restrictGlId, function ($q) use ($restrictGlId) {
+                $q->where('id', $restrictGlId);
+            }, function ($q) {
+                $q->where(function ($sq) {
+                    $sq->where('jabatan_ss6', 'like', '%GROUP LEADER%')
+                        ->orWhere('jabatan_ss6', 'like', '%GL%')
+                        ->orWhereHas('anakAsuh');
+                });
             })
             ->search($search)
             ->withCount('anakAsuh')
@@ -133,14 +145,35 @@ class EmployeeService
         $updated = 0;
         $skipped = 0;
 
+        $v1GlMap = [];
+        try {
+            $v1GlRows = \Illuminate\Support\Facades\DB::select('SELECT id, nrp FROM oneclick.employees');
+            foreach ($v1GlRows as $r) {
+                $v1GlMap[(string) $r->id] = (string) $r->nrp;
+            }
+        } catch (\Throwable $e) {}
+
+        $anakColIndex = 1;
+        $bapakColIndex = 11;
+
+        if (! empty($rows[0])) {
+            $headerRow = array_map(fn ($h) => strtoupper(trim((string) $h)), $rows[0]);
+            foreach ($headerRow as $idx => $headerName) {
+                if (in_array($headerName, ['NRP', 'NRP_ANAK_ASUH', 'NRP ANAK ASUH', 'ANAK ASUH', 'ANAK_ASUH'], true)) {
+                    $anakColIndex = $idx;
+                } elseif (in_array($headerName, ['GL_ID', 'GL ID', 'ID_GL', 'ID GL', 'GL', 'GROUP LEADER', 'BAPAK ASUH', 'BAPAK_ASUH', 'NRP BAPAK ASUH'], true)) {
+                    $bapakColIndex = $idx;
+                }
+            }
+        }
+
         foreach ($rows as $index => $row) {
             if ($index === 0) {
                 continue;
             } // Skip header row
 
-            // Column B (index 1) = Anak Asuh (NRP/Name), Column L (index 11) = Bapak Asuh (NRP/Name)
-            $anakVal = trim((string) ($row[1] ?? ''));
-            $bapakVal = trim((string) ($row[11] ?? $row[10] ?? ''));
+            $anakVal = trim((string) ($row[$anakColIndex] ?? ''));
+            $bapakVal = trim((string) ($row[$bapakColIndex] ?? ($bapakColIndex === 11 ? ($row[10] ?? '') : '')));
 
             if ($anakVal === '' || $bapakVal === '') {
                 $skipped++;
@@ -149,10 +182,26 @@ class EmployeeService
             }
 
             $anak = Employee::where('nrp', $anakVal)->orWhere('name', 'like', "%{$anakVal}%")->first();
-            $bapak = Employee::where('nrp', $bapakVal)->orWhere('name', 'like', "%{$bapakVal}%")->first();
+            
+            $targetGlId = null;
+            if (is_numeric($bapakVal)) {
+                $glInt = (int) $bapakVal;
+                if (Employee::where('id', $glInt)->exists()) {
+                    $targetGlId = $glInt;
+                } elseif (isset($v1GlMap[(string) $bapakVal])) {
+                    $glNrp = $v1GlMap[(string) $bapakVal];
+                    $targetGl = Employee::where('nrp', $glNrp)->first();
+                    $targetGlId = $targetGl?->id;
+                }
+            }
 
-            if ($anak && $bapak) {
-                $anak->update(['gl_id' => $bapak->id]);
+            if (! $targetGlId) {
+                $bapak = Employee::where('nrp', $bapakVal)->orWhere('name', 'like', "%{$bapakVal}%")->first();
+                $targetGlId = $bapak?->id;
+            }
+
+            if ($anak && $targetGlId) {
+                $anak->update(['gl_id' => $targetGlId]);
                 $updated++;
             } else {
                 $skipped++;

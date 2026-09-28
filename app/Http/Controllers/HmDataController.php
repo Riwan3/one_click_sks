@@ -23,13 +23,22 @@ class HmDataController extends Controller
 
     public function index(Request $request): Response
     {
+        $user = $request->user()?->loadMissing('employee');
+        $isOperator = (bool) ($user && (
+            strtolower((string) $user->role) === 'operator'
+            || str_contains(strtoupper((string) ($user->employee?->jabatan_ss6 ?? $user->jabatan ?? '')), 'OPERATOR')
+            || str_contains(strtoupper((string) ($user->role ?? '')), 'OPERATOR')
+        ));
+
+        $employeeId = $isOperator ? $user->employee?->id : null;
+
         $search = trim((string) $request->string('search'));
         $dateFrom = trim((string) $request->string('date_from')) ?: now()->startOfMonth()->format('Y-m-d');
         $dateTo = trim((string) $request->string('date_to')) ?: now()->format('Y-m-d');
         $page = max(1, (int) $request->integer('page', 1));
 
-        $hmData = $this->hmDataService->paginate($search, $dateFrom, $dateTo, null, $page, self::PER_PAGE);
-        $summary = $this->hmDataService->summary($search, $dateFrom, $dateTo, null);
+        $hmData = $this->hmDataService->paginate($search, $dateFrom, $dateTo, $employeeId, $page, self::PER_PAGE);
+        $summary = $this->hmDataService->summary($search, $dateFrom, $dateTo, $employeeId);
 
         return Inertia::render('OnePower/HmData/Index', [
             'user' => $this->currentUser(),

@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { ref, onMounted } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import { GripVertical, Edit2, Trash2, Plus } from 'lucide-vue-next';
@@ -28,8 +29,8 @@ const saveEdit = async () => {
     showEditModal.value = false;
 };
 
-const deleteTahapan = (id) => {
-    if (confirm('Hapus tahapan ini?')) {
+const deleteTahapan = async (id) => {
+    if (await confirmDialog('Hapus tahapan ini?')) {
         router.delete(`/one-power/coaching-clinic/tahapan/${id}`);
     }
 };

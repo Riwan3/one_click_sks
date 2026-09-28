@@ -2,160 +2,194 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreBestEmployeeCampaignRequest;
+use App\Http\Requests\UpdateBestEmployeeCampaignRequest;
+use App\Models\BestEmployeeCampaign;
+use App\Services\BestEmployeeCampaignService;
+use App\Services\BestEmployeeResultService;
 use App\Support\MenuAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class BestEmployeeController extends Controller
 {
+    public function __construct(
+        private BestEmployeeCampaignService $campaigns,
+        private BestEmployeeResultService $results,
+    ) {}
+
     public function index(Request $request): Response
     {
-        $id = (int) $request->input('id', 0);
-        $tab = $request->string('tab', 'pengaturan')->toString();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $can = [
+            'manage' => $user->canManageBestEmployee(),
+            'viewResults' => $user->canViewBestEmployeeResults(),
+        ];
 
-        $campaigns = DB::table('training_be_campaigns as c')
-            ->select('c.*')
-            ->orderBy('c.id', 'desc')
-            ->get();
+        $campaignId = (int) $request->integer('id');
+        $tab = in_array($request->string('tab')->toString(), ['pengaturan', 'soal', 'peserta', 'monitoring', 'hasil'], true)
+            ? $request->string('tab')->toString()
+            : 'pengaturan';
 
-        foreach ($campaigns as $camp) {
-            $camp->total_questions = DB::table('training_be_questions')->where('campaign_id', $camp->id)->count();
-            $camp->total_participants = DB::table('training_be_participants')->where('campaign_id', $camp->id)->count();
-        }
-
-        $activeCampaign = null;
-        $questions = [];
-        $participants = [];
-        $attempts = [];
-
-        if ($id > 0) {
-            $activeCampaign = DB::table('training_be_campaigns')->where('id', $id)->first();
-            if ($activeCampaign) {
-                $questions = DB::table('training_be_questions')->where('campaign_id', $id)->orderBy('urutan', 'asc')->get();
-                foreach ($questions as $q) {
-                    $q->options = DB::table('training_be_options')->where('question_id', $q->id)->get();
-                }
-
-                $participants = DB::table('training_be_participants')->where('campaign_id', $id)->get();
-
-                $attempts = DB::table('training_be_attempts as a')
-                    ->join('training_be_participants as p', 'a.participant_id', '=', 'p.id')
-                    ->where('a.campaign_id', $id)
-                    ->select('a.*', 'p.user_nama', 'p.user_jabatan', 'p.user_unit')
-                    ->orderBy('a.id', 'desc')
-                    ->get();
-            }
-        }
-
-        return Inertia::render('OneAcademy/BestEmployee/Index', [
+        $shared = [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_academy_menu'),
-            'id' => $id,
+            'id' => $campaignId,
             'tab' => $tab,
-            'campaigns' => $campaigns,
-            'activeCampaign' => $activeCampaign,
-            'questions' => $questions,
-            'participants' => $participants,
-            'attempts' => $attempts,
-        ]);
+            'can' => $can,
+        ];
+
+        if ($campaignId <= 0) {
+            $campaigns = BestEmployeeCampaign::query()
+                ->withCount([
+                    'questions',
+                    'participants as participants_count' => fn ($q) => $q->assigned(),
+                ])
+                ->latest('id')
+                ->get()
+                ->map(fn (BestEmployeeCampaign $c) => [
+                    ...$c->only(['id', 'judul', 'deskripsi', 'publish_start', 'publish_end', 'status']),
+                    'effective_status' => $c->effectiveStatus()->value,
+                    'total_questions' => $c->questions_count,
+                    'total_participants' => $c->participants_count,
+                ]);
+
+            return Inertia::render('OneAcademy/BestEmployee/Index', [...$shared, 'campaigns' => $campaigns]);
+        }
+
+        $campaign = BestEmployeeCampaign::findOrFail($campaignId);
+        $campaignData = [
+            ...$campaign->toArray(),
+            'effective_status' => $campaign->effectiveStatus()->value,
+            'questions_locked' => $campaign->questionsLocked(),
+            'participants_locked' => $campaign->participantsLocked(),
+            'settings_critical_locked' => $campaign->settingsCriticalLocked(),
+            'stats' => $this->campaigns->stats($campaign),
+        ];
+
+        $data = [...$shared, 'campaign' => $campaignData];
+
+        match ($tab) {
+            'soal' => $data['questions'] = $campaign->questions()->with('options')->get(),
+            'peserta' => $data['participants'] = $campaign->participants()->assigned()->latest('id')->get(),
+            'monitoring' => $data = [
+                ...$data,
+                'filterOptions' => $this->results->participantFilterOptions($campaign),
+                'monitoringSummary' => Inertia::optional(fn () => $this->results->monitoringSummary($campaign)),
+                'monitoringList' => Inertia::optional(fn () => $this->results->monitoringList(
+                    $campaign,
+                    $request->only(['q', 'status', 'jabatan', 'unit', 'min_score', 'max_score']),
+                    (int) $request->integer('page', 1)
+                )),
+            ],
+            'hasil' => $data = [
+                ...$data,
+                'filterOptions' => $this->results->participantFilterOptions($campaign),
+                'rankingRows' => Inertia::optional(fn () => $this->results->ranking($campaign, $request->only(['q', 'jabatan']))),
+            ],
+            default => null,
+        };
+
+        if ($tab === 'pengaturan' && $campaign->status === 'draft') {
+            $data['publishReadiness'] = $this->campaigns->publishReadiness($campaign);
+        }
+
+        return Inertia::render('OneAcademy/BestEmployee/Index', $data);
     }
 
-    public function storeCampaign(Request $request): RedirectResponse
+    public function store(StoreBestEmployeeCampaignRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'judul' => 'required|string|max:255',
-            'deskripsi' => 'nullable|string',
-            'aturan' => 'nullable|string',
-            'publish_start' => 'nullable|date',
-            'publish_end' => 'nullable|date',
-        ]);
+        $campaign = $this->campaigns->create($request->validated(), Auth::id());
 
-        $validated['status'] = 'draft';
-        $validated['created_at'] = now();
-        $validated['updated_at'] = now();
-
-        $campaignId = DB::table('training_be_campaigns')->insertGetId($validated);
-
-        return redirect()->route('one-academy.best-employee.index', ['id' => $campaignId, 'tab' => 'pengaturan'])
+        return redirect()->route('one-academy.best-employee.index', ['id' => $campaign->id, 'tab' => 'pengaturan'])
             ->with('success', 'Kegiatan Best Employee berhasil dibuat.');
     }
 
-    public function storeQuestion(Request $request): RedirectResponse
+    public function update(UpdateBestEmployeeCampaignRequest $request, BestEmployeeCampaign $campaign): RedirectResponse
     {
-        $validated = $request->validate([
-            'campaign_id' => 'required|exists:training_be_campaigns,id',
-            'tipe_soal' => 'required|in:multiple_choice,essay',
-            'pertanyaan' => 'required|string',
-            'bobot' => 'required|numeric|min:0.1',
-            'options' => 'nullable|array',
-            'options.*.text' => 'nullable|string',
-            'options.*.is_correct' => 'nullable|boolean',
-        ]);
+        $locked = $campaign->settingsCriticalLocked();
+        $validated = $request->validated();
+        $touchesCritical = $this->touchesCriticalFields($validated, $campaign);
 
-        $campaignId = $validated['campaign_id'];
-        $options = $validated['options'] ?? [];
-
-        $urutan = DB::table('training_be_questions')->where('campaign_id', $campaignId)->count() + 1;
-
-        $questionId = DB::table('training_be_questions')->insertGetId([
-            'campaign_id' => $campaignId,
-            'tipe_soal' => $validated['tipe_soal'],
-            'pertanyaan' => $validated['pertanyaan'],
-            'bobot' => $validated['bobot'],
-            'urutan' => $urutan,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        if ($validated['tipe_soal'] === 'multiple_choice' && !empty($options)) {
-            foreach ($options as $opt) {
-                if (!empty($opt['text'])) {
-                    DB::table('training_be_options')->insert([
-                        'question_id' => $questionId,
-                        'option_text' => $opt['text'],
-                        'is_correct' => !empty($opt['is_correct']),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
+        if ($locked && $touchesCritical && ! ($request->boolean('force') && $request->filled('reason'))) {
+            return back()->withErrors(['reason' => 'Kegiatan sudah dipublish - pengaturan jadwal & perilaku terkunci. Centang override dan isi alasan untuk mengubahnya.']);
         }
 
-        return back()->with('success', 'Soal berhasil ditambahkan.');
+        $this->campaigns->update($campaign, $validated, Auth::id(), true, $request->boolean('force') ? $request->string('reason')->toString() : null);
+
+        return back()->with('success', 'Pengaturan berhasil disimpan.');
     }
 
-    public function storeParticipant(Request $request): RedirectResponse
+    /** Bandingkan nilai field kritis yang dikirim vs nilai tersimpan - untuk menentukan apakah override perlu ditegakkan. */
+    private function touchesCriticalFields(array $validated, BestEmployeeCampaign $campaign): bool
     {
-        $validated = $request->validate([
-            'campaign_id' => 'required|exists:training_be_campaigns,id',
-            'user_nrp' => 'required|string',
-            'user_nama' => 'required|string',
-            'user_jabatan' => 'nullable|string',
-            'user_unit' => 'nullable|string',
-        ]);
+        return collect(BestEmployeeCampaign::CRITICAL_FIELDS)->contains(function ($field) use ($validated, $campaign) {
+            if (! array_key_exists($field, $validated)) {
+                return false;
+            }
+            $incoming = $validated[$field];
+            $current = $campaign->getAttribute($field);
 
-        $validated['status'] = 'eligible';
-        $validated['created_at'] = now();
-        $validated['updated_at'] = now();
+            if ($current instanceof \Illuminate\Support\Carbon) {
+                return ! $incoming || ! $current->eq($incoming);
+            }
+            if (is_bool($current)) {
+                return (bool) $incoming !== $current;
+            }
 
-        DB::table('training_be_participants')->insert($validated);
-
-        return back()->with('success', 'Peserta berhasil ditambahkan.');
+            return (string) $incoming !== (string) $current;
+        });
     }
 
-    public function resetAttempt(Request $request): RedirectResponse
+    public function publish(BestEmployeeCampaign $campaign): RedirectResponse
     {
-        $attemptId = $request->input('attempt_id');
+        abort_unless(Auth::user()->canManageBestEmployee(), 403);
+        abort_unless($campaign->status === 'draft', 422, 'Hanya kegiatan berstatus draft yang bisa dipublish.');
 
-        DB::table('training_be_attempts')->where('id', $attemptId)->update([
-            'status' => 'reset',
-            'updated_at' => now(),
+        $readiness = $this->campaigns->publishReadiness($campaign);
+        if (! $readiness['ready']) {
+            return back()->withErrors(['publish' => 'Kegiatan belum siap dipublish. Lengkapi checklist kesiapan terlebih dahulu.']);
+        }
+
+        $this->campaigns->publish($campaign, Auth::id());
+
+        return back()->with('success', 'Kegiatan berhasil dipublish.');
+    }
+
+    public function cancel(Request $request, BestEmployeeCampaign $campaign): RedirectResponse
+    {
+        abort_unless(Auth::user()->canManageBestEmployee(), 403);
+        abort_if($campaign->status === 'finished', 422, 'Kegiatan yang sudah selesai tidak dapat dibatalkan.');
+
+        $this->campaigns->cancel($campaign, Auth::id(), $request->string('reason')->toString() ?: null);
+
+        return back()->with('success', 'Kegiatan dibatalkan.');
+    }
+
+    public function destroy(Request $request, BestEmployeeCampaign $campaign): RedirectResponse
+    {
+        abort_unless(Auth::user()->canManageBestEmployee(), 403);
+        abort_if($campaign->effectiveStatus()->value === 'active', 423, 'Kegiatan sedang aktif/berjalan tidak dapat dihapus. Batalkan dulu jika diperlukan.');
+
+        $request->validate([
+            'confirm_username' => ['required', 'string'],
+            'confirm_password' => ['required', 'string'],
         ]);
 
-        return back()->with('success', 'Attempt peserta berhasil direset.');
+        $user = Auth::user();
+        if ($request->string('confirm_username')->toString() !== $user->username
+            || ! Hash::check($request->string('confirm_password')->toString(), $user->password)) {
+            return back()->withErrors(['confirm_password' => 'Username atau password tidak sesuai dengan akun yang sedang login.']);
+        }
+
+        $this->campaigns->softDelete($campaign, $user->id);
+
+        return redirect()->route('one-academy.best-employee.index')->with('success', 'Kegiatan berhasil dihapus.');
     }
 }

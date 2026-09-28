@@ -42,13 +42,12 @@ const avatarClass = (name) => {
                     <th class="px-4 py-3 font-semibold">Jabatan</th>
                     <th class="px-4 py-3 font-semibold">Masa Kerja</th>
                     <th class="px-4 py-3 font-semibold">Status</th>
-                    <th class="px-4 py-3 font-semibold">Unit</th>
                     <th class="px-4 py-3 font-semibold">Aksi</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-if="employees.length === 0">
-                    <td colspan="7" class="px-4 py-8 text-center text-slate-400">Data tidak ditemukan.</td>
+                    <td colspan="6" class="px-4 py-8 text-center text-slate-400">Data tidak ditemukan.</td>
                 </tr>
                 <tr v-for="row in employees" :key="row.id" class="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
                     <td class="px-4 py-3 align-middle">
@@ -72,7 +71,6 @@ const avatarClass = (name) => {
                             {{ row.statusKaryawan }}
                         </span>
                     </td>
-                    <td class="px-4 py-3 align-middle text-xs uppercase text-slate-600">{{ row.unit || '-' }}</td>
                     <td class="px-4 py-3 align-middle">
                         <div class="flex gap-1.5">
                             <Link :href="`/one-power/employees/${row.id}/print`" title="Cetak Profil / CV" target="_blank" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-blue-500 hover:bg-blue-50">

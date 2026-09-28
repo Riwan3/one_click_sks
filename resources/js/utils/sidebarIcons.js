@@ -6,7 +6,8 @@ import {
     ShieldLock, Truck, FileHeart, Phone, KeyRound, KeySquare,
     FolderOpen, FileText, Mic, Database, Activity, CircleSlash, UserCheck,
     BellRing, OctagonAlert, Frown, VideoOff, OctagonX, BookOpen, FileCheck,
-    Sliders, Settings, Monitor, Layers
+    Sliders, Settings, Monitor, Layers, MapPin, Target,
+    Calendar, LogOut, Wrench, PenTool, PenLine, Pen, CheckSquare, PieChart, Image
 } from '@lucide/vue';
 
 export const sidebarIcons = {
@@ -17,5 +18,6 @@ export const sidebarIcons = {
     ShieldLock, Truck, FileHeart, Phone, KeyRound, KeySquare,
     FolderOpen, FileText, Mic, Database, Activity, CircleSlash, UserCheck,
     BellRing, OctagonAlert, Frown, VideoOff, OctagonX, BookOpen, FileCheck,
-    Sliders, Settings, Monitor, Layers
+    Sliders, Settings, Monitor, Layers, MapPin, Target,
+    Calendar, LogOut, Wrench, PenTool, PenLine, Pen, CheckSquare, PieChart, Image
 };

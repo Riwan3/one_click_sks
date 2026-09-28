@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { ref, computed } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { UserPlus, FileUp, Download, Search, Trash2 } from '@lucide/vue';
@@ -27,15 +28,15 @@ const submitFilter = () => {
     router.get(baseUrl.value, { search: searchInput.value, jabatan: jabatanInput.value }, { preserveScroll: true, preserveState: true });
 };
 
-const handleToggleStatus = (row) => {
+const handleToggleStatus = async (row) => {
     const nextStatus = props.onlyInactive ? 'FIT' : 'INACTIVE';
     const confirmMsg = props.onlyInactive ? `Aktifkan kembali karyawan "${row.name}"?` : `Nonaktifkan karyawan "${row.name}"?`;
-    if (! confirm(confirmMsg)) return;
+    if (! await confirmDialog(confirmMsg)) return;
     router.post(`/one-power/employees/${row.id}/status`, { status: nextStatus }, { preserveScroll: true });
 };
 
-const handleDelete = (row) => {
-    if (! confirm(`Hapus data karyawan "${row.name}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+const handleDelete = async (row) => {
+    if (! await confirmDialog(`Hapus data karyawan "${row.name}"? Tindakan ini tidak bisa dibatalkan.`)) return;
     router.delete(`/one-power/employees/${row.id}`, { preserveScroll: true });
 };
 
@@ -61,10 +62,16 @@ const exportUrl = computed(() => {
     return `/one-power/employees/export${qs ? `?${qs}` : ''}`;
 });
 
-const handleBulkDeleteInactive = () => {
+const handleBulkDeleteInactive = async () => {
     const total = props.pagination.total;
-    if (! confirm(`HAPUS SEMUA ${total} karyawan non-aktif? Tindakan ini TIDAK BISA dibatalkan.`)) return;
+    if (! await confirmDialog(`HAPUS SEMUA ${total} karyawan non-aktif? Tindakan ini TIDAK BISA dibatalkan.`)) return;
     router.post('/one-power/employees/bulk-delete-inactive', {}, { preserveScroll: true });
+};
+
+const handleBulkDeleteAll = async () => {
+    const total = props.pagination.total;
+    if (! await confirmDialog(`PERINGATAN KERAS: Hapus SEMUA data ${total} karyawan beserta akun user-nya? Tindakan ini sangat fatal dan TIDAK BISA dibatalkan.`)) return;
+    router.post('/one-power/employees/bulk-delete-all', {}, { preserveScroll: true });
 };
 </script>
 
@@ -103,6 +110,14 @@ const handleBulkDeleteInactive = () => {
                     @click="handleBulkDeleteInactive"
                 >
                     <Trash2 class="h-4 w-4" /> Hapus Semua Non-Aktif ({{ pagination.total }})
+                </button>
+                <button
+                    v-if="!onlyInactive && pagination.total > 0"
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-bold text-white hover:bg-red-700"
+                    @click="handleBulkDeleteAll"
+                >
+                    <Trash2 class="h-4 w-4" /> Hapus Semua Karyawan
                 </button>
                 <Link href="/one-power/employees/create" class="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-sm font-bold text-white hover:bg-blue-600">
                     <UserPlus class="h-4 w-4" /> Tambah Karyawan

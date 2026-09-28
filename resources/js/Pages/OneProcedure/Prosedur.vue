@@ -1,332 +1,1005 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { 
-  BookOpen, 
-  Search, 
-  Plus, 
-  Pencil, 
-  Trash2, 
-  FileText, 
-  Calendar, 
-  ShieldAlert,
-  Activity,
-  X
+import { confirmDialog } from '@/utils/confirm';
+import {
+  FileText,
+  Search,
+  Plus,
+  Pencil,
+  Trash2,
+  Eye,
+  CheckCircle2,
+  ChevronRight,
+  ArrowLeft,
+  X,
+  UploadCloud,
+  FileCheck,
+  FolderPlus,
+  Tag
 } from 'lucide-vue-next';
 
 const props = defineProps({
   user: Object,
   notifCounts: Object,
   menu: Array,
-  filters: Object,
-  procedures: Array,
-  categories: Array,
+  docs: Array,
+  jenis: String,
+  search: String,
+  searchActive: Boolean,
+  currentLabel: String,
+  currentCategory: String,
+  isAktivityContext: Boolean,
+  showTable: Boolean,
+  counts: Object,
+  allSopCategories: Array,
+  allSopTypes: Array,
+  allDocsForSelect: Array,
 });
 
-const filterSearch = ref(props.filters?.search || '');
-const filterCategory = ref(props.filters?.category || '');
-const filterRisk = ref(props.filters?.risk || '');
-const filterStatus = ref(props.filters?.status || '');
+const searchQuery = ref(props.search || '');
 
-const applyFilter = () => {
+const handleSearch = () => {
   router.get('/one-procedure/prosedur', {
-    search: filterSearch.value,
-    category: filterCategory.value,
-    risk: filterRisk.value,
-    status: filterStatus.value,
+    type: props.jenis,
+    search: searchQuery.value,
   }, { preserveState: true });
 };
 
-// Modal Add / Edit
-const showModal = ref(false);
-const editingProcedure = ref(null);
-const form = ref({
-  id: null,
-  title: '',
-  category: 'Operasional',
-  revision: 'Rev. 0',
-  description: '',
-  risk_level: 'medium',
-  status: 'active',
-  effective_date: new Date().toISOString().split('T')[0],
-  expired_date: '',
+const resetSearch = () => {
+  searchQuery.value = '';
+  router.get('/one-procedure/prosedur', {
+    type: props.jenis,
+  }, { preserveState: true });
+};
+
+const navigateType = (typeSlug) => {
+  router.get('/one-procedure/prosedur', {
+    type: typeSlug,
+    search: searchQuery.value,
+  }, { preserveState: true });
+};
+
+// Modal Tambah Dokumen
+const showAddModal = ref(false);
+const addForm = ref({
+  category_slug: props.currentCategory || '',
+  type_slug: props.allSopTypes?.[0]?.slug || 'sop',
+  judul: '',
+  kode_dokumen: '',
+  status: 'aktif',
+  file_dokumen: null,
 });
 
-const openAdd = () => {
-  editingProcedure.value = null;
-  form.value = {
-    id: null,
-    title: '',
-    category: 'Operasional',
-    revision: 'Rev. 0',
-    description: '',
-    risk_level: 'medium',
-    status: 'active',
-    effective_date: new Date().toISOString().split('T')[0],
-    expired_date: '',
+const openAddModal = () => {
+  const activeTypeSlug = props.currentCategory && props.jenis.startsWith(props.currentCategory + '_')
+    ? props.jenis.substring(props.currentCategory.length + 1)
+    : props.jenis;
+
+  addForm.value = {
+    category_slug: props.currentCategory || '',
+    type_slug: activeTypeSlug || props.allSopTypes?.[0]?.slug || 'sop',
+    judul: '',
+    kode_dokumen: '',
+    status: 'aktif',
+    file_dokumen: null,
   };
-  showModal.value = true;
+  showAddModal.value = true;
 };
 
-const openEdit = (proc) => {
-  editingProcedure.value = proc;
-  form.value = {
-    id: proc.id,
-    title: proc.title,
-    category: proc.category || 'Operasional',
-    revision: proc.revision || 'Rev. 0',
-    description: proc.description || '',
-    risk_level: proc.risk_level || 'medium',
-    status: proc.status || 'active',
-    effective_date: proc.effective_date || '',
-    expired_date: proc.expired_date || '',
-  };
-  showModal.value = true;
+const handleAddFile = (e) => {
+  addForm.value.file_dokumen = e.target.files[0] || null;
 };
 
-const submitForm = () => {
-  if (form.value.id) {
-    router.post(`/one-procedure/prosedur/update/${form.value.id}`, form.value, {
+const submitAddDocument = () => {
+  const formData = new FormData();
+  formData.append('category_slug', addForm.value.category_slug);
+  formData.append('type_slug', addForm.value.type_slug);
+  formData.append('judul', addForm.value.judul);
+  formData.append('kode_dokumen', addForm.value.kode_dokumen);
+  formData.append('status', addForm.value.status);
+  if (addForm.value.file_dokumen) {
+    formData.append('file_dokumen', addForm.value.file_dokumen);
+  }
+
+  router.post('/one-procedure/prosedur/store', formData, {
+    preserveScroll: true,
+    onSuccess: () => {
+      showAddModal.value = false;
+    },
+  });
+};
+
+// Modal Edit Dokumen
+const showEditModal = ref(false);
+const editForm = ref({
+  id: null,
+  category_slug: 'global',
+  type_slug: 'sop',
+  judul: '',
+  kode_dokumen: '',
+  status: 'aktif',
+  current_file: '',
+  file_dokumen: null,
+});
+
+const openEditModal = (doc) => {
+  let foundCat = 'global';
+  let foundType = doc.jenis;
+
+  for (const cat of (props.allSopCategories || [])) {
+    if (doc.jenis.startsWith(cat.slug + '_')) {
+      foundCat = cat.slug;
+      foundType = doc.jenis.substring(cat.slug.length + 1);
+      break;
+    }
+  }
+
+  editForm.value = {
+    id: doc.id,
+    category_slug: foundCat,
+    type_slug: foundType,
+    judul: doc.judul,
+    kode_dokumen: doc.kode_dokumen,
+    status: doc.status || 'aktif',
+    current_file: doc.file_dokumen || '',
+    file_dokumen: null,
+  };
+  showEditModal.value = true;
+};
+
+const handleEditFile = (e) => {
+  editForm.value.file_dokumen = e.target.files[0] || null;
+};
+
+const submitEditDocument = () => {
+  const formData = new FormData();
+  formData.append('category_slug', editForm.value.category_slug);
+  formData.append('type_slug', editForm.value.type_slug);
+  formData.append('judul', editForm.value.judul);
+  formData.append('kode_dokumen', editForm.value.kode_dokumen);
+  formData.append('status', editForm.value.status);
+  if (editForm.value.file_dokumen) {
+    formData.append('file_dokumen', editForm.value.file_dokumen);
+  }
+
+  router.post(`/one-procedure/prosedur/update/${editForm.value.id}`, formData, {
+    preserveScroll: true,
+    onSuccess: () => {
+      showEditModal.value = false;
+    },
+  });
+};
+
+const deleteDocument = async (doc) => {
+  const ok = await confirmDialog({
+    title: 'Hapus Dokumen?',
+    text: `Apakah Anda yakin ingin menghapus dokumen "${doc.judul}"?`,
+    icon: 'warning',
+    confirmButtonText: 'Ya, Hapus',
+    cancelButtonText: 'Batal',
+  });
+  if (ok) {
+    router.delete(`/one-procedure/prosedur/delete/${doc.id}`, {
       preserveScroll: true,
-      onSuccess: () => showModal.value = false,
-    });
-  } else {
-    router.post('/one-procedure/prosedur/store', form.value, {
-      preserveScroll: true,
-      onSuccess: () => showModal.value = false,
     });
   }
 };
 
-const deleteProcedure = (id) => {
-  if (confirm('Hapus dokumen prosedur ini?')) {
-    router.delete(`/one-procedure/prosedur/delete/${id}`, { preserveScroll: true });
+// Modal Tambah Jenis
+const showTypeModal = ref(false);
+const typeName = ref('');
+
+const openTypeModal = () => {
+  typeName.value = '';
+  showTypeModal.value = true;
+};
+
+const submitAddType = () => {
+  if (!typeName.value.trim()) return;
+  router.post('/one-procedure/prosedur/type/store', {
+    name: typeName.value.trim(),
+  }, {
+    preserveScroll: true,
+    onSuccess: () => {
+      showTypeModal.value = false;
+      typeName.value = '';
+    },
+  });
+};
+
+const deleteType = async (typeItem) => {
+  const ok = await confirmDialog({
+    title: 'Hapus Jenis Dokumen?',
+    text: `Hapus jenis "${typeItem.name}" secara permanen?`,
+    icon: 'warning',
+    confirmButtonText: 'Ya, Hapus',
+    cancelButtonText: 'Batal',
+  });
+  if (ok) {
+    router.delete(`/one-procedure/prosedur/type/delete/${typeItem.id}`, {
+      preserveScroll: true,
+    });
   }
+};
+
+// Modal Tambah Kategori
+const showCatModal = ref(false);
+const catName = ref('');
+const catSelectedDocs = ref([]);
+const catDocSearchQuery = ref('');
+
+const openCategoryModal = () => {
+  catName.value = '';
+  catSelectedDocs.value = [];
+  catDocSearchQuery.value = '';
+  showCatModal.value = true;
+};
+
+const filteredSelectDocs = computed(() => {
+  const q = catDocSearchQuery.value.toLowerCase().trim();
+  if (!q) return props.allDocsForSelect || [];
+  return (props.allDocsForSelect || []).filter((d) => {
+    const text = `${d.judul} ${d.kode_dokumen} ${d.jenis}`.toLowerCase();
+    return text.includes(q);
+  });
+});
+
+const selectAllDocs = () => {
+  catSelectedDocs.value = filteredSelectDocs.value.map((d) => d.id);
+};
+
+const clearSelectDocs = () => {
+  catSelectedDocs.value = [];
+};
+
+const submitAddCategory = () => {
+  if (!catName.value.trim()) return;
+  router.post('/one-procedure/prosedur/category/store', {
+    name: catName.value.trim(),
+    doc_ids: catSelectedDocs.value,
+  }, {
+    preserveScroll: true,
+    onSuccess: () => {
+      showCatModal.value = false;
+      catName.value = '';
+      catSelectedDocs.value = [];
+    },
+  });
+};
+
+const deleteCategory = async (cat) => {
+  const ok = await confirmDialog({
+    title: 'Hapus Kategori?',
+    text: `Hapus kategori "${cat.name}"? Dokumen di dalamnya akan tetap ada namun kategorinya dihapus.`,
+    icon: 'warning',
+    confirmButtonText: 'Ya, Hapus',
+    cancelButtonText: 'Batal',
+  });
+  if (ok) {
+    router.delete(`/one-procedure/prosedur/category/delete/${cat.id}`, {
+      preserveScroll: true,
+    });
+  }
+};
+
+// Viewer Modal
+const viewModalDoc = ref(null);
+const showDocViewer = ref(false);
+
+const openViewer = (doc) => {
+  window.open(`/one-procedure/prosedur/view/${doc.id}`, '_blank');
 };
 </script>
 
 <template>
-  <Head title="Prosedur - One-Procedure" />
+  <AppLayout :user="user" :notifCounts="notifCounts" :menu="menu">
+    <Head title="Prosedur Kerja - One-Procedure" />
 
-  <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
     <div class="space-y-6">
-      <!-- Header -->
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+      <!-- HEADER -->
+      <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div class="flex items-center gap-2 text-xs font-semibold text-rose-600 mb-1">
-            <span>SOP &amp; Knowledge Management</span>
-            <span>/</span>
-            <span class="text-slate-500">Prosedur</span>
+          <div class="text-xs font-semibold text-rose-600 tracking-wider uppercase flex items-center gap-1.5 mb-1.5">
+            <span>SOP & Knowledge Management</span>
+            <span class="text-slate-300">/</span>
+            <span>Prosedur Kerja</span>
           </div>
-          <h1 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-            <BookOpen class="w-6 h-6 text-rose-500" />
-            Dokumen Prosedur Operasional (SOP)
-          </h1>
-          <p class="text-xs text-slate-500 mt-0.5">Repositori standar operasional prosedur, tingkat risiko, dan status revisi dokumen</p>
-        </div>
-
-        <button @click="openAdd" class="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition flex items-center gap-2">
-          <Plus class="w-4 h-4" />
-          Tambah Prosedur Baru
-        </button>
-      </div>
-
-      <!-- Search & Filters Bar -->
-      <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <form @submit.prevent="applyFilter" class="flex flex-wrap items-center gap-3 text-xs w-full">
-          <div>
-            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Cari Prosedur</label>
-            <div class="relative">
-              <Search class="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
-              <input type="text" v-model="filterSearch" placeholder="Judul / Deskripsi..." class="pl-8 pr-3 py-1.5 border border-slate-300 rounded-xl bg-slate-50/50 w-52" />
+          <div class="flex items-center gap-3 flex-wrap">
+            <div class="p-2.5 bg-rose-50 text-rose-600 rounded-xl">
+              <FileText class="w-6 h-6" />
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="text-xl font-black text-slate-800 tracking-tight">Prosedur Kerja</h1>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 uppercase">
+                  {{ currentLabel }}
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">
+                Daftar dokumen prosedur {{ currentLabel.toLowerCase() }} yang tersedia.
+              </p>
             </div>
           </div>
+        </div>
 
-          <div>
-            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Kategori</label>
-            <select v-model="filterCategory" @change="applyFilter" class="px-3 py-1.5 border border-slate-300 rounded-xl bg-slate-50/50">
-              <option value="">Semua Kategori</option>
-              <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-            </select>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button
+            @click="openAddModal"
+            class="px-4 py-2.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-sm shadow-rose-200 transition-all flex items-center gap-2"
+          >
+            <Plus class="w-4 h-4" />
+            <span>Tambah Dokumen</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- FILTER / SEARCH BAR -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <form @submit.prevent="handleSearch" class="flex flex-col sm:flex-row items-center gap-3">
+          <div class="relative flex-1 w-full">
+            <Search class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              v-model="searchQuery"
+              placeholder="Cari judul atau kode dokumen..."
+              class="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition"
+            />
           </div>
 
-          <div>
-            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Tingkat Risiko</label>
-            <select v-model="filterRisk" @change="applyFilter" class="px-3 py-1.5 border border-slate-300 rounded-xl bg-slate-50/50">
-              <option value="">Semua Risiko</option>
-              <option value="low">Rendah</option>
-              <option value="medium">Sedang</option>
-              <option value="high">Tinggi</option>
-              <option value="critical">Kritis</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Status</label>
-            <select v-model="filterStatus" @change="applyFilter" class="px-3 py-1.5 border border-slate-300 rounded-xl bg-slate-50/50">
-              <option value="">Semua Status</option>
-              <option value="active">Aktif</option>
-              <option value="revision_needed">Perlu Revisi</option>
-              <option value="expired">Kadaluarsa</option>
-            </select>
-          </div>
-
-          <div class="self-end pb-0.5">
-            <button type="submit" class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition">
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="submit"
+              class="px-5 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition flex-1 sm:flex-initial"
+            >
               Filter
+            </button>
+            <button
+              v-if="searchActive"
+              type="button"
+              @click="resetSearch"
+              class="p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+              title="Reset Filter"
+            >
+              <X class="w-4 h-4" />
             </button>
           </div>
         </form>
       </div>
 
-      <!-- Grid Cards of Procedures -->
-      <div v-if="procedures && procedures.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div 
-          v-for="proc in procedures" 
-          :key="proc.id"
-          class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col hover:border-rose-300 hover:shadow-md transition"
-        >
-          <!-- Card Header -->
-          <div class="p-4 border-b border-slate-100 flex items-start justify-between gap-2">
-            <div class="flex items-start gap-3">
-              <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <FileText class="w-5 h-5" />
-              </div>
-              <div>
-                <h3 class="font-bold text-slate-800 text-sm line-clamp-1" :title="proc.title">{{ proc.title }}</h3>
-                <span class="text-[11px] font-medium text-slate-500">{{ proc.category }} &bull; {{ proc.revision }}</span>
-              </div>
-            </div>
+      <!-- SUB-MENU / MODE SELECTION -->
+      <!-- 1. Category Context: Sub-menu types for selected category -->
+      <div v-if="isAktivityContext && currentCategory" class="space-y-3">
+        <div class="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+          <div>
+            <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase block">Kategori Terpilih:</span>
+            <h3 class="text-sm font-black text-rose-700 uppercase">
+              {{ allSopCategories?.find(c => c.slug === currentCategory)?.name || currentCategory }}
+            </h3>
           </div>
-
-          <!-- Card Body -->
-          <div class="p-4 flex-1 space-y-3 text-xs">
-            <p class="text-slate-600 line-clamp-2 text-[11px]">{{ proc.description || 'Tidak ada deskripsi' }}</p>
-
-            <div class="flex items-center gap-2 pt-1">
-              <span class="px-2.5 py-0.5 text-[10px] font-bold rounded-full uppercase" :class="{
-                'bg-emerald-100 text-emerald-800': proc.risk_level === 'low',
-                'bg-amber-100 text-amber-800': proc.risk_level === 'medium',
-                'bg-rose-100 text-rose-800': proc.risk_level === 'high',
-                'bg-purple-100 text-purple-800': proc.risk_level === 'critical',
-              }">
-                Risiko {{ proc.risk_level }}
-              </span>
-
-              <span class="px-2.5 py-0.5 text-[10px] font-bold rounded-full" :class="{
-                'bg-emerald-100 text-emerald-800': proc.status === 'active',
-                'bg-amber-100 text-amber-800': proc.status === 'revision_needed',
-                'bg-rose-100 text-rose-800': proc.status === 'expired',
-              }">
-                {{ proc.status }}
-              </span>
-            </div>
-
-            <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
-              <span class="flex items-center gap-1">
-                <Calendar class="w-3 h-3 text-slate-400" />
-                Berlaku: {{ proc.effective_date || '-' }}
-              </span>
-              <span class="font-semibold text-sky-600">
-                {{ proc.assessments_count || 0 }} Activity
-              </span>
-            </div>
+          <div class="flex items-center gap-2">
+            <button
+              @click="openTypeModal"
+              class="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-white border border-rose-200 hover:bg-rose-50 rounded-xl transition flex items-center gap-1.5"
+            >
+              <Plus class="w-3.5 h-3.5" />
+              <span>Tambah Jenis</span>
+            </button>
+            <button
+              @click="navigateType('aktivity_select')"
+              class="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5"
+            >
+              <ArrowLeft class="w-3.5 h-3.5" />
+              <span>Ganti Kategori</span>
+            </button>
           </div>
+        </div>
 
-          <!-- Card Footer -->
-          <div class="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-            <a :href="`/one-procedure/activity?procedure_id=${proc.id}`" class="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1">
-              <Activity class="w-3.5 h-3.5" /> Kelola Activity
-            </a>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <div
+            v-for="dt in allSopTypes"
+            :key="dt.id"
+            class="relative group"
+          >
+            <button
+              @click="navigateType(`${currentCategory}_${dt.slug}`)"
+              :class="[
+                'w-full p-4 rounded-xl font-bold text-xs uppercase flex items-center justify-between text-left transition border shadow-sm',
+                jenis === `${currentCategory}_${dt.slug}`
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-rose-200'
+                  : 'bg-white text-slate-700 border-slate-200/90 hover:border-rose-300 hover:bg-rose-50/30'
+              ]"
+            >
+              <span class="truncate pr-8">{{ dt.name }}</span>
+              <CheckCircle2 v-if="jenis === `${currentCategory}_${dt.slug}`" class="w-4 h-4 text-white flex-shrink-0" />
+              <ChevronRight v-else class="w-4 h-4 text-slate-400 group-hover:text-rose-500 flex-shrink-0" />
+            </button>
 
-            <div class="flex items-center gap-1">
-              <button @click="openEdit(proc)" class="p-1.5 text-slate-400 hover:text-sky-600 rounded-lg hover:bg-white transition">
-                <Pencil class="w-4 h-4" />
-              </button>
-              <button @click="deleteProcedure(proc.id)" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-white transition">
-                <Trash2 class="w-4 h-4" />
-              </button>
-            </div>
+            <button
+              @click.stop="deleteType(dt)"
+              class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition rounded-lg hover:bg-white/80"
+              title="Hapus jenis dokumen ini"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>
 
-      <div v-else class="bg-white p-12 rounded-2xl border border-slate-200/80 shadow-sm text-center text-slate-400 space-y-2">
-        <BookOpen class="w-12 h-12 mx-auto text-slate-300" />
-        <p class="text-sm font-semibold text-slate-600">Belum ada dokumen prosedur yang sesuai filter.</p>
+      <!-- 2. Category Selection Mode (when jenis === 'aktivity_select') -->
+      <div v-else-if="isAktivityContext && !currentCategory" class="space-y-3">
+        <div class="flex items-center justify-between pb-1">
+          <div class="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
+            <Tag class="w-3.5 h-3.5 text-rose-500" />
+            <span>Pilih Kategori Aktivitas:</span>
+          </div>
+          <button
+            @click="openCategoryModal"
+            class="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1.5 shadow-sm shadow-rose-200"
+          >
+            <Plus class="w-3.5 h-3.5" />
+            <span>Tambah Kategori</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <div
+            v-for="cat in allSopCategories"
+            :key="cat.id"
+            class="relative group"
+          >
+            <button
+              @click="navigateType(`${cat.slug}_${allSopTypes?.[0]?.slug || 'sop'}`)"
+              class="w-full p-4 rounded-xl font-bold text-xs uppercase text-slate-700 bg-white border border-slate-200/90 hover:border-rose-300 hover:bg-rose-50/30 flex items-center justify-between text-left transition shadow-sm"
+            >
+              <span class="truncate pr-8">{{ cat.name }}</span>
+              <ChevronRight class="w-4 h-4 text-slate-400 group-hover:text-rose-500 flex-shrink-0" />
+            </button>
+
+            <button
+              @click.stop="deleteCategory(cat)"
+              class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition rounded-lg hover:bg-white/80"
+              title="Hapus kategori ini"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Global Types Mode (PROSEDUR UMUM / GLOBAL) -->
+      <div v-else class="space-y-3">
+        <div class="flex items-center justify-between pb-1">
+          <div class="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wider">
+            <FileCheck class="w-3.5 h-3.5 text-rose-500" />
+            <span>Jenis Dokumen:</span>
+          </div>
+          <button
+            @click="openTypeModal"
+            class="px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition flex items-center gap-1.5"
+          >
+            <Plus class="w-3.5 h-3.5" />
+            <span>Tambah Jenis</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div
+            v-for="dt in allSopTypes"
+            :key="dt.id"
+            class="relative group"
+          >
+            <button
+              @click="navigateType(dt.slug)"
+              :class="[
+                'w-full p-4 rounded-xl font-bold text-xs uppercase flex items-center justify-between text-left transition border shadow-sm',
+                jenis === dt.slug
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-rose-200'
+                  : 'bg-white text-slate-700 border-slate-200/90 hover:border-rose-300 hover:bg-rose-50/30'
+              ]"
+            >
+              <div class="truncate pr-6">
+                <span>{{ dt.name }}</span>
+                <span
+                  v-if="counts?.[dt.slug]"
+                  :class="[
+                    'ml-2 px-2 py-0.5 rounded-full text-[10px]',
+                    jenis === dt.slug ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                  ]"
+                >
+                  {{ counts[dt.slug] }}
+                </span>
+              </div>
+              <CheckCircle2 v-if="jenis === dt.slug" class="w-4 h-4 text-white flex-shrink-0" />
+              <ChevronRight v-else class="w-4 h-4 text-slate-400 group-hover:text-rose-500 flex-shrink-0" />
+            </button>
+
+            <button
+              @click.stop="deleteType(dt)"
+              class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition rounded-lg hover:bg-white/80"
+              title="Hapus jenis dokumen ini"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEARCH RESULT INDICATOR -->
+      <div v-if="searchActive" class="px-2">
+        <h3 class="text-xs font-black text-rose-600 flex items-center gap-1.5 uppercase">
+          <Search class="w-3.5 h-3.5" />
+          <span>Hasil Pencarian: "{{ search }}"</span>
+        </h3>
+      </div>
+
+      <!-- TABLE OF DOCUMENTS -->
+      <div v-if="showTable" class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+        <div v-if="!docs || docs.length === 0" class="p-12 text-center text-slate-400">
+          <FileText class="w-12 h-12 mx-auto mb-3 opacity-40 text-slate-400" />
+          <p class="text-sm font-bold text-slate-600 mb-1">Belum Ada Dokumen {{ currentLabel }}</p>
+          <p class="text-xs text-slate-400">Silakan klik tombol "Tambah Dokumen" di atas untuk menambahkan dokumen baru.</p>
+        </div>
+
+        <div v-else class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-50 text-slate-600 border-b border-slate-200/80 font-bold uppercase tracking-wider text-[11px]">
+              <tr>
+                <th class="py-3 px-4 text-center w-12">No</th>
+                <th class="py-3 px-4">Nama Dokumen</th>
+                <th class="py-3 px-4 w-32">Tanggal</th>
+                <th class="py-3 px-4 w-44">Kode Dokumen</th>
+                <th class="py-3 px-4 w-44">Kategori</th>
+                <th class="py-3 px-4 w-36">Jenis Dokumen</th>
+                <th class="py-3 px-4 w-28 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-slate-700">
+              <tr
+                v-for="(doc, idx) in docs"
+                :key="doc.id"
+                class="hover:bg-slate-50/70 transition-colors group"
+              >
+                <td class="py-3.5 px-4 text-center text-slate-400 font-medium">
+                  {{ idx + 1 }}
+                </td>
+                <td class="py-3.5 px-4 font-bold text-slate-800">
+                  <div class="max-w-md">
+                    {{ doc.judul }}
+                  </div>
+                </td>
+                <td class="py-3.5 px-4 text-slate-500 whitespace-nowrap">
+                  {{ doc.tanggal || doc.created_at || '-' }}
+                </td>
+                <td class="py-3.5 px-4 whitespace-nowrap">
+                  <code class="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-mono text-[11px] border border-slate-200">
+                    {{ doc.kode_dokumen }}
+                  </code>
+                </td>
+                <td class="py-3.5 px-4 whitespace-nowrap">
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                    {{ doc.category_label }}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 whitespace-nowrap">
+                  <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                    {{ doc.type_label }}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                  <div class="flex items-center justify-center gap-1">
+                    <button
+                      v-if="doc.file_dokumen"
+                      @click="openViewer(doc)"
+                      class="p-1.5 text-slate-600 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition"
+                      title="Lihat Dokumen PDF"
+                    >
+                      <Eye class="w-4 h-4" />
+                    </button>
+                    <button
+                      @click="openEditModal(doc)"
+                      class="p-1.5 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                      title="Edit Dokumen"
+                    >
+                      <Pencil class="w-4 h-4" />
+                    </button>
+                    <button
+                      @click="deleteDocument(doc)"
+                      class="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                      title="Hapus Dokumen"
+                    >
+                      <Trash2 class="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <!-- ADD / EDIT PROCEDURE MODAL -->
-    <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-      <div class="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-100 p-5 space-y-4 text-xs">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 class="font-bold text-slate-800 text-sm">{{ editingProcedure ? 'Edit Prosedur SOP' : 'Tambah Prosedur SOP Baru' }}</h3>
-          <button @click="showModal = false" class="text-slate-400 hover:text-slate-600">
+    <!-- ===== MODAL TAMBAH DOKUMEN ===== -->
+    <div
+      v-if="showAddModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto"
+    >
+      <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in fade-in zoom-in-95 duration-200 my-8">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <div class="p-2 bg-rose-50 text-rose-600 rounded-xl">
+              <FileText class="w-5 h-5" />
+            </div>
+            <h3 class="font-black text-slate-800 text-sm">Tambah Dokumen Baru</h3>
+          </div>
+          <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+
+        <form @submit.prevent="submitAddDocument" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Grup / Kategori</label>
+              <select
+                v-model="addForm.category_slug"
+                class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              >
+                <option value="">UMUM / GLOBAL</option>
+                <option
+                  v-for="cat in allSopCategories"
+                  :key="cat.id"
+                  :value="cat.slug"
+                >
+                  {{ cat.name }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Jenis Dokumen <span class="text-rose-500">*</span></label>
+              <select
+                v-model="addForm.type_slug"
+                required
+                class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              >
+                <option
+                  v-for="dt in allSopTypes"
+                  :key="dt.id"
+                  :value="dt.slug"
+                >
+                  {{ dt.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Judul Dokumen <span class="text-rose-500">*</span></label>
+            <input
+              type="text"
+              v-model="addForm.judul"
+              required
+              placeholder="Contoh: STANDAR OPERASIONAL PROSEDUR PENGOPERASIAN DOZER"
+              class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+            />
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Kode Dokumen <span class="text-rose-500">*</span></label>
+              <input
+                type="text"
+                v-model="addForm.kode_dokumen"
+                required
+                placeholder="Contoh: PPA-ADRO-SOP-PRO-01"
+                class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Status</label>
+              <select
+                v-model="addForm.status"
+                class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              >
+                <option value="aktif">Aktif</option>
+                <option value="draft">Draft</option>
+                <option value="arsip">Arsip</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">File Dokumen (PDF) <span class="text-rose-500">*</span></label>
+            <input
+              type="file"
+              required
+              accept=".pdf,.jpg,.jpeg,.png"
+              @change="handleAddFile"
+              class="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-xl file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100"
+            />
+            <p class="text-[11px] text-slate-400 mt-1">Mendukung file PDF, JPG, PNG (Maks 20MB)</p>
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              @click="showAddModal = false"
+              class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              class="px-5 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm transition"
+            >
+              Simpan Dokumen
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===== MODAL EDIT DOKUMEN ===== -->
+    <div
+      v-if="showEditModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto"
+    >
+      <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in fade-in zoom-in-95 duration-200 my-8">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <div class="p-2 bg-amber-50 text-amber-600 rounded-xl">
+              <Pencil class="w-5 h-5" />
+            </div>
+            <h3 class="font-black text-slate-800 text-sm">Edit Dokumen Prosedur</h3>
+          </div>
+          <button @click="showEditModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+
+        <form @submit.prevent="submitEditDocument" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Grup / Kategori</label>
+              <select
+                v-model="editForm.category_slug"
+                class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              >
+                <option value="global">UMUM / GLOBAL</option>
+                <option
+                  v-for="cat in allSopCategories"
+                  :key="cat.id"
+                  :value="cat.slug"
+                >
+                  {{ cat.name }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Jenis Dokumen <span class="text-rose-500">*</span></label>
+              <select
+                v-model="editForm.type_slug"
+                required
+                class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              >
+                <option
+                  v-for="dt in allSopTypes"
+                  :key="dt.id"
+                  :value="dt.slug"
+                >
+                  {{ dt.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Judul Dokumen <span class="text-rose-500">*</span></label>
+            <input
+              type="text"
+              v-model="editForm.judul"
+              required
+              class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+            />
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Kode Dokumen <span class="text-rose-500">*</span></label>
+              <input
+                type="text"
+                v-model="editForm.kode_dokumen"
+                required
+                class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Status</label>
+              <select
+                v-model="editForm.status"
+                class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              >
+                <option value="aktif">Aktif</option>
+                <option value="draft">Draft</option>
+                <option value="arsip">Arsip</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">File Dokumen PDF (Biarkan kosong jika tidak diganti)</label>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              @change="handleEditFile"
+              class="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-xl file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+            />
+            <div v-if="editForm.current_file" class="mt-1 text-[11px] text-slate-500 font-mono">
+              File saat ini: {{ editForm.current_file }}
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              @click="showEditModal = false"
+              class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              class="px-5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-sm transition"
+            >
+              Simpan Perubahan
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===== MODAL TAMBAH JENIS ===== -->
+    <div
+      v-if="showTypeModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto"
+    >
+      <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <h3 class="font-black text-slate-800 text-sm flex items-center gap-2">
+            <Tag class="w-4 h-4 text-rose-500" />
+            <span>Tambah Jenis Dokumen</span>
+          </h3>
+          <button @click="showTypeModal = false" class="text-slate-400 hover:text-slate-600 p-1">
             <X class="w-4 h-4" />
           </button>
         </div>
 
-        <form @submit.prevent="submitForm" class="space-y-3">
+        <form @submit.prevent="submitAddType" class="space-y-4">
           <div>
-            <label class="block font-bold text-slate-700 mb-1">Judul Prosedur *</label>
-            <input type="text" v-model="form.title" placeholder="Contoh: Prosedur Pengisian Bahan Bakar..." required class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-slate-50/50" />
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nama Jenis Dokumen <span class="text-rose-500">*</span></label>
+            <input
+              type="text"
+              v-model="typeName"
+              required
+              placeholder="Contoh: TIR / HIRADC, JSA, IK"
+              class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+            />
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Kategori</label>
-              <input type="text" v-model="form.category" placeholder="Operasional, K3, Perawatan..." class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-slate-50/50" />
-            </div>
+          <div class="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              @click="showTypeModal = false"
+              class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm transition"
+            >
+              Simpan Jenis
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
 
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Versi Revisi</label>
-              <input type="text" v-model="form.revision" placeholder="Rev. 0..." class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-slate-50/50" />
-            </div>
+    <!-- ===== MODAL TAMBAH KATEGORI ===== -->
+    <div
+      v-if="showCatModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto"
+    >
+      <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-200 my-8">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+          <h3 class="font-black text-slate-800 text-sm flex items-center gap-2">
+            <FolderPlus class="w-4 h-4 text-rose-500" />
+            <span>Tambah Kategori Aktivitas</span>
+          </h3>
+          <button @click="showCatModal = false" class="text-slate-400 hover:text-slate-600 p-1">
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+
+        <form @submit.prevent="submitAddCategory" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nama Kategori <span class="text-rose-500">*</span></label>
+            <input
+              type="text"
+              v-model="catName"
+              required
+              placeholder="Contoh: Hauling Coal, Land Clearing"
+              class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+            />
           </div>
 
           <div>
-            <label class="block font-bold text-slate-700 mb-1">Deskripsi Ringkas</label>
-            <textarea v-model="form.description" rows="2" placeholder="Penjelasan singkat prosedur..." class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-slate-50/50"></textarea>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs font-bold text-slate-700">Pilih Dokumen Aktivitas</label>
+              <div class="text-[11px] text-rose-600 space-x-2">
+                <button type="button" @click="selectAllDocs" class="hover:underline font-semibold">Pilih Semua</button>
+                <span>&bull;</span>
+                <button type="button" @click="clearSelectDocs" class="hover:underline font-semibold">Kosongkan</button>
+              </div>
+            </div>
+
+            <input
+              type="text"
+              v-model="catDocSearchQuery"
+              placeholder="Cari judul / kode dokumen..."
+              class="w-full text-xs p-2 mb-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+            />
+
+            <div class="border border-slate-200 rounded-xl p-2 bg-slate-50 max-h-56 overflow-y-auto space-y-1">
+              <div v-if="filteredSelectDocs.length === 0" class="text-center py-4 text-xs text-slate-400">
+                Dokumen tidak ditemukan
+              </div>
+              <label
+                v-for="d in filteredSelectDocs"
+                :key="d.id"
+                class="flex items-start gap-2.5 p-2 bg-white rounded-lg border border-slate-100 hover:border-slate-300 cursor-pointer text-xs transition"
+              >
+                <input
+                  type="checkbox"
+                  :value="d.id"
+                  v-model="catSelectedDocs"
+                  class="rounded text-rose-600 focus:ring-rose-500 mt-0.5"
+                />
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-slate-100 text-slate-600 uppercase">
+                      {{ d.jenis }}
+                    </span>
+                    <strong class="text-slate-800 text-[11px]">{{ d.kode_dokumen }}</strong>
+                  </div>
+                  <div class="text-slate-600 text-[11px] truncate mt-0.5">
+                    {{ d.judul }}
+                  </div>
+                </div>
+              </label>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">Dokumen yang dicentang akan otomatis muncul di bawah kategori ini.</p>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Tingkat Risiko *</label>
-              <select v-model="form.risk_level" required class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-slate-50/50">
-                <option value="low">Rendah (Low)</option>
-                <option value="medium">Sedang (Medium)</option>
-                <option value="high">Tinggi (High)</option>
-                <option value="critical">Kritis (Critical)</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Status Prosedur</label>
-              <select v-model="form.status" required class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-slate-50/50">
-                <option value="active">Aktif</option>
-                <option value="revision_needed">Perlu Revisi</option>
-                <option value="expired">Kadaluarsa</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Tanggal Berlaku</label>
-              <input type="date" v-model="form.effective_date" class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-slate-50/50" />
-            </div>
-
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Tanggal Kadaluarsa</label>
-              <input type="date" v-model="form.expired_date" class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-slate-50/50" />
-            </div>
-          </div>
-
-          <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-            <button type="button" @click="showModal = false" class="px-4 py-2 font-semibold bg-slate-100 rounded-xl">Batal</button>
-            <button type="submit" class="px-4 py-2 font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl">Simpan Prosedur</button>
+          <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              @click="showCatModal = false"
+              class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              class="px-5 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm transition"
+            >
+              Simpan Kategori
+            </button>
           </div>
         </form>
       </div>

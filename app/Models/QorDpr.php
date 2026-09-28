@@ -11,6 +11,8 @@ class QorDpr extends Model
 
     protected $fillable = [
         'employee_id',
+        'nrp',
+        'nama',
         'role_op',
         'tanggal',
         'loader',
@@ -18,6 +20,10 @@ class QorDpr extends Model
         'kode_unit',
         'rit',
         'total_bcm',
+        'source',
+        'total_ton',
+        'distance',
+        'kode_unit_2',
     ];
 
     protected function casts(): array

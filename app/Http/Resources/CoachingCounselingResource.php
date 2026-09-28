@@ -10,14 +10,20 @@ class CoachingCounselingResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->getRouteKey(),
+            'rawId' => $this->id,
+            'hashid' => $this->getRouteKey(),
             'nomorSurat' => $this->nomor_surat,
             'employeeId' => $this->employee_id,
             'nrp' => $this->whenLoaded('employee', fn () => $this->employee?->nrp),
             'nama' => $this->whenLoaded('employee', fn () => $this->employee?->name),
             'jabatan' => $this->whenLoaded('employee', fn () => $this->employee?->jabatan_ss6),
+            'unit' => $this->whenLoaded('employee', fn () => $this->employee?->unit),
+            'statusKaryawan' => $this->whenLoaded('employee', fn () => $this->employee?->status_karyawan instanceof \BackedEnum ? $this->employee?->status_karyawan->value : (string) ($this->employee?->status_karyawan ?? 'FIT')),
             'coachEmployeeId' => $this->coach_employee_id,
             'coachNama' => $this->whenLoaded('coach', fn () => $this->coach?->name),
+            'coachNrp' => $this->whenLoaded('coach', fn () => $this->coach?->nrp),
+            'coachJabatan' => $this->whenLoaded('coach', fn () => $this->coach?->jabatan_ss6),
             'spId' => $this->sp_id,
             'skId' => $this->sk_id,
             'tanggal' => $this->tanggal?->format('Y-m-d'),

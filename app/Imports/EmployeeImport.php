@@ -20,6 +20,7 @@ class EmployeeImport implements ToCollection
     private const HEADER_MAP = [
         'NAMA' => 'name',
         'NAME' => 'name',
+        'PASSWORD' => 'password',
         'JABATAN SS6' => 'jabatan_ss6',
         'JABATAN' => 'jabatan_roster',
         'STATUS KARYAWAN' => 'status_karyawan',
@@ -32,7 +33,12 @@ class EmployeeImport implements ToCollection
         'INPUT HERE' => 'input_here',
         'INPUT HERE!!!' => 'input_here',
         'EMAIL' => 'email',
+        'GL_ID' => 'gl_id',
+        'GL ID' => 'gl_id',
+        'ID GL' => 'gl_id',
     ];
+
+    private array $pendingGlAssignments = [];
 
     public function collection(Collection $rows): void
     {
@@ -47,9 +53,60 @@ class EmployeeImport implements ToCollection
             return;
         }
 
-        foreach ($rows->slice(1) as $row) {
-            $this->importRow($row, $colMap);
+        $this->pendingGlAssignments = [];
+
+        // 1. Preload data yang sudah ada ke memory agar tidak melakukan ribuan query individual (jauh lebih cepat)
+        $existingEmployees = Employee::all()->keyBy('nrp');
+        $existingUsers = \App\Models\User::all()->keyBy('username');
+
+        // 2. Preload mapping ID dari tabel v1 (oneclick.employees) jika ada (agar ID lama seperti 1507/1795 otomatis terpetakan)
+        $v1GlMap = [];
+        try {
+            $v1GlRows = \Illuminate\Support\Facades\DB::select('SELECT id, nrp FROM oneclick.employees');
+            foreach ($v1GlRows as $r) {
+                $v1GlMap[(string) $r->id] = (string) $r->nrp;
+            }
+        } catch (\Throwable $e) {
+            // Abaikan jika database oneclick tidak ada
         }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($rows, $colMap, $existingEmployees, $existingUsers, $v1GlMap) {
+            // Pass 1: Import & perbarui data profil karyawan
+            foreach ($rows->slice(1) as $row) {
+                $this->importRow($row, $colMap, $existingEmployees, $existingUsers);
+            }
+
+            // Pass 2: Kaitkan gl_id setelah seluruh data karyawan selesai dimasukkan
+            $allEmployeesByNrp = Employee::pluck('id', 'nrp');
+            $allEmployeesById = Employee::pluck('id', 'id');
+
+            foreach ($this->pendingGlAssignments as $pending) {
+                $rawGl = (string) $pending['gl_val'];
+                if ($rawGl === '') {
+                    continue;
+                }
+
+                $glId = null;
+
+                // Skenario A: Langsung cocok dengan ID di database saat ini
+                if (isset($allEmployeesById[(int) $rawGl])) {
+                    $glId = (int) $rawGl;
+                }
+                // Skenario B: Merupakan ID lama dari database v1 (cth: 1507 atau 1795) -> dipetakan via NRP
+                elseif (isset($v1GlMap[$rawGl])) {
+                    $glNrp = $v1GlMap[$rawGl];
+                    $glId = $allEmployeesByNrp->get($glNrp);
+                }
+                // Skenario C: Diisi NRP Group Leader langsung
+                elseif ($allEmployeesByNrp->has($rawGl)) {
+                    $glId = $allEmployeesByNrp->get($rawGl);
+                }
+
+                if ($glId) {
+                    Employee::where('nrp', $pending['employee_nrp'])->update(['gl_id' => $glId]);
+                }
+            }
+        });
     }
 
     public function createdCount(): int
@@ -62,7 +119,7 @@ class EmployeeImport implements ToCollection
         return $this->updated;
     }
 
-    private function importRow(Collection $row, array $colMap): void
+    private function importRow(Collection $row, array $colMap, $existingEmployees, $existingUsers): void
     {
         $nrp = trim((string) ($row[$colMap['nrp']] ?? ''));
 
@@ -71,10 +128,26 @@ class EmployeeImport implements ToCollection
         }
 
         $data = $this->extractRow($row, $colMap);
-        $employee = Employee::where('nrp', $nrp)->first();
+        $password = $data['password'] ?? $nrp;
+        unset($data['password']); // Prevent inserting to employee table
+
+        // Tunda update gl_id ke pass 2 agar tidak terkena Foreign Key Constraint Violation
+        if (array_key_exists('gl_id', $data)) {
+            $rawGl = $data['gl_id'];
+            unset($data['gl_id']);
+            if ($rawGl !== null && $rawGl !== '') {
+                $this->pendingGlAssignments[] = [
+                    'employee_nrp' => $nrp,
+                    'gl_val' => $rawGl,
+                ];
+            }
+        }
+
+        $employee = $existingEmployees->get($nrp);
 
         if ($employee) {
             $employee->update($data);
+            $this->syncUser($employee, $password, $existingUsers->get($nrp));
             $this->updated++;
 
             return;
@@ -93,8 +166,33 @@ class EmployeeImport implements ToCollection
             'efektif_bekerja' => null,
         ];
 
-        Employee::create(array_merge($defaults, $data, ['nrp' => $nrp]));
+        $employee = Employee::create(array_merge($defaults, $data, ['nrp' => $nrp]));
+        $existingEmployees->put($nrp, $employee);
+        $this->syncUser($employee, $password, null);
         $this->created++;
+    }
+
+    private function syncUser(Employee $employee, string $password, ?\App\Models\User $existingUser): void
+    {
+        static $passwordHashCache = [];
+
+        $user = $existingUser ?: new \App\Models\User(['username' => $employee->nrp]);
+
+        $user->name = $employee->name;
+        $user->email = $employee->email;
+        $user->jabatan = $employee->jabatan_ss6;
+        $user->unit = $employee->unit;
+        $user->lokasi = $employee->lokasi_kerja;
+        $user->employee_id = $employee->id;
+
+        if (! $user->exists) {
+            $user->role = \App\Enums\UserRole::fromJabatan($employee->jabatan_ss6)->value;
+            $rawPass = $password ?: $employee->nrp;
+            // Cache hashing & gunakan rounds=8 untuk mempercepat proses bulk import
+            $user->password = $passwordHashCache[$rawPass] ??= \Illuminate\Support\Facades\Hash::make($rawPass, ['rounds' => 8]);
+        }
+
+        $user->save();
     }
 
     /**

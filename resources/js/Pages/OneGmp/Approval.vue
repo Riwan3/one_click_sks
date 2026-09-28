@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import { CheckSquare, CheckCircle2, XCircle, RotateCcw } from 'lucide-vue-next';
@@ -17,8 +18,8 @@ const rejectionNote = ref('');
 const returnModalId = ref(null);
 const revisionNote = ref('');
 
-const handleApprove = (id) => {
-    if (confirm('Setujui form penilaian GMP ini?')) {
+const handleApprove = async (id) => {
+    if (await confirmDialog('Setujui form penilaian GMP ini?')) {
         router.post(`/one-gmp/approval/approve/${id}`);
     }
 };
@@ -71,20 +72,27 @@ const handleReturnSubmit = () => {
                             <th class="p-3">Kategori</th>
                             <th class="p-3">Lokasi / Equipment</th>
                             <th class="p-3">Penilai (NRP)</th>
-                            <th class="p-3 text-center">Skor (%)</th>
+                            <th class="p-3 text-center">Foto</th>
+                            <th class="p-3 text-center">Skor</th>
                             <th class="p-3 text-right">Aksi Approval</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         <tr v-if="pendingForms.data.length === 0">
-                            <td colspan="6" class="p-6 text-center text-slate-400">Tidak ada form penilaian GMP yang menunggu persetujuan saat ini.</td>
+                            <td colspan="7" class="p-6 text-center text-slate-400">Tidak ada form penilaian GMP yang menunggu persetujuan saat ini.</td>
                         </tr>
                         <tr v-for="f in pendingForms.data" :key="f.id" class="hover:bg-slate-50">
                             <td class="p-3 font-semibold text-slate-800">{{ f.tanggal_gmp }}</td>
                             <td class="p-3 font-bold text-emerald-600">{{ f.tipe_gmp }}</td>
                             <td class="p-3 font-bold text-slate-900">{{ f.lokasi }}</td>
                             <td class="p-3 text-slate-600">{{ f.penilai }} <span class="text-slate-400">({{ f.nrp }})</span></td>
-                            <td class="p-3 text-center font-black text-blue-600">{{ f.total_percent }}%</td>
+                            <td class="p-3 text-center">
+                                <a v-if="f.foto_area" :href="f.foto_area" target="_blank" title="Lihat foto dokumentasi" class="inline-block group relative">
+                                    <img :src="f.foto_area" alt="Foto Area" class="w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-xs group-hover:scale-110 transition duration-150" />
+                                </a>
+                                <span v-else class="text-slate-300 text-[11px]">—</span>
+                            </td>
+                            <td class="p-3 text-center font-black text-blue-600">{{ f.total_percent }}</td>
                             <td class="p-3 text-right">
                                 <div class="flex items-center justify-end gap-1.5">
                                     <button @click="handleApprove(f.id)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-1 shadow">

@@ -23,10 +23,12 @@ class OnePowerController extends Controller
         $month = (int) $request->integer('bulan', now()->month);
         $month = $month >= 1 && $month <= 12 ? $month : now()->month;
         $year = (int) $request->integer('tahun', now()->year);
+        $coachingSearch = trim((string) $request->string('coaching_search')) ?: null;
 
         $hm = $this->dashboardService->hmStats($month, $year);
         $attendance = $this->dashboardService->attendanceStats($month, $year);
         $deviasi = $this->dashboardService->deviasiStats();
+        $coaching = $this->dashboardService->coachingStats($year, $coachingSearch);
 
         return Inertia::render('OnePower/Dashboard', [
             'user' => $this->currentUser(),
@@ -44,6 +46,7 @@ class OnePowerController extends Controller
             'topOperators' => $this->dashboardService->hmTopOperators($month, $year),
             'attendance' => $attendance,
             'deviasi' => $deviasi,
+            'coaching' => $coaching,
         ]);
     }
 }

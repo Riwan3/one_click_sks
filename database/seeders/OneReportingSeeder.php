@@ -14,7 +14,7 @@ class OneReportingSeeder extends Seeder
     public function run(): void
     {
         // 1. Master Area
-        $areas = ['MFOB', 'Disposal A', 'Disposal B', 'Dewatering', 'MFOC', 'Workshop Central', 'Hauling Road KM 12'];
+        $areas = ['MFOB', 'Disposal A', 'Disposal B', 'Dewatering', 'MFCO', 'Workshop Central', 'Hauling Road KM 12'];
         foreach ($areas as $a) {
             OdrMasterArea::firstOrCreate(['nama' => $a], ['keterangan' => 'Area operasional utama', 'aktif' => true]);
         }

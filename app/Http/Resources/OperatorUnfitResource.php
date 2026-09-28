@@ -11,7 +11,9 @@ class OperatorUnfitResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->getRouteKey(),
+            'rawId' => $this->id,
+            'hashid' => $this->getRouteKey(),
             'nrp' => $this->nrp,
             'nama' => $this->nama,
             'perusahaan' => $this->perusahaan,

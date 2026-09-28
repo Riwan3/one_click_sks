@@ -13,7 +13,7 @@ class BeritaAcaraService
     public function paginate(?string $search, ?string $dateFrom, ?string $dateTo, int $page, int $perPage): LengthAwarePaginator
     {
         return BeritaAcara::query()
-            ->with('employee')
+            ->with(['employee', 'creator', 'diketahuiOleh'])
             ->search($search)
             ->dateBetween($dateFrom, $dateTo)
             ->orderByDesc('created_at')
@@ -22,22 +22,23 @@ class BeritaAcaraService
 
     public function create(array $data, ?int $createdBy): BeritaAcara
     {
-        $data['nomor_surat'] = BeritaAcara::nextNomorSurat($data['tanggal']);
+        if (empty($data['nomor_surat'])) {
+            $data['nomor_surat'] = BeritaAcara::nextNomorSurat($data['tanggal']);
+        }
+        $data['no_dokumen'] = !empty($data['no_dokumen']) ? $data['no_dokumen'] : 'PPA-ADRO-F-SHE-24D';
+        $data['revisi'] = isset($data['revisi']) && $data['revisi'] !== '' ? $data['revisi'] : '0';
+        $data['tgl_efektif'] = !empty($data['tgl_efektif']) ? $data['tgl_efektif'] : '2022-04-07';
         $data['created_by'] = $createdBy;
 
         $beritaAcara = BeritaAcara::create($data)->fresh();
 
-        BeritaAcara::resyncNomorSurat();
-
-        return $beritaAcara->fresh();
+        return $beritaAcara;
     }
 
     public function update(BeritaAcara $beritaAcara, array $data, ?int $updatedBy): BeritaAcara
     {
         $data['updated_by'] = $updatedBy;
         $beritaAcara->update($data);
-
-        BeritaAcara::resyncNomorSurat();
 
         return $beritaAcara->fresh();
     }

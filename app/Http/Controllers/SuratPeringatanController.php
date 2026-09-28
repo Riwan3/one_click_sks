@@ -6,6 +6,7 @@ use App\Http\Requests\StoreSuratPeringatanRequest;
 use App\Http\Requests\UpdateSuratPeringatanRequest;
 use App\Http\Resources\SuratPeringatanResource;
 use App\Models\Employee;
+use App\Models\Setting;
 use App\Models\SuratPeringatan;
 use App\Services\SuratPeringatanService;
 use App\Support\MenuAccess;
@@ -29,6 +30,9 @@ class SuratPeringatanController extends Controller
         $dateTo = trim((string) $request->string('date_to', now()->toDateString()));
         $page = max(1, (int) $request->integer('page', 1));
 
+        $siteCode = Setting::getValue('surat_peringatan_site_code', 'ADW') ?: 'ADW';
+        SuratPeringatan::updateSiteCode($siteCode);
+
         $suratPeringatans = $this->suratPeringatanService->paginate($search, $dateFrom ?: null, $dateTo ?: null, $page, self::PER_PAGE);
 
         return Inertia::render('OnePower/SuratPeringatan/Index', [
@@ -45,6 +49,7 @@ class SuratPeringatanController extends Controller
                 'total' => $suratPeringatans->total(),
             ],
             'canManage' => ! $request->user()?->isManagement(),
+            'documentSettings' => $this->getDocumentSettings(),
         ]);
     }
 
@@ -127,11 +132,55 @@ class SuratPeringatanController extends Controller
 
     public function show(SuratPeringatan $suratPeringatan): Response
     {
-        $suratPeringatan->load(['employee', 'pengawas']);
+        $suratPeringatan->load(['employee', 'pengawas', 'creator', 'updater', 'admin']);
 
         return Inertia::render('OnePower/SuratPeringatan/Print', [
-            'suratPeringatan' => new SuratPeringatanResource($suratPeringatan),
+            'suratPeringatan' => (new SuratPeringatanResource($suratPeringatan))->resolve(),
+            'documentSettings' => $this->getDocumentSettings(),
         ]);
+    }
+
+    public function saveSettings(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        if (! $user || (! $user->isAdmin() && ! $user->isPimpinan())) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'siteCode' => ['required', 'string', 'max:20'],
+            'lokasi' => ['nullable', 'string', 'max:100'],
+            'noDokumen' => ['required', 'string', 'max:100'],
+            'revisi' => ['nullable', 'string', 'max:50'],
+            'tglEfektif' => ['nullable', 'date'],
+        ]);
+
+        $siteCode = strtoupper(trim($validated['siteCode']));
+        $lokasi = trim($validated['lokasi'] ?? 'CSA Inggris');
+        $noDokumen = trim($validated['noDokumen']);
+        $revisi = trim($validated['revisi'] ?? '00');
+        $tglEfektif = $validated['tglEfektif'] ?? '2022-09-12';
+
+        Setting::setValue('surat_peringatan_site_code', $siteCode);
+        Setting::setValue('surat_peringatan_lokasi', $lokasi);
+        Setting::setValue('surat_peringatan_no_dokumen', $noDokumen);
+        Setting::setValue('surat_peringatan_revisi', $revisi);
+        Setting::setValue('surat_peringatan_tgl_efektif', $tglEfektif);
+
+        SuratPeringatan::updateSiteCode($siteCode);
+
+        return redirect()->back()->with('success', 'Pengaturan format dokumen & no. surat peringatan berhasil dikunci.');
+    }
+
+    private function getDocumentSettings(): array
+    {
+        return [
+            'siteCode' => Setting::getValue('surat_peringatan_site_code', 'ADW') ?: 'ADW',
+            'lokasi' => Setting::getValue('surat_peringatan_lokasi', 'CSA Inggris') ?: 'CSA Inggris',
+            'noDokumen' => Setting::getValue('surat_peringatan_no_dokumen', 'PPA-ADRO-F-HCGA-02') ?: 'PPA-ADRO-F-HCGA-02',
+            'revisi' => Setting::getValue('surat_peringatan_revisi', '00') ?: '00',
+            'tglEfektif' => Setting::getValue('surat_peringatan_tgl_efektif', '2022-09-12') ?: '2022-09-12',
+        ];
     }
 
     public function checkActive(Request $request): JsonResponse

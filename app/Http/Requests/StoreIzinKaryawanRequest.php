@@ -43,7 +43,7 @@ class StoreIzinKaryawanRequest extends FormRequest
             'dokter_rujukan' => ['nullable', 'string', 'max:150'],
             'dipulangkan_tidur' => ['nullable', 'boolean'],
 
-            'file_bukti' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx', 'max:5120'],
+            'file_bukti' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx', 'max:10240'],
         ];
     }
 
@@ -57,7 +57,7 @@ class StoreIzinKaryawanRequest extends FormRequest
             'tgl_berangkat.required_if' => 'Tanggal berangkat wajib diisi untuk jenis izin ini.',
             'tgl_kembali.after_or_equal' => 'Tanggal kembali tidak boleh sebelum tanggal berangkat.',
             'file_bukti.mimes' => 'Bukti harus berupa gambar, PDF, atau dokumen Word.',
-            'file_bukti.max' => 'Ukuran file bukti maksimal 5MB.',
+            'file_bukti.max' => 'Ukuran file bukti maksimal 10MB.',
         ];
     }
 }

@@ -7,23 +7,25 @@ use App\Models\Employee;
 use App\Models\RosterEntry;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
 class RosterService
 {
     /**
-     * Label keterangan per kode roster, dipakai kalender Roster Personal (samakan dengan V1).
+     * Label keterangan per kode roster, dipakai kalender Roster Personal (samakan dengan V1 & Roster Departemen).
      */
     private const ROSTER_CODE_LABELS = [
-        'd' => 'Day Shift',
-        'n' => 'Night Shift',
+        'd'   => 'Day Shift',
+        'n'   => 'Night Shift',
         'off' => 'Off',
-        'ct' => 'Cuti',
-        'h' => 'Dirumahkan',
-        'id' => 'Induksi',
+        'ct'  => 'Cuti',
+        'id'  => 'Induksi',
         'ids' => 'Induksi Permit',
-        'tr' => 'Training',
         'mcu' => 'MCU',
+        'fu'  => 'Follow Up',
+        'h'   => 'Dirumahkan',
+        'tr'  => 'Training',
     ];
 
     /**
@@ -48,14 +50,14 @@ class RosterService
             ->groupBy('employee_id');
 
         return $employees->map(function (Employee $employee) use ($entries, $daysInMonth, $month, $year) {
-            $byDate = ($entries->get($employee->id) ?? collect())->keyBy(fn (RosterEntry $e) => $e->tanggal->format('Y-m-d'));
+            $employeeEntries = $entries->get($employee->id, collect())
+                ->keyBy(fn (RosterEntry $e) => $e->tanggal->format('Y-m-d'));
 
-            $days = collect(range(1, $daysInMonth))->map(function (int $day) use ($byDate, $month, $year) {
+            $days = [];
+            for ($day = 1; $day <= $daysInMonth; $day++) {
                 $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
-                $entry = $byDate->get($date);
-
-                return ['tanggal' => $date, 'kode' => $entry?->kode, 'unit' => $entry?->unit];
-            });
+                $days[$day] = $employeeEntries->get($date)?->kode ?? '';
+            }
 
             return [
                 'employeeId' => $employee->id,
@@ -64,44 +66,63 @@ class RosterService
                 'jabatan' => $employee->jabatan_ss6,
                 'jabatanRoster' => $employee->jabatan_roster,
                 'unit' => $employee->unit,
-                'days' => $days->values(),
+                'days' => $days,
             ];
-        })->values();
+        });
     }
 
     /**
      * Roster kalender bulanan untuk satu karyawan (dipakai halaman Roster Personal).
-     * Mengembalikan info karyawan + daftar hari (tanggal, kode, keterangan) untuk 1 bulan penuh.
+     * Mengambil data langsung dari roster_monthly_master (tabel utama yang dipakai roster-departemen).
      */
     public function personalCalendar(string $nrp, int $year, int $month): array
     {
         $employee = Employee::query()->where('nrp', $nrp)->first();
 
         if (! $employee) {
+            $employee = Employee::query()->whereRaw('TRIM(nrp) = ?', [trim($nrp)])->first();
+        }
+
+        if (! $employee) {
             return ['employee' => null, 'days' => []];
         }
 
-        $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+        $daysInMonth = (int) cal_days_in_month(CAL_GREGORIAN, $month, $year);
 
-        $byDate = RosterEntry::query()
-            ->month($month, $year)
-            ->where('employee_id', $employee->id)
-            ->get()
-            ->keyBy(fn (RosterEntry $e) => $e->tanggal->format('Y-m-d'));
+        // Ambil data roster dari tabel utama yang dipakai roster-departemen (roster_monthly_master)
+        $masterEntries = DB::table('roster_monthly_master')
+            ->where('nrp', (string) $employee->nrp)
+            ->whereMonth('tanggal', $month)
+            ->whereYear('tanggal', $year)
+            ->get();
 
-        $rosterUnit = $byDate->first(fn (RosterEntry $e) => filled($e->unit))?->unit;
+        $byDate = $masterEntries->keyBy(function ($e) {
+            return date('Y-m-d', strtotime($e->tanggal));
+        });
+
+        // Fallback ke tabel roster_entries jika data di roster_monthly_master belum ada
+        if ($byDate->isEmpty()) {
+            $byDate = RosterEntry::query()
+                ->month($month, $year)
+                ->where('employee_id', $employee->id)
+                ->get()
+                ->keyBy(fn (RosterEntry $e) => $e->tanggal->format('Y-m-d'));
+        }
+
+        $rosterUnit = $masterEntries->first(fn ($e) => filled($e->unit))?->unit
+            ?: ($byDate->first(fn ($e) => filled($e->unit))?->unit ?? null);
 
         $days = collect(range(1, $daysInMonth))->map(function (int $day) use ($byDate, $month, $year) {
             $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
             $entry = $byDate->get($date);
-            $kode = $entry?->kode ?? '';
+            $kode = strtoupper(trim((string) ($entry?->kode ?? '')));
 
             return [
                 'tanggal' => $date,
                 'day' => $day,
                 'dayOfWeek' => (int) date('w', mktime(0, 0, 0, $month, $day, $year)),
                 'kode' => $kode,
-                'keterangan' => self::ROSTER_CODE_LABELS[strtolower($kode)] ?? '',
+                'keterangan' => self::ROSTER_CODE_LABELS[strtolower($kode)] ?? ($kode ? $kode : ''),
             ];
         })->values()->all();
 

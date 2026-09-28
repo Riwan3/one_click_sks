@@ -2,147 +2,142 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreAttendanceMonthlyRosterRequest;
-use App\Http\Requests\UpdateAttendanceMonthlyRosterRequest;
-use App\Http\Resources\AttendanceMonthlyRosterResource;
-use App\Models\AttendanceMonthlyRoster;
-use App\Models\Employee;
-use App\Services\AttendanceMonthlyRosterService;
+use App\Models\AttendanceDetail;
+use App\Services\AttendanceService;
 use App\Support\MenuAccess;
-use Illuminate\Http\JsonResponse;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Response as ResponseFacade;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
-/**
- * Serves the "Attendance" menu item under One-Power > Personal Data Operator.
- *
- * Rebuilt to match ONECLICK V1's actual model for this menu context: a
- * monthly aggregate roster per employee (AttendanceMonthlyRoster), populated
- * mainly via Excel import, rather than a daily per-employee log. The
- * pre-existing daily-log `Attendance` model/table is untouched — it still
- * backs DashboardService::attendanceStats() for the OnePower Dashboard.
- */
 class AttendanceController extends Controller
 {
-    private const PER_PAGE = 15;
+    private const PER_PAGE = 10;
 
-    /** Default ATR MIN threshold used by the "ATR < threshold" filter toggle. */
-    private const DEFAULT_ATR_THRESHOLD = 95;
-
-    public function __construct(private AttendanceMonthlyRosterService $rosterService) {}
+    public function __construct(private AttendanceService $attendanceService) {}
 
     public function index(Request $request): Response
     {
+        $user = $request->user()?->loadMissing('employee');
+        $roleStr = strtolower((string) ($user?->role ?? ''));
+        $jabatanStr = strtoupper((string) ($user?->employee?->jabatan_ss6 ?? $user?->jabatan ?? ''));
+
+        $isOperator = (bool) ($user && (
+            $roleStr === 'operator'
+            || str_contains($jabatanStr, 'OPERATOR')
+            || str_contains(strtoupper($roleStr), 'OPERATOR')
+        ));
+
+        $isGroupLeader = (bool) ($user && (
+            in_array($roleStr, ['group-leader', 'groupleader', 'gl'], true)
+            || str_contains($roleStr, 'group-leader')
+            || str_contains($roleStr, 'group leader')
+            || str_contains($jabatanStr, 'GROUP LEADER')
+            || str_contains($jabatanStr, 'GL ')
+            || str_ends_with($jabatanStr, ' GL')
+            || $jabatanStr === 'GL'
+        ));
+
+        $isPersonalOnly = $isOperator || $isGroupLeader;
+        $userNrp = (string) ($user?->employee?->nrp ?: $user?->username);
+
         $search = trim((string) $request->string('search'));
-        $bulan = (int) ($request->integer('bulan') ?: now()->month);
-        $tahun = (int) ($request->integer('tahun') ?: now()->year);
-        $kategori = trim((string) $request->string('kategori')) ?: null;
-        $atrThreshold = $request->filled('atr_threshold')
-            ? (float) $request->input('atr_threshold')
-            : self::DEFAULT_ATR_THRESHOLD;
-        $filterLowAtr = $request->boolean('filter_low_atr');
+        $exactNrp = null;
+        if ($isPersonalOnly) {
+            $exactNrp = $userNrp;
+            $search = '';
+        }
+
+        $dateFrom = trim((string) $request->string('date_from')) ?: now()->startOfMonth()->format('Y-m-d');
+        $dateTo = trim((string) $request->string('date_to')) ?: now()->format('Y-m-d');
+        $category = trim((string) $request->string('category'));
         $page = max(1, (int) $request->integer('page', 1));
 
-        $items = $this->rosterService->paginate($search ?: null, $bulan, $tahun, $page, self::PER_PAGE, $kategori, $filterLowAtr, $atrThreshold);
+        $attendanceData = $this->attendanceService->paginate($search, $dateFrom, $dateTo, $category, $page, self::PER_PAGE, $exactNrp);
+        $summary = $this->attendanceService->summary($search, $dateFrom, $dateTo, $exactNrp);
+
+        $latestRecord = AttendanceDetail::latest('updated_at')->first();
+        $lastSync = $latestRecord && $latestRecord->updated_at
+            ? Carbon::parse($latestRecord->updated_at)->locale('id')->isoFormat('D MMMM Y HH:mm')
+            : now()->locale('id')->isoFormat('D MMMM Y HH:mm');
+
+        $items = collect($attendanceData->items())->map(function ($row) {
+            $tanggalStr = '-';
+            if ($row->tanggal) {
+                try {
+                    $tanggalStr = Carbon::parse($row->tanggal)->locale('id')->isoFormat('D MMMM Y');
+                } catch (\Throwable) {
+                    $tanggalStr = (string) $row->tanggal;
+                }
+            }
+
+            return [
+                'id' => $row->id,
+                'nrp' => (string) ($row->nrp ?? '-'),
+                'name' => (string) ($row->name ?? '-'),
+                'position' => (string) ($row->position ?? '-'),
+                'tanggal' => $tanggalStr,
+                'rawTanggal' => $row->tanggal instanceof \DateTimeInterface ? $row->tanggal->format('Y-m-d') : (string) $row->tanggal,
+                'jamIn' => $row->jam_in ?: '-',
+                'jamOut' => $row->jam_out ?: '-',
+                'job' => $row->job ?: '-',
+                'dept' => $row->dept ?: '-',
+                'company' => $row->company ?: '-',
+                'code' => $row->code ?: '-',
+                'siaCategory' => $row->sia_category,
+                'device' => $row->device ?: '-',
+                'owner' => $row->owner ?: '-',
+                'deviceCount' => $row->device_count ?? 0,
+                'deviceId' => $row->device_id ?: '-',
+            ];
+        })->values()->all();
 
         return Inertia::render('OnePower/Attendance/Index', [
             'user' => $this->currentUser(),
+            'isPersonalOnly' => $isPersonalOnly,
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
             'search' => $search,
-            'bulan' => $bulan,
-            'tahun' => $tahun,
-            'kategori' => $kategori,
-            'atrThreshold' => $atrThreshold,
-            'filterLowAtr' => $filterLowAtr,
-            'summary' => $this->rosterService->summaryStats($search ?: null, $bulan, $tahun, $kategori),
-            'codeColumns' => AttendanceMonthlyRoster::CODE_COLUMNS,
-            'items' => AttendanceMonthlyRosterResource::collection($items->items())->resolve(),
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'category' => $category,
+            'summary' => $summary,
+            'items' => $items,
+            'lastSync' => $lastSync,
             'pagination' => [
-                'currentPage' => $items->currentPage(),
-                'lastPage' => $items->lastPage(),
-                'total' => $items->total(),
+                'currentPage' => $attendanceData->currentPage(),
+                'lastPage' => $attendanceData->lastPage(),
+                'total' => $attendanceData->total(),
+                'from' => $attendanceData->firstItem() ?? 0,
+                'to' => $attendanceData->lastItem() ?? 0,
             ],
         ]);
     }
 
-    public function store(StoreAttendanceMonthlyRosterRequest $request): RedirectResponse
+    public function importFromApi(Request $request): RedirectResponse
     {
-        $this->rosterService->create($request->validated(), $request->user()?->id);
+        $user = $request->user()?->loadMissing('employee');
+        $roleStr = strtolower((string) ($user?->role ?? ''));
+        $jabatanStr = strtoupper((string) ($user?->employee?->jabatan_ss6 ?? $user?->jabatan ?? ''));
+        $isRestricted = in_array($roleStr, ['group-leader', 'groupleader', 'gl', 'operator'], true)
+            || str_contains($roleStr, 'group-leader')
+            || str_contains($jabatanStr, 'GROUP LEADER')
+            || str_contains($jabatanStr, 'OPERATOR');
 
-        return redirect()->back()->with('success', 'Data roster absensi berhasil ditambahkan.');
-    }
-
-    public function update(UpdateAttendanceMonthlyRosterRequest $request, AttendanceMonthlyRoster $attendance): RedirectResponse
-    {
-        $this->rosterService->update($attendance, $request->validated());
-
-        return redirect()->back()->with('success', 'Data roster absensi berhasil diperbarui.');
-    }
-
-    public function destroy(AttendanceMonthlyRoster $attendance): RedirectResponse
-    {
-        $this->rosterService->delete($attendance);
-
-        return redirect()->back()->with('success', 'Data roster absensi berhasil dihapus.');
-    }
-
-    public function import(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
-            'bulan' => ['required', 'integer', 'between:1,12'],
-            'tahun' => ['required', 'integer', 'digits:4'],
-        ]);
-
-        $result = $this->rosterService->importFromExcel(
-            $request->file('file'),
-            (int) $request->integer('bulan'),
-            (int) $request->integer('tahun'),
-            $request->user()?->id
-        );
-
-        $message = "Berhasil mengimport {$result['imported']} data absensi.";
-
-        if ($result['skipped'] > 0) {
-            $message .= " {$result['skipped']} baris dilewati (NRP kosong/tidak valid atau karyawan tidak ditemukan).";
+        if ($isRestricted) {
+            return redirect('/one-power/personal-data/attendance')->with('error', 'Anda tidak memiliki akses untuk import data.');
         }
 
-        return redirect()->back()->with('success', $message);
-    }
+        $bulan = (int) ($request->integer('bulan') ?: now()->month);
+        $tahun = (int) ($request->integer('tahun') ?: now()->year);
+        $dept = (string) ($request->string('dept') ?: 'PRO');
 
-    public function downloadTemplate(): StreamedResponse
-    {
-        $headers = array_merge(
-            ['nrp', 'name', 'dept', 'jabatan', 'posisi', 'comp', 'atr'],
-            AttendanceMonthlyRoster::CODE_COLUMNS
+        $result = $this->attendanceService->importFromApi($bulan, $tahun, $dept);
+
+        return redirect('/one-power/personal-data/attendance')->with(
+            $result['success'] ? 'success' : 'error',
+            $result['message']
         );
-
-        return ResponseFacade::streamDownload(function () use ($headers) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, $headers);
-            fputcsv($handle, array_merge(
-                ['10001', 'NAMA CONTOH', 'PRODUKSI', 'OPERATOR HD785', 'OPERATOR', 'ORGANIK', '95.5'],
-                array_fill(0, count(AttendanceMonthlyRoster::CODE_COLUMNS), 0)
-            ));
-            fclose($handle);
-        }, 'template_attendance_monthly_roster.csv', ['Content-Type' => 'text/csv']);
-    }
-
-    public function searchEmployee(Request $request): JsonResponse
-    {
-        $keyword = trim((string) $request->string('keyword'));
-
-        if ($keyword === '') {
-            return response()->json([]);
-        }
-
-        $employees = Employee::query()->search($keyword)->limit(10)->get(['id', 'nrp', 'name', 'unit']);
-
-        return response()->json($employees);
     }
 }

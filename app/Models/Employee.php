@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use App\Enums\EmployeeStatus;
+use App\Models\Concerns\HasHashid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Employee extends Model
 {
+    use HasHashid;
     protected $fillable = [
         'nrp',
         'name',
@@ -21,6 +23,7 @@ class Employee extends Model
         'efektif_bekerja',
         'input_here',
         'email',
+        'foto',
     ];
 
     protected function casts(): array

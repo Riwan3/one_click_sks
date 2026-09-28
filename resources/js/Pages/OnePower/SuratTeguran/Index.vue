@@ -1,11 +1,13 @@
 <script setup>
-import { ref } from 'vue';
+import { confirmDialog } from '@/utils/confirm';
+import { ref, watch } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { CloudDownload, FilePlus, Search } from '@lucide/vue';
+import { CloudDownload, FilePlus, Search, Lock } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/ui/Pagination.vue';
 import SuratTeguranTable from './Partials/SuratTeguranTable.vue';
 import SuratTeguranImportModal from './Partials/SuratTeguranImportModal.vue';
+import SuratTeguranSettingModal from './Partials/SuratTeguranSettingModal.vue';
 
 const props = defineProps({
     user: { type: Object, required: true },
@@ -17,6 +19,7 @@ const props = defineProps({
     suratTegurans: { type: Array, required: true },
     pagination: { type: Object, required: true },
     canManage: { type: Boolean, default: true },
+    documentSettings: { type: Object, default: () => ({}) },
 });
 
 const baseUrl = '/one-power/pembinaan/surat-teguran';
@@ -24,15 +27,20 @@ const searchInput = ref(props.search);
 const dateFromInput = ref(props.dateFrom);
 const dateToInput = ref(props.dateTo);
 
+watch(() => props.search, (val) => { searchInput.value = val; });
+watch(() => props.dateFrom, (val) => { dateFromInput.value = val; });
+watch(() => props.dateTo, (val) => { dateToInput.value = val; });
+
 const submitFilter = () => {
     router.get(baseUrl, { search: searchInput.value, date_from: dateFromInput.value, date_to: dateToInput.value }, { preserveScroll: true, preserveState: true });
 };
 
-const handleDelete = (row) => {
-    if (! confirm(`Hapus surat teguran "${row.nama}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+const handleDelete = async (row) => {
+    if (! await confirmDialog(`Hapus surat teguran "${row.nama}"? Tindakan ini tidak bisa dibatalkan.`)) return;
     router.delete(`${baseUrl}/${row.id}`, { preserveScroll: true });
 };
 
+const settingModalOpen = ref(false);
 const importModalOpen = ref(false);
 const importForm = useForm({ file: null });
 
@@ -61,6 +69,13 @@ const submitImport = () => {
             </div>
 
             <div v-if="canManage" class="flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 hover:bg-amber-100 transition-colors"
+                    @click="settingModalOpen = true"
+                >
+                    <Lock class="h-4 w-4 text-amber-600" /> Kunci Dokumen &amp; No. Surat
+                </button>
                 <button type="button" class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700" @click="importModalOpen = true">
                     <CloudDownload class="h-4 w-4" /> Import Excel
                 </button>
@@ -95,6 +110,12 @@ const submitImport = () => {
                 :query="{ search, date_from: dateFrom, date_to: dateTo }"
             />
         </div>
+
+        <SuratTeguranSettingModal
+            :open="settingModalOpen"
+            :settings="documentSettings"
+            @close="settingModalOpen = false"
+        />
 
         <SuratTeguranImportModal :open="importModalOpen" :form="importForm" @close="importModalOpen = false" @submit="submitImport" />
     </AppLayout>

@@ -1,13 +1,18 @@
 <script setup>
-import { Head, useForm } from '@inertiajs/vue3';
+import { onMounted } from 'vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ArrowLeft } from '@lucide/vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PemulanganKaryawanForm from './Partials/PemulanganKaryawanForm.vue';
 
-defineProps({
+const props = defineProps({
     user: { type: Object, required: true },
     notifCounts: { type: Object, required: true },
     menu: { type: Array, required: true },
+    documentSettings: { type: Object, default: () => ({}) },
 });
+
+const today = new Date().toISOString().split('T')[0];
 
 const form = useForm({
     employee_id: null,
@@ -15,8 +20,10 @@ const form = useForm({
     nama: '',
     jabatan: '',
     departemen: '',
-    lokasi: '',
-    tanggal: '',
+    lokasi: props.documentSettings?.lokasi || 'Wara',
+    tanggal: today,
+    no_surat: '',
+    doc_rank: null,
     indikasi_fatigue: '',
     jam_tidur_kurang_4jam: false,
     fatigue_berat: false,
@@ -27,14 +34,46 @@ const form = useForm({
     ttd_pengawas: '',
 });
 
-const submit = () => form.post('/one-power/pembinaan/pemulangan-karyawan');
+onMounted(async () => {
+    try {
+        const res = await fetch(`/one-power/pembinaan/pemulangan-karyawan/next-number?tanggal=${today}`);
+        const data = await res.json();
+        if (data.nomor_surat) {
+            form.no_surat = data.nomor_surat;
+            form.doc_rank = data.doc_rank;
+        }
+    } catch (e) {
+        console.error(e);
+    }
+});
+
+const submit = () => {
+    form.post('/one-power/pembinaan/pemulangan-karyawan');
+};
 </script>
 
 <template>
-    <Head title="Buat Pemulangan Karyawan - OneClick" />
+    <Head title="Buat Pemulangan Karyawan Fatigue - OneClick" />
 
     <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
-        <h1 class="mb-5 text-xl font-extrabold text-slate-800">Buat Pemulangan Karyawan</h1>
-        <PemulanganKaryawanForm :form="form" :on-submit="submit" />
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <Link
+                    href="/one-power/pembinaan/pemulangan-karyawan"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
+                >
+                    <ArrowLeft class="h-4 w-4" />
+                    Kembali
+                </Link>
+                <h1 class="text-xl font-extrabold text-slate-800">Buat Pemulangan Karyawan Fatigue</h1>
+            </div>
+        </div>
+
+        <PemulanganKaryawanForm
+            :form="form"
+            :on-submit="submit"
+            :is-edit="false"
+            :document-settings="documentSettings"
+        />
     </AppLayout>
 </template>

@@ -2,6 +2,7 @@ import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { Chart, registerables } from 'chart.js';
+import '@/utils/confirm';
 
 Chart.register(...registerables);
 

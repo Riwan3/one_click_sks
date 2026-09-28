@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
@@ -48,8 +49,8 @@ const closeLightbox = () => {
   lightboxPhoto.value = null
 }
 
-const handleDelete = (photoId) => {
-  if (confirm('Apakah Anda yakin ingin menghapus foto ini?')) {
+const handleDelete = async (photoId) => {
+  if (await confirmDialog('Apakah Anda yakin ingin menghapus foto ini?')) {
     router.delete(route('mpp-photo.destroy', photoId))
   }
 }

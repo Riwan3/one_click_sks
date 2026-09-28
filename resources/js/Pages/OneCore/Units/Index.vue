@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { ref, computed } from 'vue'
 import { Head, useForm, router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
@@ -76,8 +77,8 @@ const closeModal = () => {
   unitForm.reset()
 }
 
-const deleteUnit = (unit) => {
-  if (confirm(`Hapus unit/kategori "${unit.name}"?`)) {
+const deleteUnit = async (unit) => {
+  if (await confirmDialog(`Hapus unit/kategori "${unit.name}"?`)) {
     router.delete(`/one-core/units/${unit.id}`, {
       preserveScroll: true,
     })

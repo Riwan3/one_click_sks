@@ -11,7 +11,9 @@ class IzinKaryawanResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->getRouteKey(),
+            'rawId' => $this->id,
+            'hashid' => $this->getRouteKey(),
             'isOwner' => $this->created_by === $request->user()?->id,
             'jenisIzin' => $this->jenis_izin->value,
             'jenisIzinLabel' => $this->jenis_izin->label(),
@@ -40,11 +42,13 @@ class IzinKaryawanResource extends JsonResource
             'dokterRujukan' => $this->dokter_rujukan,
             'dipulangkanTidur' => (bool) $this->dipulangkan_tidur,
             'buktiUrl' => $this->file_bukti ? Storage::disk('public')->url($this->file_bukti) : null,
+            'buktiFileName' => $this->file_bukti ? basename($this->file_bukti) : null,
             'status' => $this->status->value,
             'statusLabel' => $this->status->label(),
             'approverName' => $this->whenLoaded('approver', fn () => $this->approver?->name),
             'approvedAt' => $this->approved_at?->format('Y-m-d H:i'),
-            'createdAt' => $this->created_at?->format('Y-m-d H:i'),
+            'createdAt' => $this->created_at?->format('d/m/Y'),
+            'createdAtFull' => $this->created_at?->format('d/m/Y H:i'),
         ];
     }
 }

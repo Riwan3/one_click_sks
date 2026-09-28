@@ -10,7 +10,9 @@ class SuratTeguranResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->getRouteKey(),
+            'rawId' => $this->id,
+            'hashid' => $this->getRouteKey(),
             'noSurat' => $this->no_surat,
             'employeeId' => $this->employee_id,
             'nrp' => $this->nrp,
@@ -31,11 +33,15 @@ class SuratTeguranResource extends JsonResource
             'kejadianLokasi' => $this->kejadian_lokasi,
             'dikeluarkanDi' => $this->dikeluarkan_di,
             'dikeluarkanTanggal' => $this->dikeluarkan_tanggal?->format('Y-m-d'),
+            'docRank' => $this->doc_rank,
             'ttdKaryawan' => $this->ttd_karyawan,
             'ttdAtasan' => $this->ttd_atasan,
             'ttdAtasanAtasan' => $this->ttd_atasan_atasan,
             'catatan' => $this->catatan,
+            'foto' => $this->foto_url,
+            'noTelepon' => $this->whenLoaded('employee', fn () => $this->employee?->no_telepon),
             'createdByName' => $this->whenLoaded('creator', fn () => $this->creator?->name),
+            'updatedByName' => $this->whenLoaded('updater', fn () => $this->updater?->name),
             'createdAt' => $this->created_at?->format('Y-m-d H:i'),
         ];
     }

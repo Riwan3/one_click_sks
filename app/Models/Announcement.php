@@ -17,10 +17,16 @@ class Announcement extends Model
         'content',
         'image_path',
         'views_count',
+        'visibility_mode',
     ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function reads()
+    {
+        return $this->hasMany(AnnouncementRead::class);
     }
 }

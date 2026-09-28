@@ -10,7 +10,9 @@ class SuratPeringatanResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->getRouteKey(),
+            'rawId' => $this->id,
+            'hashid' => $this->getRouteKey(),
             'nomorSp' => $this->nomor_sp,
             'employeeId' => $this->employee_id,
             'nrp' => $this->whenLoaded('employee', fn () => $this->employee?->nrp),
@@ -42,7 +44,10 @@ class SuratPeringatanResource extends JsonResource
             'pengawasId' => $this->pengawas_id,
             'pengawasName' => $this->whenLoaded('pengawas', fn () => $this->pengawas?->name),
             'koreksiAlpa' => $this->koreksi_alpa,
+            'foto' => $this->foto_url,
             'adminName' => $this->whenLoaded('admin', fn () => $this->admin?->name),
+            'createdByName' => $this->whenLoaded('creator', fn () => $this->creator?->name) ?? $this->whenLoaded('admin', fn () => $this->admin?->name),
+            'updatedByName' => $this->whenLoaded('updater', fn () => $this->updater?->name),
             'createdAt' => $this->created_at?->format('Y-m-d H:i'),
         ];
     }

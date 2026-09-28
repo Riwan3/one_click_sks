@@ -6,6 +6,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import StatCard from '@/Components/ui/StatCard.vue';
 import DashboardTabs from './Partials/DashboardTabs.vue';
 import MonthYearFilter from './Partials/MonthYearFilter.vue';
+import CoachingTab from './Partials/CoachingTab.vue';
 
 const props = defineProps({
     user: { type: Object, required: true },
@@ -18,6 +19,7 @@ const props = defineProps({
     topOperators: { type: Array, required: true },
     attendance: { type: Object, required: true },
     deviasi: { type: Object, required: true },
+    coaching: { type: Object, required: true },
 });
 
 const CHART_COLOR = '#006699';
@@ -119,20 +121,20 @@ const activeTab = ref('hm');
 </script>
 
 <template>
-    <Head title="Manpower Dashboard - OneClick" />
+    <Head title="Dashboard ATR, HM, Deviasi Operator - OneClick" />
 
     <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
         <nav class="mb-2 text-sm text-slate-500">
             <Link href="/portal" class="text-blue-500 no-underline hover:underline">Home</Link>
             <span class="mx-1.5">&gt;</span>
-            <Link href="/one-power" class="text-blue-500 no-underline hover:underline">Manpower</Link>
+            <Link href="/one-power" class="text-blue-500 no-underline hover:underline">One-Power</Link>
             <span class="mx-1.5">&gt;</span>
-            <span>Dashboard</span>
+            <span class="font-semibold text-slate-700">Dashboard ATR, HM, Deviasi Operator</span>
         </nav>
 
         <div class="mb-5">
-            <h1 class="mb-1 text-2xl font-extrabold text-slate-800">Manpower Dashboard</h1>
-            <p class="m-0 text-sm text-slate-500">Ringkasan data tenaga kerja dan kinerja</p>
+            <h1 class="mb-1 text-2xl font-extrabold text-slate-800">Dashboard ATR, HM, Deviasi Operator</h1>
+            <p class="m-0 text-sm text-slate-500">Ringkasan data hour meter (HM), kehadiran, dan deviasi operator</p>
         </div>
 
         <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -218,6 +220,10 @@ const activeTab = ref('hm');
                 </div>
                 <p v-else class="text-sm text-slate-400">Belum ada data untuk periode ini.</p>
             </div>
+        </template>
+
+        <template v-else-if="activeTab === 'coaching'">
+            <CoachingTab :filters="filters" :coaching="coaching" />
         </template>
 
         <template v-else>

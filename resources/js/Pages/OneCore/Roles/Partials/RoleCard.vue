@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import { Smartphone, Monitor, Save, ListChecks, Trash2 } from '@lucide/vue';
 
@@ -15,8 +16,8 @@ const submit = () => form.put(`/one-core/roles/${props.role.role}`, { preserveSc
 const checkAll = () => { form.module_keys = props.role.modules.map((m) => m.key); };
 const uncheckAll = () => { form.module_keys = []; };
 
-const destroyRole = () => {
-    if (! confirm(`Hapus role "${props.role.label}"? User yang masih memakai role ini harus dipindahkan dulu.`)) return;
+const destroyRole = async () => {
+    if (! await confirmDialog(`Hapus role "${props.role.label}"? User yang masih memakai role ini harus dipindahkan dulu.`)) return;
     router.delete(`/one-core/roles/${props.role.role}`, { preserveScroll: true });
 };
 </script>

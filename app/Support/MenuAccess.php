@@ -36,6 +36,30 @@ class MenuAccess
             return $menuTree;
         }
 
-        return RoleMenuAccess::filterMenuTree($menuTree, $user->role, $moduleKey);
+        $filtered = RoleMenuAccess::filterMenuTree($menuTree, $user->role, $moduleKey);
+
+        // Hanya Admin, Software Engineer, Section Head, & Dept Head yang bisa melihat menu Roster Departemen
+        if ($configKey === 'one_power_menu' && method_exists($user, 'canViewAllRosters') && ! $user->canViewAllRosters()) {
+            foreach ($filtered as &$item) {
+                if (($item['menu_key'] ?? '') === 'roster' && isset($item['children'])) {
+                    $item['children'] = array_values(array_filter($item['children'], function ($child) {
+                        return ($child['menu_key'] ?? '') !== 'roster-departemen';
+                    }));
+                }
+            }
+            unset($item);
+        }
+
+        // Setting GL One-Reporting hanya untuk Admin & Admin Produksi (sama seperti v1)
+        if ($configKey === 'one_reporting_menu' && ! $user->canManageGlSetting()) {
+            foreach ($filtered as &$item) {
+                if (($item['menu_key'] ?? '') === 'compliance' && isset($item['children'])) {
+                    $item['children'] = array_values(array_filter($item['children'], fn ($child) => ($child['menu_key'] ?? '') !== 'setting-gl'));
+                }
+            }
+            unset($item);
+        }
+
+        return $filtered;
     }
 }

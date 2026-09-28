@@ -15,15 +15,15 @@ class StoreFatigueInterviewRequest extends FormRequest
     {
         return [
             'employee_id' => ['required', 'integer', 'exists:employees,id'],
-            'pengawas_id' => ['required', 'integer', 'exists:employees,id'],
+            'pengawas_id' => ['nullable', 'integer', 'exists:employees,id'],
             'nomor_unit' => ['nullable', 'string', 'max:50'],
             'area' => ['nullable', 'string', 'max:100'],
             'tanggal' => ['required', 'date'],
-            'jam' => ['nullable', 'date_format:H:i'],
+            'jam' => ['nullable', 'string', 'max:10'],
             'q1_shift_day' => ['required', 'string', 'max:255'],
             'q2_body_condition' => ['nullable', 'string', 'max:255'],
             'q3_reason' => ['required', 'string'],
-            'q3_background' => ['required', 'string'],
+            'q3_background' => ['nullable', 'string'],
             'q4_rest_hours' => ['required', 'string', 'max:50'],
             'q5_rest_quality' => ['required', 'string', 'max:255'],
             'q5_bad_quality_reason' => ['nullable', 'string'],
@@ -42,20 +42,17 @@ class StoreFatigueInterviewRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'employee_id.required' => 'Karyawan wajib dipilih.',
-            'employee_id.exists' => 'Karyawan tidak ditemukan.',
-            'pengawas_id.required' => 'Pengawas wajib dipilih.',
-            'pengawas_id.exists' => 'Pengawas tidak ditemukan.',
+            'employee_id.required' => 'Operator wajib dipilih.',
+            'employee_id.exists' => 'Operator tidak ditemukan.',
             'tanggal.required' => 'Tanggal wajib diisi.',
-            'q1_shift_day.required' => 'Q1: Shift wajib diisi.',
-            'q3_reason.required' => 'Q3 Alasan wajib diisi.',
-            'q3_background.required' => 'Q3 Latar Belakang wajib diisi.',
-            'q4_rest_hours.required' => 'Q4: Jam Istirahat wajib diisi.',
-            'q5_rest_quality.required' => 'Q5: Kualitas Istirahat wajib diisi.',
-            'q6_home_comfort.required' => 'Q6: Kenyamanan Rumah wajib diisi.',
-            'q7_other_activities.required' => 'Q7: Aktivitas Lain wajib diisi.',
-            'q8_education.required' => 'Q8: Gangguan Tidur wajib diisi.',
-            'q11_suggestions.required' => 'Q11: Saran/Masukan wajib diisi.',
+            'q1_shift_day.required' => 'Pertanyaan 1 (Shift) wajib diisi.',
+            'q3_reason.required' => 'Pertanyaan 3 (Alasan Izin Fatigue) wajib diisi.',
+            'q4_rest_hours.required' => 'Pertanyaan 4 (Jam Istirahat) wajib diisi.',
+            'q5_rest_quality.required' => 'Pertanyaan 5 (Kualitas Istirahat) wajib diisi.',
+            'q6_home_comfort.required' => 'Pertanyaan 6 (Kenyamanan Tempat Tinggal) wajib diisi.',
+            'q7_other_activities.required' => 'Pertanyaan 7 (Aktivitas Lain) wajib diisi.',
+            'q8_education.required' => 'Pertanyaan 8 (Edukasi Fatigue) wajib diisi.',
+            'q11_suggestions.required' => 'Pertanyaan 11 (Saran) wajib diisi.',
         ];
     }
 }

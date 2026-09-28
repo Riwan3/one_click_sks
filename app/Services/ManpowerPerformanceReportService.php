@@ -14,7 +14,7 @@ class ManpowerPerformanceReportService
 
     private const STATUS_AVERAGE_MIN = 90;
 
-    private const ATTENDANCE_ROSTER_MODEL = \App\Models\AttendanceMonthlyRoster::class;
+    public function __construct(private AttendanceRatioService $attendanceRatioService) {}
 
     /**
      * Build the month-by-month drilldown for one employee, from $monthsBack months ago through the current month.
@@ -74,31 +74,7 @@ class ManpowerPerformanceReportService
 
     private function attendanceFor(Employee $employee, int $bulan, int $tahun): ?array
     {
-        if (! class_exists(self::ATTENDANCE_ROSTER_MODEL)) {
-            // TODO: AttendanceMonthlyRoster is built by a parallel task and did not exist at the time this
-            // service was written. Once it lands, this guard becomes a no-op (class_exists will be true).
-            return null;
-        }
-
-        $roster = self::ATTENDANCE_ROSTER_MODEL::query()
-            ->where('employee_id', $employee->id)
-            ->where('bulan', $bulan)
-            ->where('tahun', $tahun)
-            ->first();
-
-        if (! $roster) {
-            return null;
-        }
-
-        // Column names match AttendanceMonthlyRoster's V1-parity legend: s = Sakit, i = Izin, a = Alfa.
-        // atr_percent is the model's accessor — it prefers the stored atr_percentage, falling back to
-        // a computed ratio when the import left it null.
-        return [
-            'atr' => $roster->atr_percent,
-            'sakit' => (int) $roster->s,
-            'izin' => (int) $roster->i,
-            'alfa' => (int) $roster->a,
-        ];
+        return $this->attendanceRatioService->monthlyRatioForNrp($employee->nrp, $bulan, $tahun);
     }
 
     private function hmTotalFor(Employee $employee, int $bulan, int $tahun): float

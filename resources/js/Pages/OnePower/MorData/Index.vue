@@ -1,4 +1,5 @@
 <script setup>
+import { confirmDialog } from '@/utils/confirm';
 import { ref } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { BarChart, LayoutGrid, Plus, Printer, Search, Table2 } from '@lucide/vue';
@@ -127,8 +128,8 @@ const submitForm = () => {
     }
 };
 
-const handleDelete = (row) => {
-    if (! confirm(`Hapus data MOR "${row.nrp} - ${row.nama}"?`)) return;
+const handleDelete = async (row) => {
+    if (! await confirmDialog(`Hapus data MOR "${row.nrp} - ${row.nama}"?`)) return;
     router.delete(`/one-power/mor/${row.id}`, { preserveScroll: true });
 };
 </script>

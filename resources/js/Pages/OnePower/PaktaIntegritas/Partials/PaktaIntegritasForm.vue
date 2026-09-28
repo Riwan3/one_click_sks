@@ -1,6 +1,8 @@
 <script setup>
 import { ref, watch } from 'vue';
+import { Link } from '@inertiajs/vue3';
 import SignaturePad from '@/Components/ui/SignaturePad.vue';
+import PhotoUploadField from '@/Components/ui/PhotoUploadField.vue';
 
 const props = defineProps({
     form: { type: Object, required: true },
@@ -22,11 +24,14 @@ let searchTimer = null;
 let atasanSearchTimer = null;
 let mengetahuiSearchTimer = null;
 
-const defaultPernyataan = 'Saya berkomitmen dengan bersungguh-sungguh untuk menjaga ATR dan Kinerja sesuai dengan standar perusahaan.';
+const defaultPernyataan = 'Saya berkomitmen dengan bersungguh-sungguh untuk menjaga ATR dan Kinerja sesuai dengan standar perusahaan, dan kedepannya jika saya tidak bisa menjaga ATR dan Kinerja saya, maka saya siap menerima konsekuensi sesuai peraturan perusahaan yang berlaku.';
 
 // Initialize default values on mount
 if (!props.form.pernyataan) {
     props.form.pernyataan = defaultPernyataan;
+}
+if (!props.form.tempat) {
+    props.form.tempat = 'Tanjung';
 }
 if (!props.form.cc) {
     props.form.cc = 'Bapak Fachrul Latuconsina';
@@ -213,6 +218,18 @@ const pickMengetahui = (employee) => {
                 <input v-model="form.arsip" type="text" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
             </div>
 
+            <!-- Upload Foto Bukti Dokumen -->
+            <div class="sm:col-span-2 pt-2 border-t border-slate-100">
+                <PhotoUploadField
+                    v-model="form.foto"
+                    :existing-photo="form.existing_foto"
+                    :hapus-foto="form.hapus_foto"
+                    :error="form.errors?.foto"
+                    label="Foto Bukti Dokumen / Pakta Integritas"
+                    @update:hapus-foto="form.hapus_foto = $event"
+                />
+            </div>
+
             <div class="sm:col-span-2">
                 <label class="mb-1 block text-sm font-semibold text-slate-700">Tanda Tangan Karyawan</label>
                 <SignaturePad v-model="form.ttd_karyawan" />
@@ -227,8 +244,16 @@ const pickMengetahui = (employee) => {
             </div>
         </div>
 
-        <button type="submit" :disabled="form.processing" class="mt-6 w-full rounded-lg bg-blue-500 py-2.5 text-sm font-bold text-white hover:bg-blue-600 disabled:opacity-60 sm:w-auto sm:px-8">
-            {{ form.processing ? 'Menyimpan...' : 'Simpan' }}
-        </button>
+        <div class="mt-6 flex items-center gap-3">
+            <button type="submit" :disabled="form.processing" class="w-full rounded-lg bg-blue-500 py-2.5 text-sm font-bold text-white hover:bg-blue-600 disabled:opacity-60 sm:w-auto sm:px-8">
+                {{ form.processing ? 'Menyimpan...' : 'Simpan' }}
+            </button>
+            <Link
+                href="/one-power/pembinaan/pakta-integritas"
+                class="rounded-lg border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
+            >
+                Kembali
+            </Link>
+        </div>
     </form>
 </template>

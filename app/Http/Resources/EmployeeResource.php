@@ -10,7 +10,9 @@ class EmployeeResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'id' => $this->getRouteKey(),
+            'rawId' => $this->id,
+            'hashid' => $this->getRouteKey(),
             'nrp' => $this->nrp,
             'name' => $this->name,
             'jabatanSs6' => $this->jabatan_ss6,
@@ -25,6 +27,7 @@ class EmployeeResource extends JsonResource
             'email' => $this->email,
             'efektifBekerja' => $this->efektif_bekerja?->format('Y-m-d'),
             'inputHere' => $this->input_here,
+            'foto' => $this->foto ? asset('storage/' . $this->foto) : null,
             'tenure' => $this->tenureLabel(),
         ];
     }

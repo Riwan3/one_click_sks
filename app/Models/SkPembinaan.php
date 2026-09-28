@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasHashid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class SkPembinaan extends Model
 {
+    use HasHashid;
     protected $fillable = [
         'nomor_surat',
         'perusahaan',
@@ -26,9 +28,23 @@ class SkPembinaan extends Model
         'jenis_pelanggaran',
         'lubang',
         'keterangan',
+        'foto',
         'created_by',
         'updated_by',
     ];
+
+    public function getFotoUrlAttribute(): ?string
+    {
+        if (! $this->foto) {
+            return null;
+        }
+
+        if (str_starts_with($this->foto, 'http://') || str_starts_with($this->foto, 'https://') || str_starts_with($this->foto, '/storage/')) {
+            return $this->foto;
+        }
+
+        return '/storage/' . ltrim($this->foto, '/');
+    }
 
     protected function casts(): array
     {

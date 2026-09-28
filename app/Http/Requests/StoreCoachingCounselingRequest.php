@@ -20,14 +20,15 @@ class StoreCoachingCounselingRequest extends FormRequest
             'sk_id' => ['nullable', 'integer', 'exists:sk_pembinaans,id'],
             'tanggal' => ['required', 'date'],
             'lokasi' => ['nullable', 'string', 'max:255'],
-            'waktu_pertemuan' => ['nullable', 'date_format:H:i'],
-            'materi_pribadi' => ['nullable', 'string'],
-            'materi_keluarga' => ['nullable', 'string'],
-            'materi_lingkungan' => ['nullable', 'string'],
-            'materi_pekerjaan' => ['nullable', 'string'],
-            'deskripsi' => ['nullable', 'string'],
+            'waktu_pertemuan' => ['nullable', 'string', 'max:20'],
+            'materi_pribadi' => ['nullable'],
+            'materi_keluarga' => ['nullable'],
+            'materi_lingkungan' => ['nullable'],
+            'materi_pekerjaan' => ['nullable'],
+            'deskripsi' => ['required', 'string'],
             'rekomendasi' => ['nullable', 'string'],
             'fatigue_level' => ['nullable', 'integer', 'min:0', 'max:10'],
+            'file_bukti' => ['nullable', 'file', 'max:10240'],
             'ttd_anak_asuh' => ['nullable', 'string'],
             'ttd_bapa_asuh' => ['nullable', 'string'],
         ];
@@ -36,9 +37,10 @@ class StoreCoachingCounselingRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'employee_id.required' => 'Anak asuh wajib dipilih.',
-            'coach_employee_id.required' => 'Coach/pembina wajib dipilih.',
+            'employee_id.required' => 'Karyawan / Anak asuh wajib dipilih.',
+            'coach_employee_id.required' => 'Coach / Bapak asuh wajib dipilih.',
             'tanggal.required' => 'Tanggal wajib diisi.',
+            'deskripsi.required' => 'Deskripsi / penjelasan wajib diisi.',
         ];
     }
 }
