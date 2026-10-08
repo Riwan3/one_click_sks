@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { confirmDialog } from '@/utils/confirm';
 import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -27,6 +27,30 @@ const props = defineProps({
 
 const activeHistoryTab = ref('fleet');
 const historyMonthInput = ref(props.historyMonth);
+
+// Jam & shift berjalan untuk banner (shift 1 = 06:00-17:59, shift 2 = sisanya)
+const DAY_SHIFT_START_HOUR = 6;
+const NIGHT_SHIFT_START_HOUR = 18;
+const actualTime = ref('00:00:00');
+const actualDateStr = ref('');
+const isDayShift = ref(true);
+let clockTimer = null;
+
+const updateClock = () => {
+  const now = new Date();
+  actualTime.value = now.toTimeString().split(' ')[0];
+  actualDateStr.value = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase();
+  isDayShift.value = now.getHours() >= DAY_SHIFT_START_HOUR && now.getHours() < NIGHT_SHIFT_START_HOUR;
+};
+
+onMounted(() => {
+  updateClock();
+  clockTimer = setInterval(updateClock, 1000);
+});
+
+onUnmounted(() => {
+  if (clockTimer) clearInterval(clockTimer);
+});
 
 const applyHistoryMonth = () => {
   router.get('/one-setting/dashboard', { history_month: historyMonthInput.value }, { preserveState: true, preserveScroll: true });
@@ -90,18 +114,33 @@ const deleteActiveBatch = (tanggal, shift) => {
   <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
     <div class="space-y-6">
       <!-- Header -->
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
-        <div>
-          <div class="flex items-center gap-2 text-xs font-semibold text-sky-600 mb-1">
-            <span>Operation Settings</span>
-            <span>/</span>
-            <span class="text-slate-500">Dashboard</span>
+      <div class="bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-sky-500/20 backdrop-blur border border-sky-400/30 flex items-center justify-center shrink-0">
+            <Sliders class="w-6 h-6 text-sky-400" />
           </div>
-          <h1 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-            <Sliders class="w-6 h-6 text-sky-500" />
-            Dashboard Setting Operasional
-          </h1>
-          <p class="text-xs text-slate-500 mt-0.5">Konfigurasi alokasi manpower, unit fleet, dan monitoring settingan lapangan</p>
+          <div>
+            <div class="flex items-center gap-2 text-[11px] font-semibold text-sky-300/80 mb-0.5">
+              <span>Operation Settings</span>
+              <span>/</span>
+              <span class="text-slate-300">Dashboard</span>
+            </div>
+            <h1 class="text-xl font-black tracking-wide">Dashboard Setting Operasional</h1>
+            <p class="text-xs text-sky-300/80">Konfigurasi alokasi manpower, unit fleet, dan monitoring settingan lapangan</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-6 bg-white/10 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/10">
+          <div class="text-right">
+            <span class="text-xs font-black text-amber-400 tracking-wider flex items-center gap-1.5 justify-end">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              {{ isDayShift ? 'SHIFT 1 (SIANG)' : 'SHIFT 2 (MALAM)' }}
+            </span>
+            <p class="text-[10px] text-slate-300 font-medium">{{ actualDateStr }}</p>
+          </div>
+          <div class="border-l border-white/20 pl-4 font-mono font-black text-xl text-sky-300">
+            {{ actualTime }}
+          </div>
         </div>
       </div>
 
