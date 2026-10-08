@@ -302,6 +302,11 @@ class FleetSettingTest extends TestCase
         $this->assertSame(0, $this->rows('N')->count());
     }
 
+    private function addArea(User $admin, string $name): void
+    {
+        $this->actingAs($admin)->post(self::BASE.'/settings/area', $this->day(['area_name' => $name]))->assertSessionHas('success');
+    }
+
     private function clusters(User $admin, string $shift = 'D'): array
     {
         return collect($this->viewProps($admin, $shift)['areas'])->flatMap(fn ($a) => $a['clusters'])->keyBy('name')->all();
@@ -312,7 +317,9 @@ class FleetSettingTest extends TestCase
         $admin = $this->admin();
         $this->master('ZT-E1', 'loader');
 
-        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT OB', 'cluster_area' => 'Timur']))->assertSessionHas('success');
+        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT OB', 'area_name' => 'Timur']))->assertSessionHasErrors('form');
+        $this->addArea($admin, 'Timur');
+        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT OB', 'area_name' => 'timur']))->assertSessionHas('success');
         $cluster = $this->clusters($admin)['ZT OB'];
         $this->assertSame(['Timur', 0], [$cluster['area'], count($cluster['loaders'])]);
         $this->assertSame(1, $this->viewProps($admin)['summary']['clusters']);
@@ -336,7 +343,8 @@ class FleetSettingTest extends TestCase
         $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT B']));
 
         $this->actingAs($admin)->put(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT A', 'new_cluster_name' => 'ZT B']))->assertSessionHasErrors('form');
-        $this->actingAs($admin)->put(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT A', 'new_cluster_name' => 'ZT C', 'cluster_area' => 'Barat']))->assertSessionHas('success');
+        $this->addArea($admin, 'Barat');
+        $this->actingAs($admin)->put(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT A', 'new_cluster_name' => 'ZT C', 'area_name' => 'Barat']))->assertSessionHas('success');
 
         $this->assertSame('ZT C', $this->rows()->where('loader_id', 'ZT-E1')->value('group_name'));
         $clusters = $this->clusters($admin);
@@ -361,7 +369,8 @@ class FleetSettingTest extends TestCase
     public function test_copy_and_clear_include_clusters_and_legacy_cluster_without_area_is_listed(): void
     {
         $admin = $this->admin();
-        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT EMPTY', 'cluster_area' => 'Tengah']));
+        $this->addArea($admin, 'Tengah');
+        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT EMPTY', 'area_name' => 'Tengah']));
         FleetAllocation::create(['tanggal' => self::DATE, 'shift' => 1, 'group_name' => 'ZT LEGACY', 'loader_id' => 'ZT-OLD', 'unit_nrp' => null, 'distance' => 0]);
 
         $clusters = $this->clusters($admin);
@@ -372,6 +381,7 @@ class FleetSettingTest extends TestCase
         $copy = ['from_date' => self::DATE, 'from_shift' => 'D'];
         $this->actingAs($admin)->post(self::BASE.'/settings/copy', $target + $copy)->assertSessionHas('success');
         $this->assertSame('Tengah', $this->clusters($admin, 'N')['ZT EMPTY']['area']);
+        $this->assertSame(['Tengah'], collect($this->viewProps($admin, 'N')['areas'])->pluck('name')->filter()->all());
         $this->actingAs($admin)->post(self::BASE.'/settings/copy', $target + $copy)->assertSessionHasErrors('form');
 
         $this->actingAs($admin)->delete(self::BASE.'/settings/clear', $target)->assertSessionHas('success');
@@ -382,13 +392,74 @@ class FleetSettingTest extends TestCase
     public function test_view_groups_clusters_into_areas_with_unassigned_band_last(): void
     {
         $admin = $this->admin();
+        foreach (['Timur', 'Barat', 'Utara'] as $area) $this->addArea($admin, $area);
         foreach ([['ZT TM', 'Timur'], ['ZT BR', 'Barat'], ['ZT TM2', 'timur'], ['ZT NOAREA', '']] as [$name, $area]) {
-            $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => $name, 'cluster_area' => $area]))->assertSessionHas('success');
+            $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => $name, 'area_name' => $area]))->assertSessionHas('success');
         }
         FleetAllocation::create(['tanggal' => self::DATE, 'shift' => 1, 'group_name' => 'ZT LEGACY', 'loader_id' => 'ZT-OLD', 'distance' => 0]);
 
         $areas = collect($this->viewProps($admin)['areas'])->map(fn ($a) => [$a['name'], collect($a['clusters'])->pluck('name')->all()])->all();
 
-        $this->assertSame([['Timur', ['ZT TM', 'ZT TM2']], ['Barat', ['ZT BR']], [null, ['ZT LEGACY', 'ZT NOAREA']]], $areas);
+        $this->assertSame([['Timur', ['ZT TM', 'ZT TM2']], ['Barat', ['ZT BR']], ['Utara', []], [null, ['ZT LEGACY', 'ZT NOAREA']]], $areas);
+    }
+
+    public function test_area_rename_cascades_to_clusters_and_duplicate_name_is_rejected(): void
+    {
+        $admin = $this->admin();
+        $this->addArea($admin, 'Timur');
+        $this->addArea($admin, 'Barat');
+        $this->actingAs($admin)->post(self::BASE.'/settings/area', $this->day(['area_name' => 'TIMUR']))->assertSessionHasErrors('form');
+        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT A', 'area_name' => 'Timur']));
+
+        $this->actingAs($admin)->put(self::BASE.'/settings/area', $this->day(['area_name' => 'Timur', 'new_area_name' => 'barat']))->assertSessionHasErrors('form');
+        $this->actingAs($admin)->put(self::BASE.'/settings/area', $this->day(['area_name' => 'Timur', 'new_area_name' => 'Front Timur']))->assertSessionHas('success');
+
+        $this->assertSame('Front Timur', $this->clusters($admin)['ZT A']['area']);
+        $this->assertSame(['Front Timur', 'Barat'], collect($this->viewProps($admin)['areas'])->pluck('name')->all());
+        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT B', 'area_name' => 'Timur']))->assertSessionHasErrors('form');
+    }
+
+    public function test_remove_area_deletes_clusters_and_loaders_and_releases_haulers(): void
+    {
+        $admin = $this->admin();
+        $this->addArea($admin, 'Timur');
+        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT A', 'area_name' => 'Timur']));
+        $this->master('ZT-E1', 'loader');
+        $this->master('ZT-H1', 'hauler');
+        $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'cluster_name' => 'ZT A']));
+        $this->actingAs($admin)->post(self::BASE.'/settings/hauler', $this->day(['loader_code' => 'ZT-E1', 'hauler_code' => 'ZT-H1']));
+
+        $this->actingAs($admin)->delete(self::BASE.'/settings/area', $this->day(['area_name' => 'Timur']))->assertSessionHas('success');
+
+        $this->assertSame(0, $this->rows()->count());
+        $this->assertArrayNotHasKey('ZT A', $this->clusters($admin));
+        $this->assertContains('ZT-H1', collect($this->viewProps($admin)['available_haulers'])->pluck('code')->all());
+        $this->actingAs($admin)->delete(self::BASE.'/settings/area', $this->day(['area_name' => 'Timur']))->assertSessionHasErrors('form');
+    }
+
+    public function test_cluster_can_move_between_areas_and_legacy_cluster_can_be_assigned_an_area(): void
+    {
+        $admin = $this->admin();
+        $this->addArea($admin, 'Timur');
+        FleetAllocation::create(['tanggal' => self::DATE, 'shift' => 1, 'group_name' => 'ZT LEGACY', 'loader_id' => 'ZT-OLD', 'distance' => 0]);
+
+        $this->actingAs($admin)->put(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT LEGACY', 'new_cluster_name' => 'ZT LEGACY', 'area_name' => 'Timur']))->assertSessionHas('success');
+        $this->assertSame('Timur', $this->clusters($admin)['ZT LEGACY']['area']);
+        $this->actingAs($admin)->put(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT LEGACY', 'new_cluster_name' => 'ZT LEGACY', 'area_name' => '']))->assertSessionHas('success');
+        $this->assertNull($this->clusters($admin)['ZT LEGACY']['area']);
+    }
+
+    public function test_copy_and_clear_include_areas(): void
+    {
+        $admin = $this->admin();
+        $this->addArea($admin, 'Timur');
+        $target = ['date' => self::DATE, 'shift' => 'N'];
+
+        $this->actingAs($admin)->post(self::BASE.'/settings/copy', $target + ['from_date' => self::DATE, 'from_shift' => 'D'])->assertSessionHas('success');
+        $this->assertSame(['Timur'], collect($this->viewProps($admin, 'N')['areas'])->pluck('name')->all());
+        $this->assertSame(1, $this->viewProps($admin, 'N')['summary']['areas']);
+
+        $this->actingAs($admin)->delete(self::BASE.'/settings/clear', $target)->assertSessionHas('success');
+        $this->assertSame([], $this->viewProps($admin, 'N')['areas']);
     }
 }

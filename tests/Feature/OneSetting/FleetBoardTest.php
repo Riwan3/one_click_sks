@@ -4,6 +4,7 @@ namespace Tests\Feature\OneSetting;
 
 use App\Http\Middleware\CheckSessionSecurity;
 use App\Models\FleetAllocation;
+use App\Models\FleetArea;
 use App\Models\FleetCluster;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -46,6 +47,8 @@ class FleetBoardTest extends TestCase
 
     private function seedClusters(string $date, int $shift): void
     {
+        FleetArea::create(['tanggal' => $date, 'shift' => $shift, 'name' => 'Timur']);
+        FleetArea::create(['tanggal' => $date, 'shift' => $shift, 'name' => 'Utara']);
         FleetCluster::create(['tanggal' => $date, 'shift' => $shift, 'name' => 'EWT', 'area' => 'Timur', 'sort_order' => 1]);
         FleetCluster::create(['tanggal' => $date, 'shift' => $shift, 'name' => 'CLUSTER KOSONG', 'area' => null, 'sort_order' => 2]);
         $this->allocate($date, $shift, 'COAL GETTING', 'E6103', 'HD1004');
@@ -69,10 +72,12 @@ class FleetBoardTest extends TestCase
                 ->where('fleetPreview.sheet.areas.0.clusters.0.loaders.0.dumping', 'DISP A')
                 ->where('fleetPreview.sheet.areas.0.clusters.0.loaders.0.units.1.status', 'G')
                 ->where('fleetPreview.sheet.areas.0.clusters.0.loaders.1.units', [])
-                ->where('fleetPreview.sheet.areas.1.name', 'TANPA AREA')
-                ->where('fleetPreview.sheet.areas.1.clusters.1.name', 'CLUSTER KOSONG')
-                ->where('fleetPreview.sheet.areas.1.clusters.1.loaders', [])
-                ->where('fleetPreview.sheet.areas.1.clusters.0.name', 'COAL GETTING')
+                ->where('fleetPreview.sheet.areas.1.name', 'AREA UTARA')
+                ->where('fleetPreview.sheet.areas.1.clusters', [])
+                ->where('fleetPreview.sheet.areas.2.name', 'TANPA AREA')
+                ->where('fleetPreview.sheet.areas.2.clusters.1.name', 'CLUSTER KOSONG')
+                ->where('fleetPreview.sheet.areas.2.clusters.1.loaders', [])
+                ->where('fleetPreview.sheet.areas.2.clusters.0.name', 'COAL GETTING')
                 ->where('fleetPreview.sheet.breakdown.units.0.code', 'HD1003'));
     }
 

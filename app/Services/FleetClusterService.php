@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\FleetAllocation;
+use App\Models\FleetArea;
 use App\Models\FleetCluster;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -12,7 +13,7 @@ use InvalidArgumentException;
 
 /**
  * Cluster setting fleet harian. Nama cluster == fleet_allocations.group_name (arti kolom lama tidak berubah);
- * area cluster disimpan di fleet_clusters. Cluster dari data lama (hanya ada di fleet_allocations) tetap dikenali.
+ * area cluster disimpan sebagai teks nama area di fleet_clusters.area (induknya: fleet_areas). Cluster dari data lama (hanya ada di fleet_allocations) tetap dikenali.
  */
 class FleetClusterService
 {
@@ -39,7 +40,7 @@ class FleetClusterService
         $this->guardUnique($date, $shift, $name);
 
         FleetCluster::create([
-            'tanggal' => $date, 'shift' => FleetSettingService::shiftNumber($shift), 'name' => $name, 'area' => $this->cleanArea($area),
+            'tanggal' => $date, 'shift' => FleetSettingService::shiftNumber($shift), 'name' => $name, 'area' => $this->resolveArea($date, $shift, $area),
             'sort_order' => (int) $this->query($date, $shift)->max('sort_order') + 1,
             'created_by' => substr((string) Auth::user()?->username, 0, 50),
         ]);
@@ -49,13 +50,14 @@ class FleetClusterService
     public function update(string $date, string $shift, string $name, string $newName, ?string $area): void
     {
         $this->guardExists($date, $shift, $name);
+        $areaName = $this->resolveArea($date, $shift, $area);
         $newName = $this->cleanName($newName);
         if (Str::upper($newName) !== Str::upper(trim($name))) $this->guardUnique($date, $shift, $newName);
 
-        DB::transaction(function () use ($date, $shift, $name, $newName, $area) {
+        DB::transaction(function () use ($date, $shift, $name, $newName, $areaName) {
             $cluster = $this->query($date, $shift)->where('name', trim($name))->first()
                 ?? FleetCluster::make(['tanggal' => $date, 'shift' => FleetSettingService::shiftNumber($shift), 'sort_order' => 0]);
-            $cluster->fill(['name' => $newName, 'area' => $this->cleanArea($area)])->save();
+            $cluster->fill(['name' => $newName, 'area' => $areaName])->save();
             $this->allocations($date, $shift)->where('group_name', trim($name))->update(['group_name' => $newName]);
         });
     }
@@ -100,7 +102,7 @@ class FleetClusterService
         ));
     }
 
-    /** Saran isian: nama cluster dan area yang pernah dipakai. */
+    /** Saran isian nama cluster yang pernah dipakai. */
     public function nameOptions(): array
     {
         return FleetCluster::query()->distinct()->pluck('name')
@@ -108,10 +110,6 @@ class FleetClusterService
             ->filter(fn ($n) => $n && $n !== FleetSettingService::BREAKDOWN_GROUP)->unique()->sort()->values()->all();
     }
 
-    public function areaOptions(): array
-    {
-        return FleetCluster::query()->whereNotNull('area')->distinct()->pluck('area')->filter()->sort()->values()->all();
-    }
 
     // --------------------------------------------------------------- Internal
 
@@ -145,9 +143,13 @@ class FleetClusterService
         return $name;
     }
 
-    private function cleanArea(?string $area): ?string
+    /** Nama area persis seperti di fleet_areas; kosong = tanpa area (data lama); area yang tidak ada ditolak. */
+    private function resolveArea(string $date, string $shift, ?string $area): ?string
     {
-        return $area !== null && trim($area) !== '' ? trim($area) : null;
+        if ($area === null || trim($area) === '') return null;
+
+        return FleetArea::query()->where('tanggal', $date)->where('shift', FleetSettingService::shiftNumber($shift))->where('name', trim($area))->value('name')
+            ?? throw new InvalidArgumentException("Area $area belum ada di setting ini.");
     }
 
     private function guardUnique(string $date, string $shift, string $name): void

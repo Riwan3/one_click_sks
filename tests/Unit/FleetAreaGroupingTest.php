@@ -61,4 +61,23 @@ class FleetAreaGroupingTest extends TestCase
 
         $this->assertSame([['Barat', ['Coal Getting']]], $this->names($areas));
     }
+
+    public function test_areas_follow_fleet_areas_id_order_and_empty_areas_listed_only_when_requested(): void
+    {
+        $areas = [['id' => 1, 'name' => 'Barat'], ['id' => 2, 'name' => 'Timur'], ['id' => 3, 'name' => 'Utara']];
+        $clusters = [$this->cluster(1, 'OB', 'Timur'), $this->cluster(2, 'COAL', 'Barat')];
+        $rows = [$this->row(1, 'OB', 'E1'), $this->row(2, 'COAL', 'E2')];
+
+        $this->assertSame([['Barat', ['COAL']], ['Timur', ['OB']]], $this->names(FleetAreaGrouping::group($clusters, $rows, false, $areas)));
+        $this->assertSame([['Barat', ['COAL']], ['Timur', ['OB']], ['Utara', []]], $this->names(FleetAreaGrouping::group($clusters, $rows, true, $areas)));
+    }
+
+    public function test_area_without_fleet_areas_row_follows_declared_areas_and_stays_above_unassigned(): void
+    {
+        $areas = [['id' => 1, 'name' => 'Timur']];
+        $clusters = [$this->cluster(1, 'X', 'Selatan'), $this->cluster(2, 'OB', 'timur'), $this->cluster(3, 'NONE', null)];
+        $rows = [$this->row(1, 'X', 'E1'), $this->row(2, 'OB', 'E2'), $this->row(3, 'NONE', 'E3')];
+
+        $this->assertSame([['Timur', ['OB']], ['Selatan', ['X']], [null, ['NONE']]], $this->names(FleetAreaGrouping::group($clusters, $rows, false, $areas)));
+    }
 }

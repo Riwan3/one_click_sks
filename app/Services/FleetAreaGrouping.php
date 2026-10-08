@@ -11,22 +11,24 @@ use Illuminate\Support\Str;
  * Input:
  *  - $clusters: baris fleet_clusters [['id', 'name', 'area', 'sort_order'], ...]
  *  - $rows: baris fleet_allocations [['id', 'group_name', 'loader_id'], ...] (array atau objek; baris tanpa loader_id diabaikan)
+ *  - $areas: baris fleet_areas [['id', 'name'], ...] (area yang sengaja dibuat, boleh kosong)
  *
- * Output `group()`: list terurut `[['name' => ?string, 'clusters' => [cluster, ...]], ...]` dengan cluster =
+ * Output `group()`: list terurut `[['name' => ?string, 'id' => ?int, 'clusters' => [cluster, ...]], ...]` dengan cluster =
  *  ['name', 'area', 'id' (null bila hanya ada di allocations), 'loader_count', 'first_row_id'].
  *
  * Aturan urutan:
- *  - Kunci area = trim + case-insensitive; nama tampil = penulisan dari cluster pertama yang ditambahkan (id terkecil).
- *  - Urutan AREA = MIN(fleet_clusters.id) cluster di area itu (area yang lebih dulu dibuat tampil lebih dulu).
- *  - Urutan CLUSTER di dalam area = fleet_clusters.id naik (urutan ditambahkan; sort_order tidak dipakai karena selalu searah id).
+ *  - Kunci area = trim + case-insensitive; nama tampil = penulisan dari baris fleet_areas (atau cluster pertama bila fallback).
+ *  - Urutan AREA = fleet_areas.id naik (urutan area ditambahkan). Area yang hanya ada di fleet_clusters.area (tanpa baris
+ *    fleet_areas) menyusul setelahnya, diurut MIN(fleet_clusters.id).
+ *  - Urutan CLUSTER di dalam area = fleet_clusters.id naik (urutan ditambahkan; sort_order tidak dipakai karena searah id).
  *  - Cluster tanpa area, atau yang hanya ada di allocations (data lama/impor), masuk pita `name = null` ("TANPA AREA") yang
  *    SELALU paling bawah, diurut MIN(fleet_allocations.id) lalu nama.
  *  - Group 'BREAKDOWN / SERVICE' selalu dikecualikan. Baris tanpa group_name menjadi cluster bernama '' (pemanggil memberi label).
- *  - Cluster kosong (tanpa loader) dikeluarkan kecuali $includeEmpty = true (halaman Setting Fleet butuh untuk menambah loader).
+ *  - $includeEmpty = false: cluster tanpa loader dan area tanpa cluster dikeluarkan. true: keduanya tetap tampil (pita kosong).
  */
 class FleetAreaGrouping
 {
-    public static function group(iterable $clusters, iterable $rows, bool $includeEmpty = false): array
+    public static function group(iterable $clusters, iterable $rows, bool $includeEmpty = false, iterable $areas = []): array
     {
         $loaders = self::loaderStats(collect($rows));
         $stored = collect($clusters)->sortBy(fn ($c) => (int) data_get($c, 'id'))->values();
@@ -38,16 +40,25 @@ class FleetAreaGrouping
         if (! $includeEmpty) $items = $items->filter(fn ($item) => $item['loader_count'] > 0);
 
         $byArea = $items->filter(fn ($item) => self::key($item['area']) !== '')->groupBy(fn ($item) => self::key($item['area']));
-        $areas = $byArea->map(fn (Collection $group) => [
-            'name' => trim($group->first()['area']),
-            'clusters' => $group->values()->all(),
-            '_order' => $group->min('id'),
-        ])->sortBy('_order')->map(fn ($area) => ['name' => $area['name'], 'clusters' => $area['clusters']])->values();
+        $declared = collect($areas)->sortBy(fn ($a) => (int) data_get($a, 'id'))->unique(fn ($a) => self::key(data_get($a, 'name')))->values();
+        $declaredKeys = $declared->map(fn ($a) => self::key(data_get($a, 'name')))->flip();
+
+        $fromAreas = $declared->map(fn ($a) => [
+            'name' => trim((string) data_get($a, 'name')),
+            'id' => (int) data_get($a, 'id'),
+            'clusters' => $byArea->get(self::key(data_get($a, 'name')), collect())->values()->all(),
+        ]);
+        $fallback = $byArea->reject(fn ($group, $key) => $declaredKeys->has($key))
+            ->sortBy(fn (Collection $group) => $group->min('id'))
+            ->map(fn (Collection $group) => ['name' => $group->first()['area'], 'id' => null, 'clusters' => $group->values()->all()]);
+
+        $areaList = $fromAreas->concat($fallback)->values();
+        if (! $includeEmpty) $areaList = $areaList->filter(fn ($area) => $area['clusters'])->values();
 
         $unassigned = $items->filter(fn ($item) => self::key($item['area']) === '')
             ->sort(fn ($a, $b) => [$a['first_row_id'] ?? PHP_INT_MAX, $a['name']] <=> [$b['first_row_id'] ?? PHP_INT_MAX, $b['name']])->values();
 
-        return $areas->when($unassigned->isNotEmpty(), fn ($list) => $list->push(['name' => null, 'clusters' => $unassigned->all()]))->values()->all();
+        return $areaList->when($unassigned->isNotEmpty(), fn ($list) => $list->push(['name' => null, 'id' => null, 'clusters' => $unassigned->all()]))->values()->all();
     }
 
     public static function key(?string $value): string

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\HandlesMoncuErrors;
 use App\Http\Requests\FleetInputRequest;
+use App\Services\FleetAreaService;
 use App\Services\FleetClusterService;
 use App\Services\FleetSettingService;
 use Illuminate\Http\RedirectResponse;
@@ -13,11 +14,32 @@ class OneSettingFleetSettingController extends Controller
 {
     use HandlesMoncuErrors;
 
-    public function __construct(private FleetSettingService $setting, private FleetClusterService $clusters) {}
+    public function __construct(private FleetSettingService $setting, private FleetClusterService $clusters, private FleetAreaService $areas) {}
+
+    public function storeArea(FleetInputRequest $request): RedirectResponse
+    {
+        $this->guardPage(fn () => $this->areas->add($request->workDate(), $request->workShift(), $request->text('area_name')));
+
+        return back()->with('success', 'Area ditambahkan.');
+    }
+
+    public function updateArea(FleetInputRequest $request): RedirectResponse
+    {
+        $this->guardPage(fn () => $this->areas->rename($request->workDate(), $request->workShift(), $request->text('area_name'), $request->text('new_area_name')));
+
+        return back()->with('success', 'Area diperbarui.');
+    }
+
+    public function destroyArea(FleetInputRequest $request): RedirectResponse
+    {
+        $this->guardPage(fn () => $this->areas->remove($request->workDate(), $request->workShift(), $request->text('area_name')));
+
+        return back()->with('success', 'Area dihapus beserta cluster dan loader-nya.');
+    }
 
     public function storeCluster(FleetInputRequest $request): RedirectResponse
     {
-        $this->guardPage(fn () => $this->clusters->add($request->workDate(), $request->workShift(), $request->text('cluster_name'), $request->text('cluster_area')));
+        $this->guardPage(fn () => $this->clusters->add($request->workDate(), $request->workShift(), $request->text('cluster_name'), $request->text('area_name')));
 
         return back()->with('success', 'Cluster ditambahkan.');
     }
@@ -25,7 +47,7 @@ class OneSettingFleetSettingController extends Controller
     public function updateCluster(FleetInputRequest $request): RedirectResponse
     {
         $this->guardPage(fn () => $this->clusters->update(
-            $request->workDate(), $request->workShift(), $request->text('cluster_name'), $request->text('new_cluster_name'), $request->text('cluster_area'),
+            $request->workDate(), $request->workShift(), $request->text('cluster_name'), $request->text('new_cluster_name'), $request->text('area_name'),
         ));
 
         return back()->with('success', 'Cluster diperbarui.');

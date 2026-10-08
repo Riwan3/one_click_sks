@@ -26,7 +26,7 @@ class FleetSettingService
     /** Field yang diisi/diubah user per loader (area = dumping point). Cluster (group_name) ditentukan konteks. */
     private const EDITABLE_FIELDS = ['area', 'refueling_time', 'distance'];
 
-    public function __construct(private FleetClusterService $clusters) {}
+    public function __construct(private FleetClusterService $clusters, private FleetAreaService $areaService) {}
 
     public static function shiftNumber(string $shift): int
     {
@@ -58,8 +58,9 @@ class FleetSettingService
         ])->values()->all();
 
         $byCluster = $rows->groupBy(fn ($r) => Str::upper((string) $r->group_name));
-        $areas = collect(FleetAreaGrouping::group($this->clusters->storedRows($date, $shift), $rows, true))->map(fn ($area) => [
+        $areas = collect(FleetAreaGrouping::group($this->clusters->storedRows($date, $shift), $rows, true, $this->areaService->storedRows($date, $shift)))->map(fn ($area) => [
             'name' => $area['name'],
+            'is_editable' => $area['id'] !== null,
             'clusters' => collect($area['clusters'])->map(fn ($cluster) => [
                 'name' => $cluster['name'] === '' ? 'TANPA CLUSTER' : $cluster['name'],
                 'area' => $cluster['area'],
@@ -82,6 +83,7 @@ class FleetSettingService
             'breakdown' => $breakdown,
             'available_haulers' => $availableHaulers,
             'summary' => [
+                'areas' => collect($areas)->where('is_editable', true)->count(),
                 'clusters' => collect($areas)->flatMap(fn ($area) => $area['clusters'])->where('is_editable', true)->count(),
                 'loaders' => $placedLoaders->count(),
                 'haulers' => $placedHaulers->count(),
@@ -90,7 +92,6 @@ class FleetSettingService
             ],
             'warnings' => $this->warnings($rows, $operators),
             'cluster_options' => $this->clusters->nameOptions(),
-            'area_options' => $this->clusters->areaOptions(),
         ];
     }
 
@@ -192,13 +193,14 @@ class FleetSettingService
             throw new InvalidArgumentException('Sumber salinan sama dengan tujuan.');
         }
         $source = $this->rows($fromDate, $fromShift)->get();
-        if ($source->isEmpty() && $this->clusters->isEmpty($fromDate, $fromShift)) throw new InvalidArgumentException('Setting sumber kosong, tidak ada yang disalin.');
-        if (! $replace && ($this->rows($date, $shift)->exists() || ! $this->clusters->isEmpty($date, $shift))) {
+        if ($source->isEmpty() && $this->clusters->isEmpty($fromDate, $fromShift) && $this->areaService->isEmpty($fromDate, $fromShift)) throw new InvalidArgumentException('Setting sumber kosong, tidak ada yang disalin.');
+        if (! $replace && ($this->rows($date, $shift)->exists() || ! $this->clusters->isEmpty($date, $shift) || ! $this->areaService->isEmpty($date, $shift))) {
             throw new InvalidArgumentException('Tanggal dan shift tujuan sudah berisi setting.');
         }
 
         DB::transaction(function () use ($date, $shift, $fromDate, $fromShift, $source) {
             $this->clear($date, $shift);
+            $this->areaService->copy($fromDate, $fromShift, $date, $shift);
             $this->clusters->copy($fromDate, $fromShift, $date, $shift);
             $source->each(fn ($r) => FleetAllocation::create(
                 ['tanggal' => $date, 'shift' => self::shiftNumber($shift)] + $r->only([
@@ -214,6 +216,7 @@ class FleetSettingService
     {
         $this->rows($date, $shift)->delete();
         $this->clusters->clear($date, $shift);
+        $this->areaService->clear($date, $shift);
     }
 
     // --------------------------------------------------------------- Internal

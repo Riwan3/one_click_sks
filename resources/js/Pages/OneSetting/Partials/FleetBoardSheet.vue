@@ -21,7 +21,8 @@ defineProps({
 
     <section v-for="area in sheet.areas" :key="area.name">
       <div class="border-y-2 border-[#333] bg-[#455a64] py-1 text-center text-[10px] font-black tracking-widest text-white">{{ area.name }}</div>
-      <div class="grid grid-cols-2">
+      <p v-if="!area.clusters.length" class="border-b border-[#999] py-3 text-center text-[8px] italic text-slate-400">Belum ada cluster</p>
+      <div v-else class="grid grid-cols-2">
         <div v-for="cluster in area.clusters" :key="cluster.name" class="min-w-[440px] border-b border-r border-[#999] [&:nth-child(2n)]:border-r-0">
           <div class="bg-[#1a3a6e] py-1 text-center text-[9px] font-black tracking-wide text-white">{{ cluster.name.toUpperCase() }}</div>
           <p v-if="!cluster.loaders.length" class="py-3 text-center text-[8px] italic text-slate-400">Belum ada loader</p>

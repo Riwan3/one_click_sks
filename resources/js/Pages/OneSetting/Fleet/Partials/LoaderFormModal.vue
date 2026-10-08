@@ -8,7 +8,7 @@ import ModalActions from '@/Components/ui/ModalActions.vue';
 const props = defineProps({
   target: { type: Object, default: null }, // { mode: 'add', cluster?, code? } | { mode: 'edit', loader }
   availableLoaders: { type: Array, default: () => [] }, // master loader aktif yang belum dipasang
-  clusterNames: { type: Array, default: () => [] },
+  areas: { type: Array, default: () => [] }, // view.areas: cluster tujuan dikelompokkan per area
   isProcessing: { type: Boolean, default: false },
 });
 
@@ -17,6 +17,10 @@ const emit = defineEmits(['close', 'submit']);
 const form = reactive({ loader_code: '', cluster_name: '', area: '', refueling_time: '', distance: 0 });
 
 const isEdit = computed(() => props.target?.mode === 'edit');
+const clusterGroups = computed(() => props.areas
+  .map((area) => ({ label: area.name ?? 'Tanpa area', names: area.clusters.filter((c) => c.is_editable).map((c) => c.name) }))
+  .filter((group) => group.names.length));
+
 const canSubmit = computed(() => !!form.loader_code && (isEdit.value || !!form.cluster_name));
 
 const handleSubmit = () => emit('submit', { ...form, distance: Number(form.distance) || 0 }, isEdit.value);
@@ -42,9 +46,11 @@ watch(() => props.target, (target) => {
         <template v-else>
           <FormSelect v-model="form.cluster_name" label="CLUSTER" required>
             <option value="" disabled>Pilih cluster...</option>
-            <option v-for="name in clusterNames" :key="name" :value="name">{{ name }}</option>
+            <optgroup v-for="group in clusterGroups" :key="group.label" :label="group.label">
+              <option v-for="name in group.names" :key="name" :value="name">{{ name }}</option>
+            </optgroup>
           </FormSelect>
-          <p v-if="!clusterNames.length" class="text-xs text-amber-700">Belum ada cluster. Tambah cluster dulu.</p>
+          <p v-if="!clusterGroups.length" class="text-xs text-amber-700">Belum ada cluster. Tambah cluster dulu.</p>
           <FormSelect v-model="form.loader_code" label="LOADER (DARI MASTER UNIT)" required>
             <option value="" disabled>Pilih loader...</option>
             <option v-for="loader in availableLoaders" :key="loader.code" :value="loader.code">{{ loader.code }}{{ loader.category ? ` - ${loader.category}` : '' }}</option>

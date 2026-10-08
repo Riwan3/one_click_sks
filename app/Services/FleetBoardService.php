@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\FleetAllocation;
+use App\Models\FleetArea;
 use App\Models\FleetCluster;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -31,7 +32,7 @@ class FleetBoardService
     /**
      * Lembar visual satu tanggal + shift (D/N); null bila input tidak valid atau belum ada cluster/loader.
      * Bentuk: ['date', 'shift', 'areas' => [['name', 'clusters' => [['name', 'loaders' => [...]]]]], 'breakdown' => ['units'] | null, 'total_hauler'].
-     * Area urut sesuai cluster pertama yang ditambahkan; TANPA AREA paling bawah.
+     * Area urut sesuai urutan area ditambahkan (FleetAreaGrouping); area tanpa cluster tetap tampil; TANPA AREA paling bawah.
      */
     public function sheet(string $date, string $shift): ?array
     {
@@ -42,7 +43,7 @@ class FleetBoardService
         $all = FleetAllocation::query()->whereDate('tanggal', $date)->where('shift', $number)
             ->orderBy('loader_id')->orderBy('unit_nrp')->get();
         $byGroup = $all->groupBy(fn ($r) => FleetAreaGrouping::key($r->group_name));
-        $groups = FleetAreaGrouping::group($this->storedClusters($date, $number), $all, true);
+        $groups = FleetAreaGrouping::group($this->storedClusters($date, $number), $all, true, $this->storedAreas($date, $number));
         $breakdown = $byGroup->get(self::BREAKDOWN_GROUP);
         if (! $groups && ! $breakdown) return null;
 
@@ -91,6 +92,13 @@ class FleetBoardService
         if (! Schema::hasTable('fleet_clusters')) return collect();
 
         return FleetCluster::query()->whereDate('tanggal', $date)->where('shift', $shift)->get(['id', 'name', 'area', 'sort_order']);
+    }
+
+    private function storedAreas(string $date, int $shift): Collection
+    {
+        if (! Schema::hasTable('fleet_areas')) return collect();
+
+        return FleetArea::query()->whereDate('tanggal', $date)->where('shift', $shift)->get(['id', 'name']);
     }
 
     private function areaLabel(string $area): string
