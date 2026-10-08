@@ -6,6 +6,7 @@ use App\Http\Resources\FleetBoardResource;
 use App\Http\Resources\ManpowerV201ViewResource;
 use App\Models\Employee;
 use App\Models\FleetAllocation;
+use App\Models\FleetMasterUnit;
 use App\Models\RosterData;
 use App\Models\Setting;
 use App\Models\SettingBoard;
@@ -52,7 +53,7 @@ class OneSettingController extends Controller
         $historyMonth = $request->query('history_month', date('Y-m'));
 
         $totalManpowerRoster = RosterData::where('tanggal', $date)->count();
-        $totalFleetUnits = Unit::count();
+        $totalFleetUnits = FleetMasterUnit::query()->where('is_active', true)->count();
         $totalFleetAllocations = FleetAllocation::where('tanggal', $date)->count();
         $totalEmployees = Employee::count();
 
