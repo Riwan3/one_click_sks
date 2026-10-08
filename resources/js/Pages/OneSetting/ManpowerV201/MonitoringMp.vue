@@ -53,7 +53,7 @@ const harianUrl = computed(() => `${BASE_URL}?${new URLSearchParams(props.filter
 
     <template v-else>
       <p v-if="hasNoSs6" class="flex items-center gap-1 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 print:hidden">
-        <TriangleAlert class="h-3.5 w-3.5" /> Data SS6 untuk {{ dateShiftLabel }} belum ada, kolom SS6 tampil "-". Unggah dulu di Attendance V2, lalu muat ulang halaman ini.
+        <TriangleAlert class="h-3.5 w-3.5" /> Data SS6 untuk {{ dateShiftLabel }} belum ada, kolom SS6 tampil "-". Import dulu di Personal Data > Attendance (One-Power), lalu muat ulang halaman ini.
       </p>
       <MonitoringMpCsa v-for="csa in view.tree" :key="csa.id" :csa="csa" :codes="view.codes" />
     </template>

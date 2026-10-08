@@ -141,8 +141,8 @@ class ManpowerV201SettingRepository {
     }
 
     /**
-     * Kode SS6 (kolom code: DR, DE, NR, OL, CR, TR, ...) pada $date untuk daftar NRP, dari Attendance V2
-     * (tabel attendance_v2_detail, hasil upload SS6). Return: [nrp => ['code' =>, 'job' =>, 'jam_in' =>]].
+     * Kode SS6 (kolom code: DR, DE, NR, OL, CR, TR, ...) pada $date untuk daftar NRP, dari One-Power > Personal Data > Attendance
+     * (tabel attendance_details, sumber halaman One-Power > Personal Data > Attendance). Return: [nrp => ['code' =>, 'job' =>, 'jam_in' =>]].
      * Tabel belum ada / tidak terbaca -> kosong.
      */
     public function ss6Codes($date, array $nrps) {
@@ -152,7 +152,7 @@ class ManpowerV201SettingRepository {
             foreach (array_chunk($nrps, 400) as $chunk) {
                 $in = implode(',', array_fill(0, count($chunk), '?'));
                 $stmt = $this->db->prepare(
-                    "SELECT nrp, code, job, jam_in FROM attendance_v2_detail
+                    "SELECT nrp, code, job, jam_in FROM attendance_details
                      WHERE tanggal = ? AND nrp IN ($in) ORDER BY id"
                 );
                 $stmt->execute(array_merge([$date], $chunk));
