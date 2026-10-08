@@ -179,6 +179,24 @@ class User extends Authenticatable
     }
 
     public function hasRole(string $role): bool
+    /** Roster V2 / One-Roster: Admin, Pimpinan, & Admin Produksi boleh melihat (sama seperti V1). */
+    public function canViewRosterV2(): bool
+    {
+        return $this->isAdmin() || $this->isPimpinan() || strtolower((string) $this->role) === 'admin produksi';
+    }
+
+    /** Roster V2 / One-Roster: kelola hanya Admin, Admin Produksi, & jabatan MANPOWER (sama seperti V1). */
+    public function canManageRosterV2(): bool
+    {
+        if (in_array(strtolower((string) $this->role), ['admin', 'superadmin'], true) || $this->username === 'admin') {
+            return true;
+        }
+
+        $jabatan = strtoupper((string) ($this->jabatan ?? ''));
+
+        return str_contains($jabatan, 'ADMIN') || str_contains($jabatan, 'MANPOWER');
+    }
+
     {
         return strtolower((string) $this->role) === strtolower($role);
     }

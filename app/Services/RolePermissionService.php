@@ -24,6 +24,7 @@ class RolePermissionService
         'one-reporting' => 'one_reporting_menu',
         'one-setting' => 'one_setting_menu',
         'one-procedure' => 'one_procedure_menu',
+        'one-roster' => 'one_roster_menu',
     ];
 
     public function summaryForAllRoles(): array

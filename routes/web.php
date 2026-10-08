@@ -733,7 +733,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/rewards/{reward}/seen', [\App\Http\Controllers\RewardController::class, 'markSeen'])->name('rewards.mark-seen');
     Route::delete('/rewards/{reward}', [\App\Http\Controllers\RewardController::class, 'destroy'])->name('rewards.destroy');
 
-    $implementedModuleKeys = ['one-power', 'one-academy', 'one-core', 'one-dms', 'one-gmp', 'one-reporting', 'one-setting', 'one-procedure'];
+    foreach (glob(base_path('routes/one-roster/*.php')) as $oneRosterRoutes) {
+        require $oneRosterRoutes;
+    }
+
+    $implementedModuleKeys = ['one-power', 'one-academy', 'one-core', 'one-dms', 'one-gmp', 'one-reporting', 'one-setting', 'one-procedure', 'one-roster'];
 
     $moduleKeys = collect(config('modules.list'))
         ->pluck('key')

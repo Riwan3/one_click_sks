@@ -7,7 +7,7 @@ import {
     FolderOpen, FileText, Mic, Database, Activity, CircleSlash, UserCheck,
     BellRing, OctagonAlert, Frown, VideoOff, OctagonX, BookOpen, FileCheck,
     Sliders, Settings, Monitor, Layers, MapPin, Target,
-    Calendar, LogOut, Wrench, PenTool, PenLine, Pen, CheckSquare, PieChart, Image
+    Calendar, LogOut, Wrench, PenTool, PenLine, Pen, CheckSquare, PieChart, Image, LayoutDashboard, UsersRound, ChartLine, Share2
 } from '@lucide/vue';
 
 export const sidebarIcons = {
@@ -19,5 +19,5 @@ export const sidebarIcons = {
     FolderOpen, FileText, Mic, Database, Activity, CircleSlash, UserCheck,
     BellRing, OctagonAlert, Frown, VideoOff, OctagonX, BookOpen, FileCheck,
     Sliders, Settings, Monitor, Layers, MapPin, Target,
-    Calendar, LogOut, Wrench, PenTool, PenLine, Pen, CheckSquare, PieChart, Image
+    Calendar, LogOut, Wrench, PenTool, PenLine, Pen, CheckSquare, PieChart, Image, LayoutDashboard, UsersRound, ChartLine, Share2
 };

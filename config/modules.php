@@ -13,5 +13,6 @@ return [
         ['key' => 'one-reporting', 'title' => 'One-Reporting', 'desc' => 'Laporan kepatuhan operasional (Operational Compliance Report), daily assignment, daily compliance, dan rekapitulasi data compliance.', 'icon' => 'ClipboardList', 'theme' => 'reporting'],
         ['key' => 'one-setting', 'title' => 'One-Setting', 'desc' => 'Pengaturan setting manpower, setting fleet, setting manpower V2, setting fleet V2, monitoring setting manpower, kesiapan operator, & daily ATR.', 'icon' => 'Settings', 'theme' => 'setting'],
         ['key' => 'one-procedure', 'title' => 'One-Procedure', 'desc' => 'Kelola prosedur operasional, activity, dan evaluasi prosedur.', 'icon' => 'FileText', 'theme' => 'procedure'],
+        ['key' => 'one-roster', 'title' => 'One-Roster', 'desc' => 'Roster V2: dashboard monitoring, roster per departemen, analisis harian, MONCU (monitoring cuti), dan share roster.', 'icon' => 'CalendarRange', 'theme' => 'roster'],
     ],
 ];

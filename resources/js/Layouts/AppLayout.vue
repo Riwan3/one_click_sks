@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import Sidebar from './Partials/Sidebar.vue';
 import Topbar from './Partials/Topbar.vue';
 import FlashMessage from '@/Components/ui/FlashMessage.vue';
@@ -21,7 +22,10 @@ const isAdmin = computed(() => {
     return role === 'admin' || role === 'admin_produksi' || role === 'management' || jabatan.includes('admin');
 });
 
-const effectiveHideSidebar = computed(() => props.hideSidebar || !isAdmin.value);
+const page = usePage();
+const isRosterViewer = computed(() => !!props.user?.canViewRosterV2 && page.url.startsWith('/one-roster'));
+
+const effectiveHideSidebar = computed(() => props.hideSidebar || !(isAdmin.value || isRosterViewer.value));
 
 const collapsed = ref(false);
 const mobileOpen = ref(false);

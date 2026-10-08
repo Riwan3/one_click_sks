@@ -19,6 +19,7 @@ class MenuAccess
         'one_reporting_menu' => 'one-reporting',
         'one_setting_menu' => 'one-setting',
         'one_procedure_menu' => 'one-procedure',
+        'one_roster_menu' => 'one-roster',
     ];
 
     /**

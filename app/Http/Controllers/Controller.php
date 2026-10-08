@@ -32,6 +32,7 @@ abstract class Controller
             'foto' => $fotoUrl,
             'isOperator' => $isOperator,
             'isAdmin' => $user->isAdmin(),
+            'canViewRosterV2' => $user->canViewRosterV2(),
         ];
     }
 
