@@ -1,7 +1,13 @@
 <script setup>
 import { PARKING_OPTIONS } from '@/utils/fleet';
+import { splitIntoColumns } from '@/utils/clusterColumns';
 import { FLEET_SHIFT_LABEL, chunkLoaders, formatSheetDate, loaderMeta } from '@/utils/fleetBoard';
 import FleetUnitLabel from './FleetUnitLabel.vue';
+
+const SHEET_COLUMNS = 2;
+const LOADERS_PER_ROW = 5;
+
+const clusterColumns = (clusters) => splitIntoColumns(clusters, SHEET_COLUMNS, LOADERS_PER_ROW);
 
 defineProps({
   sheet: { type: Object, required: true }, // { date, shift, areas, breakdown, total_hauler } (FleetBoardResource)
@@ -22,8 +28,9 @@ defineProps({
     <section v-for="area in sheet.areas" :key="area.name">
       <div class="border-y-2 border-[#333] bg-[#455a64] py-1 text-center text-[10px] font-black tracking-widest text-white">{{ area.name }}</div>
       <p v-if="!area.clusters.length" class="border-b border-[#999] py-3 text-center text-[8px] italic text-slate-400">Belum ada cluster</p>
-      <div v-else class="grid grid-cols-2">
-        <div v-for="cluster in area.clusters" :key="cluster.name" class="min-w-[440px] border-b border-r border-[#999] [&:nth-child(2n)]:border-r-0">
+      <div v-else class="flex items-start">
+        <div v-for="(column, columnIndex) in clusterColumns(area.clusters)" :key="columnIndex" class="min-w-0 flex-1 border-[#999] [&:not(:last-child)]:border-r">
+        <div v-for="cluster in column" :key="cluster.name" class="min-w-[440px] border-b border-[#999]">
           <div class="bg-[#1a3a6e] py-1 text-center text-[9px] font-black tracking-wide text-white">{{ cluster.name.toUpperCase() }}</div>
           <p v-if="!cluster.loaders.length" class="py-3 text-center text-[8px] italic text-slate-400">Belum ada loader</p>
           <div v-for="(row, rowIndex) in chunkLoaders(cluster.loaders)" :key="rowIndex" class="flex border-t border-[#ccc] first:border-t-0">
@@ -36,6 +43,7 @@ defineProps({
               <p v-if="!loader.units.length" class="border-t border-[#e5e5e5] bg-[#e74c3c] py-0.5 text-[7px] font-black text-white">0 Unit</p>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </section>
