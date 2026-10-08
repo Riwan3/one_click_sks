@@ -150,7 +150,7 @@ const deleteActiveBatch = (tanggal, shift) => {
 
       <!-- Quick Action Cards -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <a href="/one-setting/monitoring-manpower" class="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-sky-300 hover:shadow-md transition">
+        <a href="/one-setting/manpower" class="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-sky-300 hover:shadow-md transition">
           <div class="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
             <Users class="w-5 h-5" />
           </div>
