@@ -13,6 +13,7 @@ return [
             ['menu_key' => 'settingan-v2-monitoring-mp', 'label' => 'Monitoring Settingan Manpower', 'icon' => 'ClipboardCheck', 'href' => '/one-setting/manpower/monitoring-mp'],
         ],
     ],
+    ['menu_key' => 'setting-fleet', 'label' => 'Setting Fleet', 'icon' => 'Truck', 'href' => '/one-setting/fleet'],
     ['menu_key' => 'settingan-v2-monitoring', 'label' => 'Monitoring Settingan', 'icon' => 'BarChart2', 'href' => '/one-setting/manpower/monitoring'],
     ['menu_key' => 'setting-gl', 'label' => 'Settingan GL', 'icon' => 'Settings', 'href' => '/one-setting/gl'],
     ['menu_key' => 'setting-unit-support', 'label' => 'Lokasi Unit Support', 'icon' => 'MapPin', 'href' => '/one-setting/unit-support'],
