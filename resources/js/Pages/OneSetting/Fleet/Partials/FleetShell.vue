@@ -11,7 +11,7 @@ const props = defineProps({
   notifCounts: Object,
   menu: Array,
   subtitle: { type: String, required: true },
-  tab: { type: String, required: true }, // harian | master
+  tab: { type: String, required: true }, // harian | preview | master
   filters: { type: Object, default: null }, // { date, shift } ikut di tautan tab Setting Fleet
   ready: { type: Boolean, default: true },
   loadError: { type: String, default: null },
@@ -19,6 +19,7 @@ const props = defineProps({
 
 const TABS = [
   { key: 'harian', label: 'Setting Fleet', path: '', keepsFilters: true },
+  { key: 'preview', label: 'Preview & Gambar', path: '/preview', keepsFilters: true },
   { key: 'master', label: 'Master Unit', path: '/master', keepsFilters: false },
 ];
 

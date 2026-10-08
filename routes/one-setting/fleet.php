@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 
 // Dimuat dari routes/web.php di dalam group middleware 'auth'. Akses: Admin, Admin Produksi, GL Manpower (Form Request).
 Route::get('/one-setting/fleet', [OneSettingFleetController::class, 'index'])->name('one-setting.fleet.index');
+Route::get('/one-setting/fleet/preview', [OneSettingFleetController::class, 'preview'])->name('one-setting.fleet.preview');
 
 Route::prefix('one-setting/fleet')->name('one-setting.fleet.')->whereNumber('unit')->group(function () {
     Route::get('master', [OneSettingFleetMasterController::class, 'index'])->name('master');
