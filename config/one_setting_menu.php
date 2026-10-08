@@ -9,11 +9,11 @@ return [
     ['menu_key' => 'setting-board', 'label' => 'Setting Board', 'icon' => 'Image', 'href' => '/one-setting/setting-board'],
     [
         'menu_key' => 'settingan-v2', 'label' => 'Settingan', 'icon' => 'Sliders', 'children' => [
-            ['menu_key' => 'settingan-v2-manpower', 'label' => 'Setting Manpower', 'icon' => 'UserCheck', 'href' => '/one-setting/manpower-v201'],
-            ['menu_key' => 'settingan-v2-monitoring-mp', 'label' => 'Monitoring Settingan Manpower', 'icon' => 'ClipboardCheck', 'href' => '/one-setting/manpower-v201/monitoring-mp'],
+            ['menu_key' => 'settingan-v2-manpower', 'label' => 'Setting Manpower', 'icon' => 'UserCheck', 'href' => '/one-setting/manpower'],
+            ['menu_key' => 'settingan-v2-monitoring-mp', 'label' => 'Monitoring Settingan Manpower', 'icon' => 'ClipboardCheck', 'href' => '/one-setting/manpower/monitoring-mp'],
         ],
     ],
-    ['menu_key' => 'settingan-v2-monitoring', 'label' => 'Monitoring Settingan', 'icon' => 'BarChart2', 'href' => '/one-setting/manpower-v201/monitoring'],
+    ['menu_key' => 'settingan-v2-monitoring', 'label' => 'Monitoring Settingan', 'icon' => 'BarChart2', 'href' => '/one-setting/manpower/monitoring'],
     ['menu_key' => 'setting-gl', 'label' => 'Settingan GL', 'icon' => 'Settings', 'href' => '/one-setting/gl'],
     ['menu_key' => 'setting-unit-support', 'label' => 'Lokasi Unit Support', 'icon' => 'MapPin', 'href' => '/one-setting/unit-support'],
     ['menu_key' => 'setting-dozer-pc', 'label' => 'Posisi Dozer & PC', 'icon' => 'Target', 'href' => '/one-setting/dozer-pc'],

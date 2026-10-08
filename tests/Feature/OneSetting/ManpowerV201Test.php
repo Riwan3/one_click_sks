@@ -13,7 +13,7 @@ class ManpowerV201Test extends TestCase
 {
     use DatabaseTransactions;
 
-    private const BASE = '/one-setting/manpower-v201';
+    private const BASE = '/one-setting/manpower';
 
     private const DATE = '2026-10-05';
 

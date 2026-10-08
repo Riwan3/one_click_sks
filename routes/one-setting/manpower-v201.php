@@ -6,7 +6,7 @@ use App\Http\Controllers\OneSettingManpowerV201SettingController;
 use Illuminate\Support\Facades\Route;
 
 // Dimuat dari routes/web.php di dalam group middleware 'auth'. Akses: Admin, Admin Produksi, GL Manpower (Form Request).
-Route::prefix('one-setting/manpower-v201')->name('one-setting.manpower-v201.')->whereNumber(['setting', 'unit', 'csa', 'category'])->group(function () {
+Route::prefix('one-setting/manpower')->name('one-setting.manpower-v201.')->whereNumber(['setting', 'unit', 'csa', 'category'])->group(function () {
     // Halaman
     Route::get('/', [OneSettingManpowerV201Controller::class, 'index'])->name('index');
     Route::get('preview', [OneSettingManpowerV201Controller::class, 'preview'])->name('preview');
