@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Copy, Plus, Trash2, TriangleAlert } from 'lucide-vue-next';
 import { confirmDialog } from '@/utils/confirm';
 import { FLEET_URL } from '@/utils/fleet';
-import { splitIntoColumns } from '@/utils/clusterColumns';
+import { segmentClusters } from '@/utils/clusterColumns';
 import { SHIFT_LABEL, formatDateLabel } from '@/utils/manpowerV201';
 import { useFleetSettingActions } from '@/composables/useFleet';
 import DateShiftFilter from '@/Pages/OneSetting/ManpowerV201/Partials/DateShiftFilter.vue';
@@ -54,7 +54,7 @@ onMounted(() => {
 });
 onBeforeUnmount(() => wideMedia?.removeEventListener('change', syncWide));
 
-const clusterColumns = (clusters) => splitIntoColumns(clusters, isWide.value ? 2 : 1, LOADERS_PER_ROW_ESTIMATE);
+const clusterSegments = (clusters) => segmentClusters(clusters, isWide.value ? 2 : 1, LOADERS_PER_ROW_ESTIMATE);
 const allLoaderCodes = computed(() => allClusters.value.flatMap((cluster) => cluster.loaders.map((loader) => loader.code)));
 const otherLoaders = (loader) => allLoaderCodes.value.filter((code) => code !== loader.code);
 
@@ -167,22 +167,24 @@ const handleClear = async () => {
       <section v-for="area in view.areas" :key="area.name ?? 'tanpa-area'" class="space-y-3">
         <AreaBand :area="area" @add-cluster="(item) => clusterTarget = { mode: 'add', area: item.name }" @edit="(item) => areaTarget = { mode: 'edit', area: item }" @remove="handleRemoveArea" />
         <p v-if="!area.clusters.length" class="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-center text-xs italic text-slate-400">Belum ada cluster</p>
-        <div v-else class="flex items-start gap-3">
-          <div v-for="(column, columnIndex) in clusterColumns(area.clusters)" :key="columnIndex" class="min-w-0 flex-1 space-y-3">
-          <ClusterSection v-for="cluster in column" :key="cluster.name" :cluster="cluster" @edit="clusterTarget = { mode: 'edit', cluster: $event }" @remove="handleRemoveCluster" @add-loader="handleAddLoaderToCluster">
-            <LoaderColumn
-              v-for="loader in cluster.loaders"
-              :key="loader.code"
-              :loader="loader"
-              :other-loaders="otherLoaders(loader)"
-              @edit="loaderTarget = { mode: 'edit', loader: $event, cluster: cluster.name }"
-              @remove="handleRemoveLoader"
-              @assign="pickLoader = $event"
-              @breakdown="handleBreakdown"
-              @move="(hauler, code) => actions.moveHauler(hauler.code, code)"
-              @release="(hauler) => actions.removeHauler(hauler.code)"
-            />
-          </ClusterSection>
+        <div v-else class="space-y-3">
+          <div v-for="(segment, segmentIndex) in clusterSegments(area.clusters)" :key="segmentIndex" class="flex items-start gap-3">
+            <div v-for="(column, columnIndex) in segment" :key="columnIndex" class="min-w-0 flex-1 space-y-3">
+              <ClusterSection v-for="cluster in column" :key="cluster.name" :cluster="cluster" @edit="clusterTarget = { mode: 'edit', cluster: $event }" @remove="handleRemoveCluster" @add-loader="handleAddLoaderToCluster">
+                <LoaderColumn
+                  v-for="loader in cluster.loaders"
+                  :key="loader.code"
+                  :loader="loader"
+                  :other-loaders="otherLoaders(loader)"
+                  @edit="loaderTarget = { mode: 'edit', loader: $event, cluster: cluster.name }"
+                  @remove="handleRemoveLoader"
+                  @assign="pickLoader = $event"
+                  @breakdown="handleBreakdown"
+                  @move="(hauler, code) => actions.moveHauler(hauler.code, code)"
+                  @release="(hauler) => actions.removeHauler(hauler.code)"
+                />
+              </ClusterSection>
+            </div>
           </div>
         </div>
       </section>

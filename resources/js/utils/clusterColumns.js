@@ -1,6 +1,7 @@
 const HEADER_ROWS = 2;
 const LOADER_HEAD_ROWS = 2;
 const FOOTER_ROWS = 1;
+const MAX_LOADERS_PER_FULL_ROW = 5;
 
 /** Perkiraan tinggi cluster (satuan baris): header + tiap baris loader (kepala + hauler terbanyak + footer). */
 const clusterHeight = (cluster, loadersPerRow) => {
@@ -28,4 +29,28 @@ export const splitIntoColumns = (clusters, columnCount, loadersPerRow) => {
   });
 
   return columns.map((column) => column.clusters);
+};
+
+/**
+ * Susun cluster berurutan menjadi segmen berisi kolom. Cluster yang loadernya tidak muat satu baris di setengah lebar tapi
+ * muat satu baris penuh (maks 5) diberi baris penuh sendiri agar semua loader sejajar; cluster lain di antaranya
+ * dikelompokkan masonry. Dengan satu kolom semua cluster jadi satu segmen.
+ */
+export const segmentClusters = (clusters, columnCount, loadersPerRow) => {
+  if (columnCount < 2) return [splitIntoColumns(clusters, 1, loadersPerRow)];
+
+  const groups = clusters.reduce((result, cluster) => {
+    const isWide = cluster.loaders.length > loadersPerRow && cluster.loaders.length <= MAX_LOADERS_PER_FULL_ROW;
+    const last = result[result.length - 1];
+
+    if (!isWide && last && !last.wide) {
+      last.clusters.push(cluster);
+      return result;
+    }
+
+    result.push({ wide: isWide, clusters: [cluster] });
+    return result;
+  }, []);
+
+  return groups.map((group) => (group.wide ? [group.clusters] : splitIntoColumns(group.clusters, columnCount, loadersPerRow)));
 };
