@@ -18,7 +18,7 @@ const handleMove = (event, hauler) => {
 <template>
   <div class="flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
     <div class="flex cursor-pointer items-center justify-center gap-1 border-b border-amber-100 bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900 hover:bg-amber-100" title="Klik untuk mengisi area, front, jam refueling, jarak, dan group" @click="emit('edit', loader)">
-      <MapPin class="h-3 w-3" /> {{ loader.area || 'AREA -' }}
+      <MapPin class="h-3 w-3" /> {{ loader.area || 'DUMPING POINT -' }}
       <span v-if="loader.distance" class="font-semibold text-amber-700">· {{ loader.distance }} m</span>
     </div>
     <div class="flex cursor-pointer items-center justify-center gap-1 border-b border-orange-100 bg-orange-50 px-3 py-1 text-[11px] font-semibold text-orange-800 hover:bg-orange-100" @click="emit('edit', loader)">

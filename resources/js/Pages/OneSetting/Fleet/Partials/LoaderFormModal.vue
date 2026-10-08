@@ -49,7 +49,7 @@ watch(() => props.target, (target) => {
         <FormInput v-model="form.group_name" label="GROUP" list="fleet-group-options" placeholder="mis. COAL GETTING" class="uppercase" />
         <datalist id="fleet-group-options"><option v-for="group in groupOptions" :key="group" :value="group" /></datalist>
         <div class="grid grid-cols-2 gap-3">
-          <FormInput v-model="form.area" label="AREA" />
+          <FormInput v-model="form.area" label="DUMPING POINT" />
           <FormInput v-model="form.front" label="FRONT" />
           <FormInput v-model="form.refueling_time" label="JAM REFUELING" placeholder="mis. 10:00" />
           <FormInput v-model="form.distance" type="number" min="0" label="JARAK (M)" />
