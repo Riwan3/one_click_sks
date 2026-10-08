@@ -721,7 +721,8 @@ Route::middleware('auth')->group(function () {
 
     // Announcement Routes
     Route::get('/pengumuman', [\App\Http\Controllers\AnnouncementController::class, 'index'])->name('pengumuman.index');
-    Route::get('/pengumuman/active', [\App\Http\Controllers\AnnouncementController::class, 'active'])->name('pengumuman.active');
+    Route::get('/login-trend', [\App\Http\Controllers\LoginTrendController::class, 'index'])->name('login-trend.index');
+    Route::get('/pengumuman/active',[\App\Http\Controllers\AnnouncementController::class, 'active'])->name('pengumuman.active');
     Route::post('/pengumuman', [\App\Http\Controllers\AnnouncementController::class, 'store'])->name('pengumuman.store');
     Route::patch('/pengumuman/{announcement}/visibility', [\App\Http\Controllers\AnnouncementController::class, 'updateVisibility'])->name('pengumuman.update-visibility');
     Route::post('/pengumuman/{announcement}/seen', [\App\Http\Controllers\AnnouncementController::class, 'markSeen'])->name('pengumuman.mark-seen');

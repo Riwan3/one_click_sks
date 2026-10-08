@@ -178,7 +178,6 @@ class User extends Authenticatable
         });
     }
 
-    public function hasRole(string $role): bool
     /** Roster V2 / One-Roster: Admin, Pimpinan, & Admin Produksi boleh melihat (sama seperti V1). */
     public function canViewRosterV2(): bool
     {
@@ -197,6 +196,14 @@ class User extends Authenticatable
         return str_contains($jabatan, 'ADMIN') || str_contains($jabatan, 'MANPOWER');
     }
 
+    /** Trend Login: NRP admin inti & role master (sama seperti V1: isAllowedNrp). */
+    public function canViewLoginTrend(): bool
+    {
+        return in_array((string) $this->username, ['260104', '260110', '230256'], true)
+            || strtolower((string) $this->role) === 'master';
+    }
+
+    public function hasRole(string $role): bool
     {
         return strtolower((string) $this->role) === strtolower($role);
     }

@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
-import { Pen, Bell, MessageCircle, UserRound, IdCard, ShieldCheck, Phone, LogOut, Megaphone } from 'lucide-vue-next';
+import { Pen, Bell, MessageCircle, UserRound, IdCard, ShieldCheck, Phone, LogOut, Megaphone, ChartColumn } from 'lucide-vue-next';
 import SignatureModal from '@/Components/modals/SignatureModal.vue';
 import NotificationModal from '@/Components/modals/NotificationModal.vue';
 import PesanModal from '@/Components/modals/PesanModal.vue';
@@ -148,6 +148,9 @@ const handleLogout = () => {
                     </a>
                     <a href="/pengumuman" class="flex items-center gap-2 rounded-xl px-3 py-2 font-bold text-slate-800 hover:bg-amber-50 hover:text-amber-600 transition">
                         <Megaphone class="h-4 w-4 text-amber-500" /> Pengumuman
+                    </a>
+                    <a v-if="user.canViewLoginTrend" href="/login-trend" class="flex items-center gap-2 rounded-xl px-3 py-2 font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-600 transition">
+                        <ChartColumn class="h-4 w-4 text-emerald-600" /> Trend Login
                     </a>
                     <a href="/peraturan" class="flex items-center gap-2 rounded-xl px-3 py-2 font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-600 transition">
                         <ShieldCheck class="h-4 w-4 text-emerald-600" /> Peraturan

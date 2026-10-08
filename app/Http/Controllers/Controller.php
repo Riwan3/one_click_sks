@@ -33,6 +33,7 @@ abstract class Controller
             'isOperator' => $isOperator,
             'isAdmin' => $user->isAdmin(),
             'canViewRosterV2' => $user->canViewRosterV2(),
+            'canViewLoginTrend' => $user->canViewLoginTrend(),
         ];
     }
 
