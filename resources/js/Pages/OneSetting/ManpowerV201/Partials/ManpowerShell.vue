@@ -28,13 +28,13 @@ const tabHref = (tab) => `${BASE_URL}${tab.path}${tab.keepsFilters ? query.value
 </script>
 
 <template>
-  <Head title="Setting Manpower v2.01 - One-Setting" />
+  <Head title="Setting Manpower - One-Setting" />
 
   <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
     <div class="space-y-4">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 class="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-800"><UserCog class="h-5 w-5" /> Setting Manpower v2.01</h1>
+          <h1 class="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-800"><UserCog class="h-5 w-5" /> Setting Manpower</h1>
           <p class="text-xs text-slate-500">{{ subtitle }}</p>
         </div>
         <nav v-if="tab" class="flex flex-wrap gap-1">

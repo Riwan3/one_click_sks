@@ -34,7 +34,7 @@ const harianUrl = computed(() => `${BASE_URL}?${new URLSearchParams(props.filter
     :menu="menu"
     :ready="ready"
     :load-error="loadError"
-    subtitle="Monitoring settingan manpower per tanggal dan shift (data dari Setting Manpower v2.01)."
+    subtitle="Monitoring settingan manpower per tanggal dan shift (data dari Setting Manpower)."
   >
     <div class="flex flex-wrap items-center gap-3 print:hidden">
       <DateShiftFilter :url="`${BASE_URL}/monitoring-mp`" :filters="filters" class="flex-1" />
@@ -45,7 +45,7 @@ const harianUrl = computed(() => `${BASE_URL}?${new URLSearchParams(props.filter
       </div>
     </div>
 
-    <EmptySettingCard v-if="!setting" :filters="filters" hint="Buat setting dulu di Setting Manpower v2.01.">
+    <EmptySettingCard v-if="!setting" :filters="filters" hint="Buat setting dulu di Setting Manpower.">
       <Link :href="harianUrl" class="mt-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Ke Setting Harian</Link>
     </EmptySettingCard>
 
