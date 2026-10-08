@@ -54,7 +54,7 @@ class OneSettingController extends Controller
 
         $totalManpowerRoster = RosterData::where('tanggal', $date)->count();
         $totalFleetUnits = FleetMasterUnit::query()->where('is_active', true)->count();
-        $totalFleetAllocations = FleetAllocation::where('tanggal', $date)->count();
+        $totalFleetAllocations = FleetAllocation::operatingUnitCount($date);
         $totalEmployees = Employee::count();
 
         [$historyYear, $historyMonthNum] = array_pad(explode('-', $historyMonth), 2, null);

@@ -28,4 +28,15 @@ class FleetAllocation extends Model
         'shift' => 'integer',
         'distance' => 'integer',
     ];
+
+    /** Jumlah unit fleet (loader + hauler) yang beroperasi pada tanggal itu, semua shift; unit Breakdown / Service tidak dihitung. */
+    public static function operatingUnitCount(string $date): int
+    {
+        $rows = static::query()
+            ->where('tanggal', $date)
+            ->where(fn ($query) => $query->whereNull('group_name')->orWhere('group_name', '<>', 'BREAKDOWN / SERVICE'))
+            ->get(['loader_id', 'unit_nrp']);
+
+        return $rows->pluck('loader_id')->merge($rows->pluck('unit_nrp'))->filter()->unique()->count();
+    }
 }
