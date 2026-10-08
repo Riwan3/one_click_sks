@@ -1,7 +1,7 @@
 <script setup>
 import { computed, reactive } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
-import { ChartColumn } from 'lucide-vue-next';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { ArrowLeft, ChartColumn } from 'lucide-vue-next';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import TrendChart from './Partials/TrendChart.vue';
 import UniqueUsersTable from './Partials/UniqueUsersTable.vue';
@@ -40,7 +40,10 @@ const handleFilter = () => router.get('/login-trend', { bulan: form.bulan, tahun
           <h1 class="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-800"><ChartColumn class="h-5 w-5 text-emerald-600" /> Trend Login</h1>
           <p class="text-xs text-slate-500">Login semua user per bulan, dikelompokkan per Shift 1 &amp; Shift 2 — {{ periodLabel }}</p>
         </div>
-        <form class="flex items-center gap-2" @submit.prevent="handleFilter">
+        <form class="flex flex-wrap items-center gap-2" @submit.prevent="handleFilter">
+          <Link href="/portal" class="flex items-center gap-1.5 rounded-lg border-2 border-blue-500 px-3 py-1.5 text-xs font-bold text-blue-500 transition hover:bg-blue-50">
+            <ArrowLeft class="h-3.5 w-3.5" /> Kembali ke Home
+          </Link>
           <select v-model.number="form.bulan" class="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold" @change="handleFilter">
             <option v-for="(name, number) in monthNames" :key="number" :value="Number(number)">{{ name }}</option>
           </select>
