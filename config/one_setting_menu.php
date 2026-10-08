@@ -8,7 +8,7 @@ return [
     ['menu_key' => 'dashboard', 'label' => 'Dashboard Setting', 'icon' => 'Gauge', 'href' => '/one-setting/dashboard'],
     ['menu_key' => 'setting-board', 'label' => 'Setting Board', 'icon' => 'Image', 'href' => '/one-setting/setting-board'],
     [
-        'menu_key' => 'settingan-v2', 'label' => 'Settingan', 'icon' => 'Sliders', 'children' => [
+        'menu_key' => 'settingan-v2', 'label' => 'Settingan Manpower', 'icon' => 'Sliders', 'children' => [
             ['menu_key' => 'settingan-v2-manpower', 'label' => 'Setting Manpower', 'icon' => 'UserCheck', 'href' => '/one-setting/manpower'],
             ['menu_key' => 'settingan-v2-monitoring-mp', 'label' => 'Monitoring Settingan Manpower', 'icon' => 'ClipboardCheck', 'href' => '/one-setting/manpower/monitoring-mp'],
         ],
