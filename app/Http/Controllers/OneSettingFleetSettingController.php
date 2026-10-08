@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\HandlesMoncuErrors;
 use App\Http\Requests\FleetInputRequest;
+use App\Services\FleetClusterService;
 use App\Services\FleetSettingService;
 use Illuminate\Http\RedirectResponse;
 
@@ -12,12 +13,35 @@ class OneSettingFleetSettingController extends Controller
 {
     use HandlesMoncuErrors;
 
-    public function __construct(private FleetSettingService $setting) {}
+    public function __construct(private FleetSettingService $setting, private FleetClusterService $clusters) {}
+
+    public function storeCluster(FleetInputRequest $request): RedirectResponse
+    {
+        $this->guardPage(fn () => $this->clusters->add($request->workDate(), $request->workShift(), $request->text('cluster_name'), $request->text('cluster_area')));
+
+        return back()->with('success', 'Cluster ditambahkan.');
+    }
+
+    public function updateCluster(FleetInputRequest $request): RedirectResponse
+    {
+        $this->guardPage(fn () => $this->clusters->update(
+            $request->workDate(), $request->workShift(), $request->text('cluster_name'), $request->text('new_cluster_name'), $request->text('cluster_area'),
+        ));
+
+        return back()->with('success', 'Cluster diperbarui.');
+    }
+
+    public function destroyCluster(FleetInputRequest $request): RedirectResponse
+    {
+        $this->guardPage(fn () => $this->clusters->remove($request->workDate(), $request->workShift(), $request->text('cluster_name')));
+
+        return back()->with('success', 'Cluster dihapus beserta loader-nya.');
+    }
 
     public function storeLoader(FleetInputRequest $request): RedirectResponse
     {
         $this->guardPage(fn () => $this->setting->addLoader(
-            $request->workDate(), $request->workShift(), $request->text('loader_code'), $request->loaderFields(),
+            $request->workDate(), $request->workShift(), $request->text('loader_code'), $request->text('cluster_name'), $request->loaderFields(),
         ));
 
         return back()->with('success', 'Loader ditambahkan.');

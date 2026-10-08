@@ -20,6 +20,9 @@ Route::prefix('one-setting/fleet')->name('one-setting.fleet.')->whereNumber('uni
     });
 
     Route::controller(OneSettingFleetSettingController::class)->prefix('settings')->name('settings.')->group(function () {
+        Route::post('cluster', 'storeCluster')->name('cluster.store');
+        Route::put('cluster', 'updateCluster')->name('cluster.update');
+        Route::delete('cluster', 'destroyCluster')->name('cluster.destroy');
         Route::post('loader', 'storeLoader')->name('loader.store');
         Route::put('loader', 'updateLoader')->name('loader.update');
         Route::delete('loader', 'destroyLoader')->name('loader.destroy');

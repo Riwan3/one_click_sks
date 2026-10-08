@@ -47,7 +47,8 @@ class FleetSettingTest extends TestCase
     private function seedLoader(User $admin, string $loader = 'ZT-E1', string $group = 'ZT GROUP'): void
     {
         $this->master($loader, 'loader');
-        $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => $loader]))->assertSessionHas('success');
+        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => $group]));
+        $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => $loader, 'cluster_name' => $group]))->assertSessionHas('success');
     }
 
     public function test_pages_render_with_real_data(): void
@@ -112,8 +113,8 @@ class FleetSettingTest extends TestCase
         $this->master('ZT-H1', 'hauler', ['parking_code' => 'G']);
 
         $loader = $this->rows()->where('loader_id', 'ZT-E1')->first();
-        $this->assertSame([null, null, 0], [$loader->group_name, $loader->area, $loader->distance]);
-        $this->actingAs($admin)->put(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'group_name' => 'ZT GROUP', 'area' => 'PIT A']))->assertSessionHas('success');
+        $this->assertSame(['ZT GROUP', null, 0], [$loader->group_name, $loader->area, $loader->distance]);
+        $this->actingAs($admin)->put(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'area' => 'PIT A']))->assertSessionHas('success');
 
         $this->actingAs($admin)->post(self::BASE.'/settings/hauler', $this->day(['loader_code' => 'ZT-E1', 'hauler_code' => 'ZT-H1']))->assertSessionHas('success');
         $this->assertSame('G', $this->rows()->where('unit_nrp', 'ZT-H1')->value('unit_status'));
@@ -147,7 +148,7 @@ class FleetSettingTest extends TestCase
         $this->master('ZT-H9', 'hauler', ['is_active' => false]);
 
         $this->actingAs($admin)->post(self::BASE.'/settings/hauler', $this->day(['loader_code' => 'ZT-E1', 'hauler_code' => 'ZT-H9']))->assertSessionHasErrors('form');
-        $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1']))->assertSessionHasErrors('form');
+        $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'cluster_name' => 'ZT GROUP']))->assertSessionHasErrors('form');
     }
 
     public function test_update_remove_loader_copy_and_clear(): void
@@ -254,7 +255,7 @@ class FleetSettingTest extends TestCase
 
         $view = $this->viewProps($admin);
         $this->assertCount(2, collect($view['breakdown'])->whereIn('code', ['ZT-H1', 'ZT-H2']));
-        $this->assertSame(['TANPA GROUP'], collect($view['groups'])->pluck('name')->all());
+        $this->assertSame(['ZT GROUP'], collect($view['groups'])->pluck('name')->all());
         $this->assertNotContains('BREAKDOWN / SERVICE', collect($view['groups'])->pluck('name')->all());
         $this->assertSame(1, $view['summary']['loaders']);
         $this->assertSame(0, $view['summary']['haulers']);
@@ -279,7 +280,7 @@ class FleetSettingTest extends TestCase
         $this->assertNotContains('ZT-E1', collect($this->viewProps($admin)['available_loaders'])->pluck('code')->all());
 
         $this->actingAs($admin)->post(self::BASE.'/settings/breakdown', $this->day(['unit_code' => 'ZT-E1']))->assertSessionHasErrors('form');
-        $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1']))->assertSessionHasErrors('form');
+        $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'cluster_name' => 'ZT GROUP']))->assertSessionHasErrors('form');
 
         $this->actingAs($admin)->post(self::BASE.'/settings/breakdown', $this->day(['unit_code' => 'ZT-H1']));
         $this->actingAs($admin)->post(self::BASE.'/settings/hauler', $this->day(['loader_code' => 'ZT-E2', 'hauler_code' => 'ZT-H1']))->assertSessionHasErrors('form');
@@ -299,5 +300,82 @@ class FleetSettingTest extends TestCase
 
         $this->actingAs($admin)->delete(self::BASE.'/settings/clear', $target)->assertSessionHas('success');
         $this->assertSame(0, $this->rows('N')->count());
+    }
+
+    private function clusters(User $admin, string $shift = 'D'): array
+    {
+        return collect($this->viewProps($admin, $shift)['groups'])->keyBy('name')->all();
+    }
+
+    public function test_create_cluster_with_area_then_add_loader_into_it_and_reject_duplicate_name(): void
+    {
+        $admin = $this->admin();
+        $this->master('ZT-E1', 'loader');
+
+        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT OB', 'cluster_area' => 'Timur']))->assertSessionHas('success');
+        $cluster = $this->clusters($admin)['ZT OB'];
+        $this->assertSame(['Timur', 0], [$cluster['area'], count($cluster['loaders'])]);
+        $this->assertSame(1, $this->viewProps($admin)['summary']['clusters']);
+
+        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'zt ob']))->assertSessionHasErrors('form');
+        $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'cluster_name' => 'NO SUCH']))->assertSessionHasErrors('form');
+        $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'cluster_name' => 'ZT OB', 'area' => 'DP 1', 'front' => 'F1', 'distance' => 500]))->assertSessionHas('success');
+
+        $loader = $this->rows()->where('loader_id', 'ZT-E1')->first();
+        $this->assertSame(['ZT OB', 'DP 1', 'F1', 500], [$loader->group_name, $loader->area, $loader->front, $loader->distance]);
+        $this->assertSame('Timur', $this->clusters($admin)['ZT OB']['area']);
+
+        $this->actingAs($admin)->delete(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1']))->assertSessionHas('success');
+        $this->assertArrayHasKey('ZT OB', $this->clusters($admin));
+    }
+
+    public function test_rename_cluster_updates_loader_group_name_and_rejects_duplicate(): void
+    {
+        $admin = $this->admin();
+        $this->seedLoader($admin, 'ZT-E1', 'ZT A');
+        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT B']));
+
+        $this->actingAs($admin)->put(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT A', 'new_cluster_name' => 'ZT B']))->assertSessionHasErrors('form');
+        $this->actingAs($admin)->put(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT A', 'new_cluster_name' => 'ZT C', 'cluster_area' => 'Barat']))->assertSessionHas('success');
+
+        $this->assertSame('ZT C', $this->rows()->where('loader_id', 'ZT-E1')->value('group_name'));
+        $clusters = $this->clusters($admin);
+        $this->assertSame('Barat', $clusters['ZT C']['area']);
+        $this->assertArrayNotHasKey('ZT A', $clusters);
+    }
+
+    public function test_remove_cluster_deletes_its_loaders_and_releases_haulers_to_ready(): void
+    {
+        $admin = $this->admin();
+        $this->seedLoader($admin, 'ZT-E1', 'ZT A');
+        $this->master('ZT-H1', 'hauler');
+        $this->actingAs($admin)->post(self::BASE.'/settings/hauler', $this->day(['loader_code' => 'ZT-E1', 'hauler_code' => 'ZT-H1']));
+
+        $this->actingAs($admin)->delete(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT A']))->assertSessionHas('success');
+        $this->assertSame(0, $this->rows()->count());
+        $this->assertContains('ZT-H1', collect($this->viewProps($admin)['available_haulers'])->pluck('code')->all());
+        $this->assertContains('ZT-E1', collect($this->viewProps($admin)['available_loaders'])->pluck('code')->all());
+        $this->actingAs($admin)->delete(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT A']))->assertSessionHasErrors('form');
+    }
+
+    public function test_copy_and_clear_include_clusters_and_legacy_cluster_without_area_is_listed(): void
+    {
+        $admin = $this->admin();
+        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT EMPTY', 'cluster_area' => 'Tengah']));
+        FleetAllocation::create(['tanggal' => self::DATE, 'shift' => 1, 'group_name' => 'ZT LEGACY', 'loader_id' => 'ZT-OLD', 'unit_nrp' => null, 'distance' => 0]);
+
+        $clusters = $this->clusters($admin);
+        $this->assertSame(['Tengah', null], [$clusters['ZT EMPTY']['area'], $clusters['ZT LEGACY']['area']]);
+        $this->assertCount(1, $clusters['ZT LEGACY']['loaders']);
+
+        $target = ['date' => self::DATE, 'shift' => 'N'];
+        $copy = ['from_date' => self::DATE, 'from_shift' => 'D'];
+        $this->actingAs($admin)->post(self::BASE.'/settings/copy', $target + $copy)->assertSessionHas('success');
+        $this->assertSame('Tengah', $this->clusters($admin, 'N')['ZT EMPTY']['area']);
+        $this->actingAs($admin)->post(self::BASE.'/settings/copy', $target + $copy)->assertSessionHasErrors('form');
+
+        $this->actingAs($admin)->delete(self::BASE.'/settings/clear', $target)->assertSessionHas('success');
+        $this->assertSame([], $this->clusters($admin, 'N'));
+        $this->assertArrayHasKey('ZT EMPTY', $this->clusters($admin));
     }
 }

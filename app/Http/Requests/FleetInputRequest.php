@@ -12,7 +12,9 @@ class FleetInputRequest extends ManpowerV201Request
             'shift' => ['nullable', 'string'],
             'loader_code' => ['nullable', 'string', 'max:50'],
             'hauler_code' => ['nullable', 'string', 'max:50'],
-            'group_name' => ['nullable', 'string', 'max:100'],
+            'cluster_name' => ['nullable', 'string', 'max:100'],
+            'new_cluster_name' => ['nullable', 'string', 'max:100'],
+            'cluster_area' => ['nullable', 'string', 'max:100'],
             'area' => ['nullable', 'string', 'max:100'],
             'front' => ['nullable', 'string', 'max:100'],
             'refueling_time' => ['nullable', 'string', 'max:50'],
@@ -27,6 +29,6 @@ class FleetInputRequest extends ManpowerV201Request
     /** Field loader yang diubah di setting harian (hanya yang dikirim). */
     public function loaderFields(): array
     {
-        return $this->only(['group_name', 'area', 'front', 'refueling_time', 'distance']);
+        return $this->only(['area', 'front', 'refueling_time', 'distance']);
     }
 }

@@ -23,7 +23,10 @@ class FleetSettingService
 
     private const LOADER_FIELDS = ['group_name', 'area', 'front', 'refueling_time', 'distance'];
 
-    public function __construct(private FleetMasterService $master) {}
+    /** Field yang diisi/diubah user per loader (area = dumping point). Cluster (group_name) ditentukan konteks. */
+    private const EDITABLE_FIELDS = ['area', 'front', 'refueling_time', 'distance'];
+
+    public function __construct(private FleetClusterService $clusters) {}
 
     public static function shiftNumber(string $shift): int
     {
@@ -40,23 +43,29 @@ class FleetSettingService
         $operators = $this->operatorCodes($date, $shift);
         $hasOperator = fn (string $code) => $operators === null ? null : isset($operators[Str::upper($code)]);
 
-        $groups = $rows->groupBy('group_name')->map(fn (Collection $groupRows, $group) => [
-            'name' => $group === '' ? 'TANPA GROUP' : $group,
-            'loaders' => $groupRows->groupBy('loader_id')->map(fn (Collection $loaderRows, $code) => [
-                'code' => (string) $code,
-                'category' => $masters->get(Str::upper($code))?->category,
-                'group_name' => $loaderRows->first()->group_name,
-                'area' => $loaderRows->first()->area,
-                'front' => $loaderRows->first()->front,
-                'refueling_time' => $loaderRows->first()->refueling_time,
-                'distance' => (int) $loaderRows->first()->distance,
-                'has_operator' => $hasOperator($code),
-                'haulers' => $loaderRows->whereNotNull('unit_nrp')->map(fn ($r) => [
-                    'id' => $r->id, 'code' => $r->unit_nrp, 'parking_code' => $r->unit_status ?: null,
-                    'has_operator' => $hasOperator($r->unit_nrp),
-                ])->values()->all(),
+        $loaderCards = fn (Collection $groupRows) => $groupRows->groupBy('loader_id')->map(fn (Collection $loaderRows, $code) => [
+            'code' => (string) $code,
+            'category' => $masters->get(Str::upper($code))?->category,
+            'area' => $loaderRows->first()->area,
+            'front' => $loaderRows->first()->front,
+            'refueling_time' => $loaderRows->first()->refueling_time,
+            'distance' => (int) $loaderRows->first()->distance,
+            'has_operator' => $hasOperator($code),
+            'haulers' => $loaderRows->whereNotNull('unit_nrp')->map(fn ($r) => [
+                'id' => $r->id, 'code' => $r->unit_nrp, 'parking_code' => $r->unit_status ?: null,
+                'has_operator' => $hasOperator($r->unit_nrp),
             ])->values()->all(),
         ])->values()->all();
+
+        $byCluster = $rows->groupBy(fn ($r) => Str::upper((string) $r->group_name));
+        $groups = $this->clusters->list($date, $shift)->map(fn ($cluster) => $cluster + [
+            'is_editable' => true,
+            'loaders' => $loaderCards($byCluster->get(Str::upper($cluster['name']), collect())),
+        ]);
+        if ($byCluster->has('')) {
+            $groups->push(['name' => 'TANPA CLUSTER', 'area' => null, 'sort_order' => 0, 'is_editable' => false, 'loaders' => $loaderCards($byCluster->get(''))]);
+        }
+        $groups = $groups->values()->all();
 
         $placedLoaders = $rows->pluck('loader_id')->map(fn ($c) => Str::upper($c))->flip();
         $placedHaulers = $rows->pluck('unit_nrp')->filter()->map(fn ($c) => Str::upper($c))->flip();
@@ -73,20 +82,24 @@ class FleetSettingService
             'breakdown' => $breakdown,
             'available_haulers' => $availableHaulers,
             'summary' => [
+                'clusters' => collect($groups)->where('is_editable', true)->count(),
                 'loaders' => $placedLoaders->count(),
                 'haulers' => $placedHaulers->count(),
                 'loaders_without_hauler' => $rows->groupBy('loader_id')->filter(fn ($r) => $r->whereNotNull('unit_nrp')->isEmpty())->count(),
                 'sisa' => $availableHaulers->count(),
             ],
             'warnings' => $this->warnings($rows, $operators),
-            'group_options' => $this->master->groupOptions(),
+            'cluster_options' => $this->clusters->nameOptions(),
+            'area_options' => $this->clusters->areaOptions(),
         ];
     }
 
     // ------------------------------------------------------------------- Loader
 
-    public function addLoader(string $date, string $shift, string $code, array $fields = []): void
+    public function addLoader(string $date, string $shift, string $code, string $cluster, array $fields = []): void
     {
+        $clusterName = $this->clusters->resolveName($date, $shift, $cluster)
+            ?? throw new InvalidArgumentException('Pilih cluster tujuan loader (buat cluster dulu bila belum ada).');
         $loader = $this->masterUnit(FleetMasterUnit::LOADER, $code);
         if ($this->breakdownRows($date, $shift)->where('unit_nrp', $loader->code)->exists()) {
             throw new InvalidArgumentException("Loader {$loader->code} sedang di Breakdown/Service. Kembalikan ke Ready dulu.");
@@ -95,7 +108,7 @@ class FleetSettingService
             throw new InvalidArgumentException("Loader {$loader->code} sudah ada di setting ini.");
         }
 
-        $this->insertRow($date, $shift, $loader->code, $this->loaderAttributes($fields));
+        $this->insertRow($date, $shift, $loader->code, $this->loaderAttributes($fields) + ['group_name' => $clusterName]);
     }
 
     public function updateLoader(string $date, string $shift, string $code, array $fields): void
@@ -179,13 +192,14 @@ class FleetSettingService
             throw new InvalidArgumentException('Sumber salinan sama dengan tujuan.');
         }
         $source = $this->rows($fromDate, $fromShift)->get();
-        if ($source->isEmpty()) throw new InvalidArgumentException('Setting sumber kosong, tidak ada yang disalin.');
-        if (! $replace && $this->rows($date, $shift)->exists()) {
+        if ($source->isEmpty() && $this->clusters->isEmpty($fromDate, $fromShift)) throw new InvalidArgumentException('Setting sumber kosong, tidak ada yang disalin.');
+        if (! $replace && ($this->rows($date, $shift)->exists() || ! $this->clusters->isEmpty($date, $shift))) {
             throw new InvalidArgumentException('Tanggal dan shift tujuan sudah berisi setting.');
         }
 
-        DB::transaction(function () use ($date, $shift, $source) {
-            $this->rows($date, $shift)->delete();
+        DB::transaction(function () use ($date, $shift, $fromDate, $fromShift, $source) {
+            $this->clear($date, $shift);
+            $this->clusters->copy($fromDate, $fromShift, $date, $shift);
             $source->each(fn ($r) => FleetAllocation::create(
                 ['tanggal' => $date, 'shift' => self::shiftNumber($shift)] + $r->only([
                     'group_name', 'loader_id', 'area', 'front', 'refueling_time', 'unit_nrp', 'unit_status', 'distance',
@@ -199,6 +213,7 @@ class FleetSettingService
     public function clear(string $date, string $shift): void
     {
         $this->rows($date, $shift)->delete();
+        $this->clusters->clear($date, $shift);
     }
 
     // --------------------------------------------------------------- Internal
@@ -297,7 +312,7 @@ class FleetSettingService
     private function loaderAttributes(array $fields): array
     {
         $attributes = [];
-        foreach (array_intersect(self::LOADER_FIELDS, array_keys($fields)) as $key) {
+        foreach (array_intersect(self::EDITABLE_FIELDS, array_keys($fields)) as $key) {
             $value = $fields[$key];
             $attributes[$key] = $key === 'distance' ? max(0, (int) $value) : (trim((string) $value) === '' ? null : trim((string) $value));
         }

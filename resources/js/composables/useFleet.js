@@ -9,6 +9,9 @@ export function useFleetSettingActions(filters) {
 
   return {
     isProcessing,
+    addCluster: (data, onDone) => run('post', url('cluster'), withDay({ cluster_name: data.name, cluster_area: data.area }), onDone),
+    updateCluster: (currentName, data, onDone) => run('put', url('cluster'), withDay({ cluster_name: currentName, new_cluster_name: data.name, cluster_area: data.area }), onDone),
+    removeCluster: (name) => run('delete', url('cluster'), withDay({ cluster_name: name })),
     addLoader: (data, onDone) => run('post', url('loader'), withDay(data), onDone),
     updateLoader: (data, onDone) => run('put', url('loader'), withDay(data), onDone),
     removeLoader: (loaderCode) => run('delete', url('loader'), withDay({ loader_code: loaderCode })),

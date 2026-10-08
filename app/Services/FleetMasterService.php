@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\FleetAllocation;
 use App\Models\FleetMasterUnit;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -70,13 +69,6 @@ class FleetMasterService
     public function delete(int $id): void
     {
         FleetMasterUnit::findOrFail($id)->delete();
-    }
-
-    /** Group yang pernah dipakai di setting harian, untuk saran isian. */
-    public function groupOptions(): array
-    {
-        return FleetAllocation::query()->whereNotNull('group_name')->distinct()->pluck('group_name')
-            ->filter()->unique()->sort()->values()->all();
     }
 
     // --------------------------------------------------------- Tarik dari Master Manpower

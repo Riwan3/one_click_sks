@@ -6,32 +6,32 @@ import FormSelect from '@/Components/ui/FormSelect.vue';
 import ModalActions from '@/Components/ui/ModalActions.vue';
 
 const props = defineProps({
-  target: { type: Object, default: null }, // { mode: 'add' } | { mode: 'edit', loader }
+  target: { type: Object, default: null }, // { mode: 'add', cluster?, code? } | { mode: 'edit', loader }
   availableLoaders: { type: Array, default: () => [] }, // master loader aktif yang belum dipasang
-  groupOptions: { type: Array, default: () => [] },
+  clusterNames: { type: Array, default: () => [] },
   isProcessing: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['close', 'submit']);
 
-const form = reactive({ loader_code: '', group_name: '', area: '', front: '', refueling_time: '', distance: 0 });
+const form = reactive({ loader_code: '', cluster_name: '', area: '', front: '', refueling_time: '', distance: 0 });
 
 const isEdit = computed(() => props.target?.mode === 'edit');
-
-const fillFrom = (source) => Object.assign(form, {
-  group_name: source.group_name ?? '',
-  area: source.area ?? '',
-  front: source.front ?? '',
-  refueling_time: source.refueling_time ?? '',
-  distance: source.distance ?? 0,
-});
+const canSubmit = computed(() => !!form.loader_code && (isEdit.value || !!form.cluster_name));
 
 const handleSubmit = () => emit('submit', { ...form, distance: Number(form.distance) || 0 }, isEdit.value);
 
 watch(() => props.target, (target) => {
   if (!target) return;
-  form.loader_code = isEdit.value ? target.loader.code : (target.code ?? '');
-  fillFrom(isEdit.value ? target.loader : {});
+  const loader = isEdit.value ? target.loader : {};
+  Object.assign(form, {
+    loader_code: loader.code ?? target.code ?? '',
+    cluster_name: target.cluster ?? '',
+    area: loader.area ?? '',
+    front: loader.front ?? '',
+    refueling_time: loader.refueling_time ?? '',
+    distance: loader.distance ?? 0,
+  });
 });
 </script>
 
@@ -40,14 +40,19 @@ watch(() => props.target, (target) => {
     <form @submit.prevent="handleSubmit">
       <div class="space-y-3 px-5 py-4">
         <FormInput v-if="isEdit" v-model="form.loader_code" label="LOADER" readonly />
-        <FormSelect v-else v-model="form.loader_code" label="LOADER (DARI MASTER UNIT)" required>
-          <option value='' disabled>Pilih loader...</option>
-          <option v-for="loader in availableLoaders" :key="loader.code" :value="loader.code">{{ loader.code }}{{ loader.category ? ` - ${loader.category}` : '' }}</option>
-        </FormSelect>
-        <p v-if="!isEdit && !availableLoaders.length" class="text-xs text-amber-700">Semua loader aktif di Master Unit sudah dipasang, atau Master Unit masih kosong.</p>
+        <template v-else>
+          <FormSelect v-model="form.cluster_name" label="CLUSTER" required>
+            <option value="" disabled>Pilih cluster...</option>
+            <option v-for="name in clusterNames" :key="name" :value="name">{{ name }}</option>
+          </FormSelect>
+          <p v-if="!clusterNames.length" class="text-xs text-amber-700">Belum ada cluster. Tambah cluster dulu.</p>
+          <FormSelect v-model="form.loader_code" label="LOADER (DARI MASTER UNIT)" required>
+            <option value="" disabled>Pilih loader...</option>
+            <option v-for="loader in availableLoaders" :key="loader.code" :value="loader.code">{{ loader.code }}{{ loader.category ? ` - ${loader.category}` : '' }}</option>
+          </FormSelect>
+          <p v-if="!availableLoaders.length" class="text-xs text-amber-700">Semua loader aktif di Master Unit sudah dipasang, atau Master Unit masih kosong.</p>
+        </template>
 
-        <FormInput v-model="form.group_name" label="GROUP" list="fleet-group-options" placeholder="mis. COAL GETTING" class="uppercase" />
-        <datalist id="fleet-group-options"><option v-for="group in groupOptions" :key="group" :value="group" /></datalist>
         <div class="grid grid-cols-2 gap-3">
           <FormInput v-model="form.area" label="DUMPING POINT" />
           <FormInput v-model="form.front" label="FRONT" />
@@ -55,7 +60,7 @@ watch(() => props.target, (target) => {
           <FormInput v-model="form.distance" type="number" min="0" label="JARAK (M)" />
         </div>
       </div>
-      <ModalActions :processing="isProcessing" :disabled="!form.loader_code" @cancel="emit('close')" />
+      <ModalActions :processing="isProcessing" :disabled="!canSubmit" @cancel="emit('close')" />
     </form>
   </BaseModal>
 </template>

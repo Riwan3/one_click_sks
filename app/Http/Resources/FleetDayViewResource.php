@@ -17,7 +17,8 @@ class FleetDayViewResource extends JsonResource
             'summary' => $this['summary'],
             'warnings' => $this['warnings'],
             'breakdown' => $this['breakdown'],
-            'group_options' => $this['group_options'],
+            'cluster_options' => $this['cluster_options'],
+            'area_options' => $this['area_options'],
         ];
     }
 }
