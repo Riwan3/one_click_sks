@@ -737,6 +737,10 @@ Route::middleware('auth')->group(function () {
         require $oneRosterRoutes;
     }
 
+    foreach (glob(base_path('routes/one-setting/*.php')) as $oneSettingRoutes) {
+        require $oneSettingRoutes;
+    }
+
     $implementedModuleKeys = ['one-power', 'one-academy', 'one-core', 'one-dms', 'one-gmp', 'one-reporting', 'one-setting', 'one-procedure', 'one-roster'];
 
     $moduleKeys = collect(config('modules.list'))

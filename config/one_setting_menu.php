@@ -13,4 +13,11 @@ return [
     ['menu_key' => 'setting-unit-support', 'label' => 'Lokasi Unit Support', 'icon' => 'MapPin', 'href' => '/one-setting/unit-support'],
     ['menu_key' => 'setting-dozer-pc', 'label' => 'Posisi Dozer & PC', 'icon' => 'Target', 'href' => '/one-setting/dozer-pc'],
     ['menu_key' => 'setting-pw-cp', 'label' => 'Password CP', 'icon' => 'KeyRound', 'href' => '/one-setting/pw-cp'],
+    [
+        'menu_key' => 'settingan-v2', 'label' => 'Settingan V2', 'icon' => 'Sliders', 'children' => [
+            ['menu_key' => 'settingan-v2-manpower', 'label' => 'Setting Manpower v2.01', 'icon' => 'UserCheck', 'href' => '/one-setting/manpower-v201'],
+            ['menu_key' => 'settingan-v2-monitoring', 'label' => 'Monitoring Settingan', 'icon' => 'BarChart2', 'href' => '/one-setting/manpower-v201/monitoring'],
+            ['menu_key' => 'settingan-v2-monitoring-mp', 'label' => 'Monitoring Settingan Manpower v2', 'icon' => 'ClipboardCheck', 'href' => '/one-setting/manpower-v201/monitoring-mp'],
+        ],
+    ],
 ];
