@@ -7,6 +7,7 @@ use App\Models\FleetAllocation;
 use App\Models\FleetMasterUnit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
@@ -47,5 +48,29 @@ class DashboardMasterFleetTest extends TestCase
         $this->actingAs($user)->get('/one-setting/dashboard?date='.$date)
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page->where('stats.totalFleetAllocations', 4));
+    }
+
+    public function test_roster_manpower_card_counts_only_operators_assigned_in_setting_manpower(): void
+    {
+        $this->withoutMiddleware(CheckSessionSecurity::class);
+        $user = User::factory()->create(['role' => 'admin', 'username' => 'tmp'.random_int(10000, 99999)]);
+        $date = '2031-06-06';
+        $unitIds = DB::table('v2_mp_units')->orderBy('id')->limit(3)->pluck('id')->all();
+        $this->assertCount(3, $unitIds, 'Butuh minimal tiga unit di Master CSA.');
+
+        DB::table('employees')->insert([
+            ['nrp' => '9990101', 'name' => 'Tes Operator', 'jabatan_ss6' => 'OPERATOR HD 785'],
+            ['nrp' => '9990102', 'name' => 'Tes Driver', 'jabatan_ss6' => 'DRIVER PPA111'],
+            ['nrp' => '9990103', 'name' => 'Tes GL', 'jabatan_ss6' => 'GROUP LEADER PRODUKSI'],
+        ]);
+        $day = DB::table('v2_mp_settings')->insertGetId(['work_date' => $date, 'shift' => 'D']);
+        $night = DB::table('v2_mp_settings')->insertGetId(['work_date' => $date, 'shift' => 'N']);
+        foreach ([[$day, '9990101', 0], [$day, '9990102', 1], [$day, '9990103', 2], [$night, '9990101', 0]] as [$settingId, $nrp, $unitIndex]) {
+            DB::table('v2_mp_assignments')->insert(['setting_id' => $settingId, 'unit_id' => $unitIds[$unitIndex], 'nrp' => $nrp, 'source' => 'manual']);
+        }
+
+        $this->actingAs($user)->get('/one-setting/dashboard?date='.$date)
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('stats.totalManpowerRoster', 1));
     }
 }

@@ -46,13 +46,13 @@ class OneSettingController extends Controller
     /**
      * Dashboard One-Setting
      */
-    public function dashboard(Request $request): Response
+    public function dashboard(Request $request, ManpowerV201SettingService $manpowerSetting): Response
     {
         $date = $request->query('date', date('Y-m-d'));
         $shift = $request->query('shift', 'D');
         $historyMonth = $request->query('history_month', date('Y-m'));
 
-        $totalManpowerRoster = RosterData::where('tanggal', $date)->count();
+        $totalManpowerRoster = $manpowerSetting->operatorCountOn($date);
         $totalFleetUnits = FleetMasterUnit::query()->where('is_active', true)->count();
         $totalFleetAllocations = FleetAllocation::operatingUnitCount($date);
         $totalEmployees = Employee::count();

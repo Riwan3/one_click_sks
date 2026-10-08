@@ -359,6 +359,11 @@ class ManpowerV201SettingService {
         return $view;
     }
 
+    /** Total operator yang tersetting di Setting Manpower pada tanggal itu (kartu dashboard One-Setting). */
+    public function operatorCountOn($date) {
+        return $this->repo->tablesReady() ? $this->repo->operatorCountOn($date) : 0;
+    }
+
     /** Password Check Point huruf besar untuk header Preview; null = belum diinput. */
     public function checkPointPassword($date, $shift) {
         $password = $this->repo->checkPointPassword($date, $shift);

@@ -140,6 +140,21 @@ class ManpowerV201SettingRepository {
         return $out;
     }
 
+    /** Jumlah operator (jabatan SS6 memuat OPERATOR) yang dipasang ke unit pada tanggal itu, semua shift, per NRP. GL, driver, & lain-lain tidak dipasang ke unit. */
+    public function operatorCountOn($date) {
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(DISTINCT a.nrp)
+             FROM v2_mp_assignments a
+             JOIN v2_mp_settings s ON s.id = a.setting_id
+             JOIN (SELECT nrp, MAX(jabatan_ss6) AS jabatan_ss6 FROM employees GROUP BY nrp) e
+               ON e.nrp COLLATE utf8mb4_general_ci = a.nrp
+             WHERE s.work_date = ? AND e.jabatan_ss6 LIKE '%OPERATOR%'"
+        );
+        $stmt->execute([$date]);
+
+        return (int)$stmt->fetchColumn();
+    }
+
     /**
      * Kode SS6 (kolom code: DR, DE, NR, OL, CR, TR, ...) pada $date untuk daftar NRP, dari One-Power > Personal Data > Attendance
      * (tabel attendance_details, sumber halaman One-Power > Personal Data > Attendance). Return: [nrp => ['code' =>, 'job' =>, 'jam_in' =>]].
