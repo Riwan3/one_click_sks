@@ -14,7 +14,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'submit']);
 
-const form = reactive({ loader_code: '', cluster_name: '', area: '', front: '', refueling_time: '', distance: 0 });
+const form = reactive({ loader_code: '', cluster_name: '', area: '', refueling_time: '', distance: 0 });
 
 const isEdit = computed(() => props.target?.mode === 'edit');
 const canSubmit = computed(() => !!form.loader_code && (isEdit.value || !!form.cluster_name));
@@ -28,7 +28,6 @@ watch(() => props.target, (target) => {
     loader_code: loader.code ?? target.code ?? '',
     cluster_name: target.cluster ?? '',
     area: loader.area ?? '',
-    front: loader.front ?? '',
     refueling_time: loader.refueling_time ?? '',
     distance: loader.distance ?? 0,
   });
@@ -55,7 +54,6 @@ watch(() => props.target, (target) => {
 
         <div class="grid grid-cols-2 gap-3">
           <FormInput v-model="form.area" label="DUMPING POINT" />
-          <FormInput v-model="form.front" label="FRONT" />
           <FormInput v-model="form.refueling_time" label="JAM REFUELING" placeholder="mis. 10:00" />
           <FormInput v-model="form.distance" type="number" min="0" label="JARAK (M)" />
         </div>

@@ -37,8 +37,8 @@ const handleMove = (event, hauler) => {
           <button type="button" class="rounded p-0.5 hover:bg-red-600" aria-label="Hapus loader" @click="emit('remove', loader)"><Trash2 class="h-3 w-3" /></button>
         </span>
       </div>
-      <button type="button" class="mt-0.5 block w-full text-left text-[10px] leading-tight text-slate-300 hover:text-white" title="Klik untuk mengisi dumping point, front, jam refueling, dan jarak" @click="emit('edit', loader)">
-        {{ meta || 'Isi dumping point / front' }}
+      <button type="button" class="mt-0.5 block w-full text-left text-[10px] leading-tight text-slate-300 hover:text-white" title="Klik untuk mengisi dumping point, jam refueling, dan jarak" @click="emit('edit', loader)">
+        {{ meta || 'Isi dumping point' }}
       </button>
     </div>
 

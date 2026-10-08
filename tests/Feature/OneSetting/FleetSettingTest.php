@@ -319,10 +319,10 @@ class FleetSettingTest extends TestCase
 
         $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'zt ob']))->assertSessionHasErrors('form');
         $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'cluster_name' => 'NO SUCH']))->assertSessionHasErrors('form');
-        $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'cluster_name' => 'ZT OB', 'area' => 'DP 1', 'front' => 'F1', 'distance' => 500]))->assertSessionHas('success');
+        $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'cluster_name' => 'ZT OB', 'area' => 'DP 1', 'distance' => 500]))->assertSessionHas('success');
 
         $loader = $this->rows()->where('loader_id', 'ZT-E1')->first();
-        $this->assertSame(['ZT OB', 'DP 1', 'F1', 500], [$loader->group_name, $loader->area, $loader->front, $loader->distance]);
+        $this->assertSame(['ZT OB', 'DP 1', null, 500], [$loader->group_name, $loader->area, $loader->front, $loader->distance]);
         $this->assertSame('Timur', $this->clusters($admin)['ZT OB']['area']);
 
         $this->actingAs($admin)->delete(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1']))->assertSessionHas('success');

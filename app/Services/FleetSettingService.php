@@ -24,7 +24,7 @@ class FleetSettingService
     private const LOADER_FIELDS = ['group_name', 'area', 'front', 'refueling_time', 'distance'];
 
     /** Field yang diisi/diubah user per loader (area = dumping point). Cluster (group_name) ditentukan konteks. */
-    private const EDITABLE_FIELDS = ['area', 'front', 'refueling_time', 'distance'];
+    private const EDITABLE_FIELDS = ['area', 'refueling_time', 'distance'];
 
     public function __construct(private FleetClusterService $clusters) {}
 
