@@ -26,6 +26,8 @@ Route::prefix('one-setting/fleet')->name('one-setting.fleet.')->whereNumber('uni
         Route::post('hauler', 'storeHauler')->name('hauler.store');
         Route::post('hauler/move', 'moveHauler')->name('hauler.move');
         Route::delete('hauler', 'destroyHauler')->name('hauler.destroy');
+        Route::post('breakdown', 'storeBreakdown')->name('breakdown.store');
+        Route::delete('breakdown', 'destroyBreakdown')->name('breakdown.destroy');
         Route::post('copy', 'copy')->name('copy');
         Route::delete('clear', 'clear')->name('clear');
     });

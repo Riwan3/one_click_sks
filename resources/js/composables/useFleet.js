@@ -16,6 +16,8 @@ export function useFleetSettingActions(filters) {
     moveHauler: (haulerCode, loaderCode) => run('post', url('hauler/move'), withDay({ hauler_code: haulerCode, loader_code: loaderCode })),
     removeHauler: (haulerCode) => run('delete', url('hauler'), withDay({ hauler_code: haulerCode })),
     copy: (source, replace, onDone) => run('post', url('copy'), withDay({ from_date: source.date, from_shift: source.shift, replace }), onDone),
+    sendBreakdown: (unitCode) => run('post', url('breakdown'), withDay({ unit_code: unitCode })),
+    returnBreakdown: (unitCode) => run('delete', url('breakdown'), withDay({ unit_code: unitCode })),
     clear: () => run('delete', url('clear'), withDay()),
   };
 }

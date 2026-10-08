@@ -210,4 +210,94 @@ class FleetSettingTest extends TestCase
         $this->assertSame('J', FleetMasterUnit::where('code', 'ZT-H2')->value('parking_code'));
         $this->assertNull(FleetMasterUnit::where('code', 'ZT-E9')->value('parking_code'));
     }
+
+    private function viewProps(User $admin, string $shift = 'D'): array
+    {
+        return $this->actingAs($admin)->get(self::BASE.'?date='.self::DATE.'&shift='.$shift)->viewData('page')['props']['view'];
+    }
+
+    private function breakdownRows(string $shift = 'D')
+    {
+        return $this->rows($shift)->where('group_name', 'BREAKDOWN / SERVICE');
+    }
+
+    public function test_ready_lists_exclude_installed_and_breakdown_units_and_keep_parking(): void
+    {
+        $admin = $this->admin();
+        $this->seedLoader($admin);
+        foreach (['M' => 'ZT-HM', 'G' => 'ZT-HG', 'J' => 'ZT-HJ'] as $parking => $code) {
+            $this->master($code, 'hauler', ['parking_code' => $parking]);
+        }
+        $this->master('ZT-HM2', 'hauler', ['parking_code' => 'M']);
+        $this->actingAs($admin)->post(self::BASE.'/settings/hauler', $this->day(['loader_code' => 'ZT-E1', 'hauler_code' => 'ZT-HM']));
+        $this->actingAs($admin)->post(self::BASE.'/settings/breakdown', $this->day(['unit_code' => 'ZT-HM2']))->assertSessionHas('success');
+
+        $ready = collect($this->viewProps($admin)['available_haulers'])->whereIn('code', ['ZT-HM', 'ZT-HG', 'ZT-HJ', 'ZT-HM2']);
+        $this->assertSame(['ZT-HG' => 'G', 'ZT-HJ' => 'J'], $ready->pluck('parking_code', 'code')->all());
+    }
+
+    public function test_send_hauler_to_breakdown_from_ready_and_from_loader_then_return(): void
+    {
+        $admin = $this->admin();
+        $this->seedLoader($admin);
+        $this->master('ZT-H1', 'hauler', ['parking_code' => 'J']);
+        $this->master('ZT-H2', 'hauler');
+        $this->actingAs($admin)->post(self::BASE.'/settings/hauler', $this->day(['loader_code' => 'ZT-E1', 'hauler_code' => 'ZT-H1']));
+
+        $this->actingAs($admin)->post(self::BASE.'/settings/breakdown', $this->day(['unit_code' => 'ZT-H1']))->assertSessionHas('success');
+        $this->actingAs($admin)->post(self::BASE.'/settings/breakdown', $this->day(['unit_code' => 'ZT-H2']))->assertSessionHas('success');
+
+        $row = $this->breakdownRows()->where('unit_nrp', 'ZT-H1')->first();
+        $this->assertSame(['SERVICE & BD', 'J'], [$row->loader_id, $row->unit_status]);
+        $this->assertNull($this->breakdownRows()->where('unit_nrp', 'ZT-H2')->value('unit_status'));
+        $this->assertNotNull($this->rows()->where('loader_id', 'ZT-E1')->whereNull('unit_nrp')->first());
+
+        $view = $this->viewProps($admin);
+        $this->assertCount(2, collect($view['breakdown'])->whereIn('code', ['ZT-H1', 'ZT-H2']));
+        $this->assertSame(['TANPA GROUP'], collect($view['groups'])->pluck('name')->all());
+        $this->assertNotContains('BREAKDOWN / SERVICE', collect($view['groups'])->pluck('name')->all());
+        $this->assertSame(1, $view['summary']['loaders']);
+        $this->assertSame(0, $view['summary']['haulers']);
+
+        $this->actingAs($admin)->delete(self::BASE.'/settings/breakdown', $this->day(['unit_code' => 'ZT-H1']))->assertSessionHas('success');
+        $this->assertSame(0, $this->breakdownRows()->where('unit_nrp', 'ZT-H1')->count());
+        $this->actingAs($admin)->delete(self::BASE.'/settings/breakdown', $this->day(['unit_code' => 'ZT-H1']))->assertSessionHasErrors('form');
+    }
+
+    public function test_loader_to_breakdown_releases_its_haulers_and_double_placement_is_rejected(): void
+    {
+        $admin = $this->admin();
+        $this->seedLoader($admin, 'ZT-E1');
+        $this->seedLoader($admin, 'ZT-E2');
+        $this->master('ZT-H1', 'hauler');
+        $this->actingAs($admin)->post(self::BASE.'/settings/hauler', $this->day(['loader_code' => 'ZT-E1', 'hauler_code' => 'ZT-H1']));
+
+        $this->actingAs($admin)->post(self::BASE.'/settings/breakdown', $this->day(['unit_code' => 'ZT-E1']))->assertSessionHas('success');
+        $this->assertSame(0, $this->rows()->where('loader_id', 'ZT-E1')->count());
+        $this->assertSame(1, $this->breakdownRows()->where('unit_nrp', 'ZT-E1')->count());
+        $this->assertContains('ZT-H1', collect($this->viewProps($admin)['available_haulers'])->pluck('code')->all());
+        $this->assertNotContains('ZT-E1', collect($this->viewProps($admin)['available_loaders'])->pluck('code')->all());
+
+        $this->actingAs($admin)->post(self::BASE.'/settings/breakdown', $this->day(['unit_code' => 'ZT-E1']))->assertSessionHasErrors('form');
+        $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1']))->assertSessionHasErrors('form');
+
+        $this->actingAs($admin)->post(self::BASE.'/settings/breakdown', $this->day(['unit_code' => 'ZT-H1']));
+        $this->actingAs($admin)->post(self::BASE.'/settings/hauler', $this->day(['loader_code' => 'ZT-E2', 'hauler_code' => 'ZT-H1']))->assertSessionHasErrors('form');
+        $this->assertSame(0, $this->rows()->where('loader_id', 'ZT-E2')->whereNotNull('unit_nrp')->count());
+    }
+
+    public function test_copy_and_clear_include_breakdown_rows(): void
+    {
+        $admin = $this->admin();
+        $this->seedLoader($admin);
+        $this->master('ZT-H1', 'hauler', ['parking_code' => 'G']);
+        $this->actingAs($admin)->post(self::BASE.'/settings/breakdown', $this->day(['unit_code' => 'ZT-H1']));
+
+        $target = ['date' => self::DATE, 'shift' => 'N'];
+        $this->actingAs($admin)->post(self::BASE.'/settings/copy', $target + ['from_date' => self::DATE, 'from_shift' => 'D'])->assertSessionHas('success');
+        $this->assertSame('G', $this->breakdownRows('N')->where('unit_nrp', 'ZT-H1')->value('unit_status'));
+
+        $this->actingAs($admin)->delete(self::BASE.'/settings/clear', $target)->assertSessionHas('success');
+        $this->assertSame(0, $this->rows('N')->count());
+    }
 }

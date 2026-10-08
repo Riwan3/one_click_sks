@@ -64,6 +64,20 @@ class OneSettingFleetSettingController extends Controller
         return back()->with('success', 'Hauler dilepas.');
     }
 
+    public function storeBreakdown(FleetInputRequest $request): RedirectResponse
+    {
+        $this->guardPage(fn () => $this->setting->sendToBreakdown($request->workDate(), $request->workShift(), $request->text('unit_code')));
+
+        return back()->with('success', 'Unit dikirim ke Breakdown/Service.');
+    }
+
+    public function destroyBreakdown(FleetInputRequest $request): RedirectResponse
+    {
+        $this->guardPage(fn () => $this->setting->returnFromBreakdown($request->workDate(), $request->workShift(), $request->text('unit_code')));
+
+        return back()->with('success', 'Unit dikembalikan ke Ready.');
+    }
+
     public function copy(FleetInputRequest $request): RedirectResponse
     {
         $count = $this->guardPage(fn () => $this->setting->copy(

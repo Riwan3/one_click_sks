@@ -11,6 +11,7 @@ import FleetLoaderCard from './Partials/FleetLoaderCard.vue';
 import LoaderFormModal from './Partials/LoaderFormModal.vue';
 import PickHaulerModal from './Partials/PickHaulerModal.vue';
 import CopyFromModal from './Partials/CopyFromModal.vue';
+import FleetSidebar from './Partials/FleetSidebar.vue';
 
 const props = defineProps({
   user: Object,
@@ -29,7 +30,7 @@ const pickLoader = ref(null);
 const isCopyOpen = ref(false);
 
 const title = computed(() => `${formatDateLabel(props.filters.date)} · ${SHIFT_LABEL[props.filters.shift]}`);
-const hasData = computed(() => (props.view?.groups.length ?? 0) > 0);
+const hasData = computed(() => (props.view?.groups.length ?? 0) + (props.view?.breakdown.length ?? 0) > 0);
 const allLoaderCodes = computed(() => props.view.groups.flatMap((group) => group.loaders.map((loader) => loader.code)));
 const otherLoaders = (loader) => allLoaderCodes.value.filter((code) => code !== loader.code);
 
@@ -54,10 +55,21 @@ const handlePick = (hauler) => {
   actions.assignHauler(loaderCode, hauler.code);
 };
 
+const handleBreakdown = async (unit) => {
+  const loader = props.view.groups.flatMap((group) => group.loaders).find((item) => item.code === unit.code);
+  const hasHaulers = !!loader?.haulers.length;
+  if (hasHaulers && !(await confirmDialog(`Loader ${unit.code} dilepas dari setting dan hauler-nya kembali ke Ready. Lanjutkan?`))) return;
+  actions.sendBreakdown(unit.code);
+};
+
+const handleAssignFromReady = (hauler, loaderCode) => actions.assignHauler(loaderCode, hauler.code);
+
+const handleAddLoaderFromReady = (loader) => { loaderTarget.value = { mode: 'add', code: loader.code }; };
+
 const handleCopy = (source) => actions.copy(source, hasData.value, () => { isCopyOpen.value = false; });
 
 const handleClear = async () => {
-  if (await confirmDialog('Hapus semua setting fleet pada tanggal dan shift ini?')) actions.clear();
+  if (await confirmDialog('Hapus semua setting fleet pada tanggal dan shift ini, termasuk daftar Breakdown/Service?')) actions.clear();
 };
 </script>
 
@@ -89,6 +101,11 @@ const handleClear = async () => {
         </div>
       </div>
 
+      <div class="grid gap-3 xl:grid-cols-[19rem_minmax(0,1fr)]">
+      <aside class="xl:sticky xl:top-24 xl:max-h-[calc(100vh-7rem)] xl:self-start xl:overflow-y-auto">
+        <FleetSidebar :view="view" :loader-codes="allLoaderCodes" @assign="handleAssignFromReady" @breakdown="handleBreakdown" @add-loader="handleAddLoaderFromReady" @return="(unit) => actions.returnBreakdown(unit.code)" />
+      </aside>
+      <div class="min-w-0 space-y-4">
       <div v-if="view.warnings.length" class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
         <p class="mb-1 flex items-center gap-1 font-bold"><TriangleAlert class="h-3.5 w-3.5" /> Perlu diperhatikan</p>
         <ul class="list-disc pl-5"><li v-for="warning in view.warnings" :key="warning">{{ warning }}</li></ul>
@@ -100,7 +117,7 @@ const handleClear = async () => {
 
       <section v-for="group in view.groups" :key="group.name" class="space-y-2">
         <h3 class="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-extrabold tracking-wide text-white">{{ group.name }} <span class="font-semibold text-slate-300">· {{ group.loaders.length }} loader</span></h3>
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           <FleetLoaderCard
             v-for="loader in group.loaders"
             :key="loader.code"
@@ -109,11 +126,14 @@ const handleClear = async () => {
             @edit="loaderTarget = { mode: 'edit', loader: $event }"
             @remove="handleRemoveLoader"
             @assign="pickLoader = $event"
+            @breakdown="handleBreakdown"
             @move="(hauler, code) => actions.moveHauler(hauler.code, code)"
             @release="(hauler) => actions.removeHauler(hauler.code)"
           />
         </div>
       </section>
+      </div>
+      </div>
 
       <LoaderFormModal :target="loaderTarget" :available-loaders="view.available_loaders" :group-options="view.group_options" :is-processing="actions.isProcessing.value" @close="closeLoaderForm" @submit="handleSubmitLoader" />
       <PickHaulerModal :loader="pickLoader" :haulers="view.available_haulers" @close="pickLoader = null" @pick="handlePick" />

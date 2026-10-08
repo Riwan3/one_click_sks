@@ -16,6 +16,7 @@ class FleetDayViewResource extends JsonResource
             'available_haulers' => FleetMasterUnitResource::collection($this['available_haulers'])->resolve(),
             'summary' => $this['summary'],
             'warnings' => $this['warnings'],
+            'breakdown' => $this['breakdown'],
             'group_options' => $this['group_options'],
         ];
     }

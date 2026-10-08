@@ -16,6 +16,11 @@ use InvalidArgumentException;
  */
 class FleetSettingService
 {
+    /** Konvensi data lama & papan: unit breakdown/service = baris dengan group + loader_id ini, unit_nrp = kode unit. */
+    public const BREAKDOWN_GROUP = 'BREAKDOWN / SERVICE';
+
+    public const BREAKDOWN_LOADER = 'SERVICE & BD';
+
     private const LOADER_FIELDS = ['group_name', 'area', 'front', 'refueling_time', 'distance'];
 
     public function __construct(private FleetMasterService $master) {}
@@ -29,7 +34,8 @@ class FleetSettingService
 
     public function view(string $date, string $shift): array
     {
-        $rows = $this->rows($date, $shift)->get();
+        $all = $this->rows($date, $shift)->get();
+        [$breakdownRows, $rows] = $all->partition(fn ($r) => $r->group_name === self::BREAKDOWN_GROUP);
         $masters = FleetMasterUnit::query()->get()->keyBy(fn ($u) => Str::upper($u->code));
         $operators = $this->operatorCodes($date, $shift);
         $hasOperator = fn (string $code) => $operators === null ? null : isset($operators[Str::upper($code)]);
@@ -54,11 +60,17 @@ class FleetSettingService
 
         $placedLoaders = $rows->pluck('loader_id')->map(fn ($c) => Str::upper($c))->flip();
         $placedHaulers = $rows->pluck('unit_nrp')->filter()->map(fn ($c) => Str::upper($c))->flip();
-        $availableHaulers = $this->activeOfType(FleetMasterUnit::HAULER)->reject(fn ($u) => $placedHaulers->has(Str::upper($u->code)))->values();
+        $breakdown = $breakdownRows->whereNotNull('unit_nrp')->map(fn ($r) => [
+            'id' => $r->id, 'code' => $r->unit_nrp, 'type' => $masters->get(Str::upper($r->unit_nrp))?->unit_type, 'parking_code' => $r->unit_status ?: null,
+        ])->values()->all();
+        $inBreakdown = collect($breakdown)->pluck('code')->map(fn ($c) => Str::upper($c))->flip();
+        $isFree = fn ($u) => ! $placedHaulers->has(Str::upper($u->code)) && ! $inBreakdown->has(Str::upper($u->code));
+        $availableHaulers = $this->activeOfType(FleetMasterUnit::HAULER)->filter($isFree)->values();
 
         return [
             'groups' => $groups,
-            'available_loaders' => $this->activeOfType(FleetMasterUnit::LOADER)->reject(fn ($u) => $placedLoaders->has(Str::upper($u->code)))->values(),
+            'available_loaders' => $this->activeOfType(FleetMasterUnit::LOADER)->reject(fn ($u) => $placedLoaders->has(Str::upper($u->code)) || $inBreakdown->has(Str::upper($u->code)))->values(),
+            'breakdown' => $breakdown,
             'available_haulers' => $availableHaulers,
             'summary' => [
                 'loaders' => $placedLoaders->count(),
@@ -76,6 +88,9 @@ class FleetSettingService
     public function addLoader(string $date, string $shift, string $code, array $fields = []): void
     {
         $loader = $this->masterUnit(FleetMasterUnit::LOADER, $code);
+        if ($this->breakdownRows($date, $shift)->where('unit_nrp', $loader->code)->exists()) {
+            throw new InvalidArgumentException("Loader {$loader->code} sedang di Breakdown/Service. Kembalikan ke Ready dulu.");
+        }
         if ($this->loaderRows($date, $shift, $loader->code)->isNotEmpty()) {
             throw new InvalidArgumentException("Loader {$loader->code} sudah ada di setting ini.");
         }
@@ -121,13 +136,38 @@ class FleetSettingService
     }
 
 
+    // ------------------------------------------------------------ Breakdown / Service
+
+    /** Kirim unit (hauler terpasang / hauler ready / loader) ke Breakdown/Service; loader dilepas dari setting dan haulernya kembali ke Ready. */
+    public function sendToBreakdown(string $date, string $shift, string $unitCode): void
+    {
+        $code = trim($unitCode);
+        if ($this->breakdownRows($date, $shift)->where('unit_nrp', $code)->exists()) {
+            throw new InvalidArgumentException("Unit $code sudah di Breakdown/Service.");
+        }
+
+        $haulerRow = $this->layoutRows($date, $shift)->where('unit_nrp', $code)->first();
+        $master = FleetMasterUnit::active()->where('code', $code)->first();
+        if (! $haulerRow && ! $master) throw new InvalidArgumentException("Unit $code tidak ada di Master Unit (aktif).");
+
+        DB::transaction(function () use ($date, $shift, $code, $haulerRow, $master) {
+            $parking = $haulerRow ? $haulerRow->unit_status : $master->parking_code;
+            $haulerRow ? $this->releaseRow($haulerRow) : $this->layoutRows($date, $shift)->where('loader_id', $code)->delete();
+            $this->insertRow($date, $shift, self::BREAKDOWN_LOADER, ['group_name' => self::BREAKDOWN_GROUP, 'unit_nrp' => $code, 'unit_status' => $parking ?: null]);
+        });
+    }
+
+    /** Kembalikan unit dari Breakdown/Service ke Ready. */
+    public function returnFromBreakdown(string $date, string $shift, string $unitCode): void
+    {
+        $deleted = $this->breakdownRows($date, $shift)->where('unit_nrp', trim($unitCode))->delete();
+        if (! $deleted) throw new InvalidArgumentException("Unit $unitCode tidak ada di Breakdown/Service.");
+    }
+
     public function removeHauler(string $date, string $shift, string $haulerCode): void
     {
         $row = $this->haulerRowOrFail($date, $shift, $haulerCode);
-        DB::transaction(function () use ($row) {
-            $row->delete();
-            $this->ensurePlaceholder($row);
-        });
+        DB::transaction(fn () => $this->releaseRow($row));
     }
 
     // ------------------------------------------------------------- Salin & hapus
@@ -163,6 +203,25 @@ class FleetSettingService
 
     // --------------------------------------------------------------- Internal
 
+    /** Baris breakdown/service (panel samping). */
+    private function breakdownRows(string $date, string $shift)
+    {
+        return $this->rows($date, $shift)->where('group_name', self::BREAKDOWN_GROUP);
+    }
+
+    /** Baris loader/hauler pada susunan setting (tanpa baris breakdown). */
+    private function layoutRows(string $date, string $shift)
+    {
+        return $this->rows($date, $shift)->whereRaw("COALESCE(group_name, '') <> ?", [self::BREAKDOWN_GROUP]);
+    }
+
+    /** Hapus baris hauler; loader yang kehilangan hauler terakhir tetap tampil (placeholder). */
+    private function releaseRow(FleetAllocation $row): void
+    {
+        $row->delete();
+        $this->ensurePlaceholder($row);
+    }
+
     private function rows(string $date, string $shift)
     {
         return FleetAllocation::query()->where('tanggal', $date)->where('shift', self::shiftNumber($shift))->orderBy('id');
@@ -170,7 +229,7 @@ class FleetSettingService
 
     private function loaderRows(string $date, string $shift, string $code): Collection
     {
-        return $this->rows($date, $shift)->where('loader_id', trim($code))->get();
+        return $this->layoutRows($date, $shift)->where('loader_id', trim($code))->get();
     }
 
     private function loaderRowsOrFail(string $date, string $shift, string $code): Collection
@@ -183,7 +242,7 @@ class FleetSettingService
 
     private function haulerRowOrFail(string $date, string $shift, string $code): FleetAllocation
     {
-        $row = $this->rows($date, $shift)->where('unit_nrp', trim($code))->first();
+        $row = $this->layoutRows($date, $shift)->where('unit_nrp', trim($code))->first();
         if (! $row) throw new InvalidArgumentException("Hauler $code belum dipasang di setting ini.");
 
         return $row;
@@ -193,7 +252,10 @@ class FleetSettingService
     private function guardNotPlaced(string $date, string $shift, string $haulerCode): void
     {
         $placed = $this->rows($date, $shift)->where('unit_nrp', $haulerCode)->first();
-        if ($placed) throw new InvalidArgumentException("Hauler $haulerCode sudah dipasang di loader {$placed->loader_id}. Gunakan Pindah.");
+        if (! $placed) return;
+
+        $where = $placed->group_name === self::BREAKDOWN_GROUP ? 'di Breakdown/Service. Kembalikan ke Ready dulu' : "di loader {$placed->loader_id}. Gunakan Pindah";
+        throw new InvalidArgumentException("Hauler $haulerCode sudah $where.");
     }
 
     private function masterUnit(string $type, string $code): FleetMasterUnit

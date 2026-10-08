@@ -1,5 +1,5 @@
 <script setup>
-import { Fuel, MapPin, Pencil, Plus, TriangleAlert, Trash2, X } from 'lucide-vue-next';
+import { Fuel, MapPin, Pencil, Plus, TriangleAlert, Trash2, Wrench, X } from 'lucide-vue-next';
 import { PARKING_CLASS, PARKING_LABEL } from '@/utils/fleet';
 
 defineProps({
@@ -7,7 +7,7 @@ defineProps({
   otherLoaders: { type: Array, default: () => [] }, // kode loader tujuan pindah hauler
 });
 
-const emit = defineEmits(['edit', 'remove', 'assign', 'move', 'release']);
+const emit = defineEmits(['edit', 'remove', 'assign', 'move', 'release', 'breakdown']);
 
 const handleMove = (event, hauler) => {
   if (event.target.value) emit('move', hauler, event.target.value);
@@ -31,6 +31,7 @@ const handleMove = (event, hauler) => {
       </span>
       <span class="flex gap-1">
         <button type="button" class="rounded p-1 hover:bg-slate-700" aria-label="Ubah loader" @click="emit('edit', loader)"><Pencil class="h-3.5 w-3.5" /></button>
+        <button type="button" class="rounded p-1 hover:bg-rose-600" title="Breakdown / Service" aria-label="Breakdown / Service" @click="emit('breakdown', loader)"><Wrench class="h-3.5 w-3.5" /></button>
         <button type="button" class="rounded p-1 hover:bg-red-600" aria-label="Hapus loader" @click="emit('remove', loader)"><Trash2 class="h-3.5 w-3.5" /></button>
       </span>
     </div>
@@ -45,6 +46,7 @@ const handleMove = (event, hauler) => {
           <option value="">Pindah</option>
           <option v-for="code in otherLoaders" :key="code" :value="code">{{ code }}</option>
         </select>
+        <button type="button" class="text-slate-300 hover:text-rose-600" title="Breakdown / Service" aria-label="Breakdown / Service" @click="emit('breakdown', hauler)"><Wrench class="h-3.5 w-3.5" /></button>
         <button type="button" class="text-slate-300 hover:text-red-600" aria-label="Lepas hauler" @click="emit('release', hauler)"><X class="h-3.5 w-3.5" /></button>
       </li>
     </ul>

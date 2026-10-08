@@ -30,7 +30,7 @@ const handleSubmit = () => emit('submit', { ...form, distance: Number(form.dista
 
 watch(() => props.target, (target) => {
   if (!target) return;
-  form.loader_code = isEdit.value ? target.loader.code : '';
+  form.loader_code = isEdit.value ? target.loader.code : (target.code ?? '');
   fillFrom(isEdit.value ? target.loader : {});
 });
 </script>
