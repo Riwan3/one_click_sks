@@ -16,10 +16,6 @@ use InvalidArgumentException;
  */
 class FleetSettingService
 {
-    public const STATUS_LABEL = ['M' => 'M - Siap', 'G' => 'G - Gangguan', 'J' => 'J - Perbaikan'];
-
-    private const DEFAULT_STATUS = 'M';
-
     private const LOADER_FIELDS = ['group_name', 'area', 'front', 'refueling_time', 'distance'];
 
     public function __construct(private FleetMasterService $master) {}
@@ -50,7 +46,7 @@ class FleetSettingService
                 'distance' => (int) $loaderRows->first()->distance,
                 'has_operator' => $hasOperator($code),
                 'haulers' => $loaderRows->whereNotNull('unit_nrp')->map(fn ($r) => [
-                    'id' => $r->id, 'code' => $r->unit_nrp, 'status' => $r->unit_status ?: self::DEFAULT_STATUS,
+                    'id' => $r->id, 'code' => $r->unit_nrp, 'parking_code' => $r->unit_status ?: null,
                     'has_operator' => $hasOperator($r->unit_nrp),
                 ])->values()->all(),
             ])->values()->all(),
@@ -84,11 +80,7 @@ class FleetSettingService
             throw new InvalidArgumentException("Loader {$loader->code} sudah ada di setting ini.");
         }
 
-        $defaults = [
-            'group_name' => $loader->default_group, 'area' => $loader->default_area, 'front' => $loader->default_front,
-            'refueling_time' => $loader->default_refueling_time, 'distance' => $loader->default_distance,
-        ];
-        $this->insertRow($date, $shift, $loader->code, $this->loaderAttributes($fields) + $defaults);
+        $this->insertRow($date, $shift, $loader->code, $this->loaderAttributes($fields));
     }
 
     public function updateLoader(string $date, string $shift, string $code, array $fields): void
@@ -111,7 +103,7 @@ class FleetSettingService
         $this->guardNotPlaced($date, $shift, $hauler->code);
 
         $placeholder = $loaderRows->firstWhere('unit_nrp', null);
-        $this->attachHauler($placeholder, $loaderRows->first(), $date, $shift, $hauler->code);
+        $this->attachHauler($placeholder, $loaderRows->first(), $date, $shift, $hauler);
     }
 
     public function moveHauler(string $date, string $shift, string $haulerCode, string $toLoaderCode): void
@@ -128,13 +120,6 @@ class FleetSettingService
         });
     }
 
-    public function setStatus(string $date, string $shift, string $haulerCode, string $status): void
-    {
-        $status = Str::upper(trim($status));
-        if (! isset(self::STATUS_LABEL[$status])) throw new InvalidArgumentException('Status unit harus M, G, atau J.');
-
-        $this->haulerRowOrFail($date, $shift, $haulerCode)->update(['unit_status' => $status]);
-    }
 
     public function removeHauler(string $date, string $shift, string $haulerCode): void
     {
@@ -219,9 +204,9 @@ class FleetSettingService
         return $unit;
     }
 
-    private function attachHauler(?FleetAllocation $placeholder, FleetAllocation $loaderRow, string $date, string $shift, string $haulerCode): void
+    private function attachHauler(?FleetAllocation $placeholder, FleetAllocation $loaderRow, string $date, string $shift, FleetMasterUnit $hauler): void
     {
-        $attributes = ['unit_nrp' => $haulerCode, 'unit_status' => self::DEFAULT_STATUS];
+        $attributes = ['unit_nrp' => $hauler->code, 'unit_status' => $hauler->parking_code]; // kopi parkiran master (NULL bila kosong)
         if ($placeholder) {
             $placeholder->update($attributes);
             return;

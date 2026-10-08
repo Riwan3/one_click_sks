@@ -17,7 +17,6 @@ class FleetInputRequest extends ManpowerV201Request
             'front' => ['nullable', 'string', 'max:100'],
             'refueling_time' => ['nullable', 'string', 'max:50'],
             'distance' => ['nullable', 'integer', 'min:0'],
-            'status' => ['nullable', 'string', 'max:1'],
             'from_date' => ['nullable', 'string'],
             'from_shift' => ['nullable', 'string'],
             'replace' => ['nullable', 'boolean'],

@@ -24,7 +24,6 @@ Route::prefix('one-setting/fleet')->name('one-setting.fleet.')->whereNumber('uni
         Route::put('loader', 'updateLoader')->name('loader.update');
         Route::delete('loader', 'destroyLoader')->name('loader.destroy');
         Route::post('hauler', 'storeHauler')->name('hauler.store');
-        Route::put('hauler', 'updateHauler')->name('hauler.update');
         Route::post('hauler/move', 'moveHauler')->name('hauler.move');
         Route::delete('hauler', 'destroyHauler')->name('hauler.destroy');
         Route::post('copy', 'copy')->name('copy');

@@ -19,18 +19,12 @@ const form = reactive({ loader_code: '', group_name: '', area: '', front: '', re
 const isEdit = computed(() => props.target?.mode === 'edit');
 
 const fillFrom = (source) => Object.assign(form, {
-  group_name: source.group_name ?? source.default_group ?? '',
-  area: source.area ?? source.default_area ?? '',
-  front: source.front ?? source.default_front ?? '',
-  refueling_time: source.refueling_time ?? source.default_refueling_time ?? '',
-  distance: source.distance ?? source.default_distance ?? 0,
+  group_name: source.group_name ?? '',
+  area: source.area ?? '',
+  front: source.front ?? '',
+  refueling_time: source.refueling_time ?? '',
+  distance: source.distance ?? 0,
 });
-
-const handlePickLoader = (code) => {
-  form.loader_code = code;
-  const master = props.availableLoaders.find((loader) => loader.code === code);
-  if (master) fillFrom(master);
-};
 
 const handleSubmit = () => emit('submit', { ...form, distance: Number(form.distance) || 0 }, isEdit.value);
 
@@ -46,8 +40,8 @@ watch(() => props.target, (target) => {
     <form @submit.prevent="handleSubmit">
       <div class="space-y-3 px-5 py-4">
         <FormInput v-if="isEdit" v-model="form.loader_code" label="LOADER" readonly />
-        <FormSelect v-else :model-value="form.loader_code" label="LOADER (DARI MASTER UNIT)" required @update:model-value="handlePickLoader">
-          <option value="" disabled>Pilih loader...</option>
+        <FormSelect v-else v-model="form.loader_code" label="LOADER (DARI MASTER UNIT)" required>
+          <option value='' disabled>Pilih loader...</option>
           <option v-for="loader in availableLoaders" :key="loader.code" :value="loader.code">{{ loader.code }}{{ loader.category ? ` - ${loader.category}` : '' }}</option>
         </FormSelect>
         <p v-if="!isEdit && !availableLoaders.length" class="text-xs text-amber-700">Semua loader aktif di Master Unit sudah dipasang, atau Master Unit masih kosong.</p>

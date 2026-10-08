@@ -16,7 +16,6 @@ defineProps({
   loadError: { type: String, default: null },
   loaders: { type: Array, default: () => [] },
   haulers: { type: Array, default: () => [] },
-  groupOptions: { type: Array, default: () => [] },
   pullPreview: { type: Array, default: () => [] },
 });
 
@@ -58,7 +57,7 @@ const handlePull = (categories) => actions.pull(categories, () => { isPullOpen.v
       <MasterUnitTable type="hauler" :units="haulers" @add="unitTarget = { type: $event }" @edit="unitTarget = { type: 'hauler', unit: $event }" @toggle="(unit, isActive) => actions.setActive(unit.id, isActive)" @remove="handleRemove" />
     </div>
 
-    <MasterUnitModal :target="unitTarget" :group-options="groupOptions" :is-processing="actions.isProcessing.value" @close="closeUnitForm" @submit="handleSubmitUnit" />
+    <MasterUnitModal :target="unitTarget" :is-processing="actions.isProcessing.value" @close="closeUnitForm" @submit="handleSubmitUnit" />
     <PullManpowerModal :open="isPullOpen" :preview="pullPreview" :is-processing="actions.isProcessing.value" @close="isPullOpen = false" @submit="handlePull" />
   </FleetShell>
 </template>

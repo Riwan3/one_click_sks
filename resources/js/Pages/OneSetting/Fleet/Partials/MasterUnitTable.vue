@@ -1,6 +1,6 @@
 <script setup>
 import { Pencil, Plus, Trash2 } from 'lucide-vue-next';
-import { UNIT_TYPE_LABEL } from '@/utils/fleet';
+import { PARKING_CLASS, PARKING_LABEL, UNIT_TYPE_LABEL } from '@/utils/fleet';
 
 const props = defineProps({
   type: { type: String, required: true }, // loader | hauler
@@ -27,7 +27,7 @@ const isLoader = props.type === 'loader';
           <tr>
             <th class="px-3 py-2">Kode</th>
             <th class="px-3 py-2">Kategori</th>
-            <th v-if="isLoader" class="hidden px-3 py-2 md:table-cell">Bawaan (group / area / front)</th>
+            <th v-if="!isLoader" class="px-3 py-2">Parkiran</th>
             <th class="px-3 py-2">Aktif</th>
             <th class="px-3 py-2" />
           </tr>
@@ -36,7 +36,7 @@ const isLoader = props.type === 'loader';
           <tr v-for="unit in units" :key="unit.id" :class="unit.is_active ? '' : 'bg-slate-50 text-slate-400'">
             <td class="px-3 py-2 font-bold">{{ unit.code }}</td>
             <td class="px-3 py-2">{{ unit.category || '-' }}</td>
-            <td v-if="isLoader" class="hidden px-3 py-2 md:table-cell">{{ [unit.default_group, unit.default_area, unit.default_front].filter(Boolean).join(' / ') || '-' }}</td>
+            <td v-if="!isLoader" class="px-3 py-2"><span v-if="unit.parking_code" :class="['rounded px-1.5 py-0.5 text-[10px] font-black', PARKING_CLASS[unit.parking_code]]">{{ PARKING_LABEL[unit.parking_code] }}</span><template v-else>-</template></td>
             <td class="px-3 py-2">
               <input type="checkbox" :checked="unit.is_active" :aria-label="`Aktif ${unit.code}`" @change="emit('toggle', unit, $event.target.checked)" />
             </td>

@@ -48,15 +48,6 @@ class OneSettingFleetSettingController extends Controller
         return back()->with('success', 'Hauler dipasang.');
     }
 
-    public function updateHauler(FleetInputRequest $request): RedirectResponse
-    {
-        $this->guardPage(fn () => $this->setting->setStatus(
-            $request->workDate(), $request->workShift(), $request->text('hauler_code'), $request->text('status'),
-        ));
-
-        return back()->with('success', 'Status unit diubah.');
-    }
-
     public function moveHauler(FleetInputRequest $request): RedirectResponse
     {
         $this->guardPage(fn () => $this->setting->moveHauler(

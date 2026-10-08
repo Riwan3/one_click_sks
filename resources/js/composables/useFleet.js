@@ -13,7 +13,6 @@ export function useFleetSettingActions(filters) {
     updateLoader: (data, onDone) => run('put', url('loader'), withDay(data), onDone),
     removeLoader: (loaderCode) => run('delete', url('loader'), withDay({ loader_code: loaderCode })),
     assignHauler: (loaderCode, haulerCode, onDone) => run('post', url('hauler'), withDay({ loader_code: loaderCode, hauler_code: haulerCode }), onDone),
-    setStatus: (haulerCode, status) => run('put', url('hauler'), withDay({ hauler_code: haulerCode, status })),
     moveHauler: (haulerCode, loaderCode) => run('post', url('hauler/move'), withDay({ hauler_code: haulerCode, loader_code: loaderCode })),
     removeHauler: (haulerCode) => run('delete', url('hauler'), withDay({ hauler_code: haulerCode })),
     copy: (source, replace, onDone) => run('post', url('copy'), withDay({ from_date: source.date, from_shift: source.shift, replace }), onDone),

@@ -109,7 +109,6 @@ const handleClear = async () => {
             @edit="loaderTarget = { mode: 'edit', loader: $event }"
             @remove="handleRemoveLoader"
             @assign="pickLoader = $event"
-            @status="(hauler, status) => actions.setStatus(hauler.code, status)"
             @move="(hauler, code) => actions.moveHauler(hauler.code, code)"
             @release="(hauler) => actions.removeHauler(hauler.code)"
           />

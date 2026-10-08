@@ -25,7 +25,6 @@ class OneSettingFleetMasterController extends Controller
         $load = $this->guarded($this->master->tablesReady(), fn () => [
             'loaders' => FleetMasterUnitResource::collection($this->master->listByType(FleetMasterUnit::LOADER))->resolve(),
             'haulers' => FleetMasterUnitResource::collection($this->master->listByType(FleetMasterUnit::HAULER))->resolve(),
-            'groupOptions' => $this->master->groupOptions(),
             'pullPreview' => $this->master->pullPreview(),
         ]);
 
@@ -65,6 +64,6 @@ class OneSettingFleetMasterController extends Controller
     {
         $result = $this->guardPage(fn () => $this->master->pull($request->input('categories', [])));
 
-        return back()->with('success', "Tarik dari Master Manpower: {$result['added']} unit ditambah, {$result['skipped']} dilewati (kode sudah ada).");
+        return back()->with('success', "Tarik dari Master Manpower: {$result['added']} unit ditambah, {$result['skipped']} dilewati (kode sudah ada), {$result['parking_filled']} parkiran kosong diisi.");
     }
 }

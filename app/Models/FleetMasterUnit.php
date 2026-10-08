@@ -13,14 +13,12 @@ class FleetMasterUnit extends Model
     public const HAULER = 'hauler';
 
     protected $fillable = [
-        'code', 'unit_type', 'category', 'source_unit_id',
-        'default_group', 'default_area', 'default_front', 'default_refueling_time', 'default_distance',
-        'is_active', 'sort_order', 'created_by',
+        'code', 'unit_type', 'category', 'parking_code', 'source_unit_id', 'is_active', 'sort_order', 'created_by',
     ];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean', 'default_distance' => 'integer', 'sort_order' => 'integer'];
+        return ['is_active' => 'boolean', 'sort_order' => 'integer'];
     }
 
     public function scopeActive(Builder $query): Builder

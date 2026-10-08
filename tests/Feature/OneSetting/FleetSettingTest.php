@@ -46,7 +46,7 @@ class FleetSettingTest extends TestCase
 
     private function seedLoader(User $admin, string $loader = 'ZT-E1', string $group = 'ZT GROUP'): void
     {
-        $this->master($loader, 'loader', ['default_group' => $group, 'default_area' => 'PIT A', 'default_distance' => 800]);
+        $this->master($loader, 'loader');
         $this->actingAs($admin)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => $loader]))->assertSessionHas('success');
     }
 
@@ -72,14 +72,20 @@ class FleetSettingTest extends TestCase
         $this->assertSame('hauler', $preview->firstWhere('name', 'DUMP TRUCK')['type']);
         $this->assertSame('skip', $preview->firstWhere('name', 'BULLDOZER - 155')['type']);
 
-        $payload = ['categories' => $preview->map(fn ($c) => ['name' => $c['name'], 'type' => $c['type']])->all()];
+        $payload = ['categories' => $preview->map(fn ($c) => ['csa' => $c['csa'], 'name' => $c['name'], 'type' => $c['type']])->all()];
         $this->actingAs($admin)->post(self::BASE.'/master/pull', $payload)->assertSessionHas('success');
         $added = FleetMasterUnit::count();
         $this->assertGreaterThan(0, $added);
         $this->assertSame(0, FleetMasterUnit::whereNotIn('unit_type', ['loader', 'hauler'])->count());
+        $this->assertSame(0, FleetMasterUnit::where('unit_type', 'loader')->whereNotNull('parking_code')->count());
+        $this->assertSame('J', FleetMasterUnit::where('category', 'like', '%JUMBO%')->value('parking_code'));
+        $this->assertSame('G', FleetMasterUnit::where('category', 'HEAVY DUMP TRUCK - KOMATSU 785')->where('parking_code', 'G')->value('parking_code'));
+        $this->assertSame('M', FleetMasterUnit::where('category', 'OFF HIGHWAY TRUCK 777 - CATERPILLAR')->value('parking_code'));
+        FleetMasterUnit::where('unit_type', 'hauler')->limit(3)->update(['parking_code' => null]);
 
         $this->actingAs($admin)->post(self::BASE.'/master/pull', $payload)->assertSessionHas('success');
         $this->assertSame($added, FleetMasterUnit::count());
+        $this->assertSame(0, FleetMasterUnit::where('unit_type', 'hauler')->whereNull('parking_code')->count());
     }
 
     public function test_master_unit_crud_and_duplicate_code_rejected(): void
@@ -98,22 +104,20 @@ class FleetSettingTest extends TestCase
         $this->assertDatabaseMissing('fleet_master_units', ['code' => 'ZT-H1']);
     }
 
-    public function test_add_loader_uses_master_defaults_then_assign_move_status_and_release_hauler(): void
+    public function test_add_loader_blank_then_assign_copies_parking_move_and_release_hauler(): void
     {
         $admin = $this->admin();
         $this->seedLoader($admin, 'ZT-E1');
         $this->seedLoader($admin, 'ZT-E2');
-        $this->master('ZT-H1', 'hauler');
+        $this->master('ZT-H1', 'hauler', ['parking_code' => 'G']);
 
         $loader = $this->rows()->where('loader_id', 'ZT-E1')->first();
-        $this->assertSame(['ZT GROUP', 'PIT A', 800], [$loader->group_name, $loader->area, $loader->distance]);
+        $this->assertSame([null, null, 0], [$loader->group_name, $loader->area, $loader->distance]);
+        $this->actingAs($admin)->put(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'group_name' => 'ZT GROUP', 'area' => 'PIT A']))->assertSessionHas('success');
 
         $this->actingAs($admin)->post(self::BASE.'/settings/hauler', $this->day(['loader_code' => 'ZT-E1', 'hauler_code' => 'ZT-H1']))->assertSessionHas('success');
-        $this->assertSame('M', $this->rows()->where('unit_nrp', 'ZT-H1')->value('unit_status'));
-        $this->assertNull($this->rows()->where('loader_id', 'ZT-E1')->whereNull('unit_nrp')->first());
-
-        $this->actingAs($admin)->put(self::BASE.'/settings/hauler', $this->day(['hauler_code' => 'ZT-H1', 'status' => 'G']))->assertSessionHas('success');
         $this->assertSame('G', $this->rows()->where('unit_nrp', 'ZT-H1')->value('unit_status'));
+        $this->assertNull($this->rows()->where('loader_id', 'ZT-E1')->whereNull('unit_nrp')->first());
 
         $this->actingAs($admin)->post(self::BASE.'/settings/hauler/move', $this->day(['hauler_code' => 'ZT-H1', 'loader_code' => 'ZT-E2']))->assertSessionHas('success');
         $this->assertSame('ZT-E2', $this->rows()->where('unit_nrp', 'ZT-H1')->value('loader_id'));
@@ -190,5 +194,20 @@ class FleetSettingTest extends TestCase
         $this->actingAs($operator)->get(self::BASE.'/master')->assertForbidden();
         $this->actingAs($operator)->post(self::BASE.'/settings/loader', $this->day(['loader_code' => 'X']))->assertForbidden();
         $this->actingAs($operator)->post(self::BASE.'/master/units', ['code' => 'X', 'unit_type' => 'hauler'])->assertForbidden();
+    }
+
+    public function test_hauler_without_parking_is_installed_with_null_status_and_parking_is_validated(): void
+    {
+        $admin = $this->admin();
+        $this->seedLoader($admin);
+        $this->master('ZT-H1', 'hauler');
+        $this->actingAs($admin)->post(self::BASE.'/settings/hauler', $this->day(['loader_code' => 'ZT-E1', 'hauler_code' => 'ZT-H1']))->assertSessionHas('success');
+        $this->assertNull($this->rows()->where('unit_nrp', 'ZT-H1')->value('unit_status'));
+
+        $this->actingAs($admin)->post(self::BASE.'/master/units', ['code' => 'ZT-H2', 'unit_type' => 'hauler', 'parking_code' => 'x'])->assertSessionHasErrors('form');
+        $this->actingAs($admin)->post(self::BASE.'/master/units', ['code' => 'ZT-H2', 'unit_type' => 'hauler', 'parking_code' => 'j'])->assertSessionHas('success');
+        $this->actingAs($admin)->post(self::BASE.'/master/units', ['code' => 'ZT-E9', 'unit_type' => 'loader', 'parking_code' => 'M'])->assertSessionHas('success');
+        $this->assertSame('J', FleetMasterUnit::where('code', 'ZT-H2')->value('parking_code'));
+        $this->assertNull(FleetMasterUnit::where('code', 'ZT-E9')->value('parking_code'));
     }
 }
