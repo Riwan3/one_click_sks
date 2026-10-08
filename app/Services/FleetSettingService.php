@@ -112,10 +112,18 @@ class FleetSettingService
         $this->insertRow($date, $shift, $loader->code, $this->loaderAttributes($fields) + ['group_name' => $clusterName]);
     }
 
-    public function updateLoader(string $date, string $shift, string $code, array $fields): void
+    /** Ubah data loader; bila $cluster diisi dan berbeda, loader dipindah ke cluster itu bersama semua hauler-nya. */
+    public function updateLoader(string $date, string $shift, string $code, array $fields, string $cluster = ''): void
     {
         $rows = $this->loaderRowsOrFail($date, $shift, $code);
-        $rows->each->update($this->loaderAttributes($fields));
+        $attributes = $this->loaderAttributes($fields);
+
+        if ($cluster !== '') {
+            $attributes['group_name'] = $this->clusters->resolveName($date, $shift, $cluster)
+                ?? throw new InvalidArgumentException('Cluster tujuan tidak ditemukan.');
+        }
+
+        $rows->each->update($attributes);
     }
 
     public function removeLoader(string $date, string $shift, string $code): void

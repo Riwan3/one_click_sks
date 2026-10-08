@@ -158,7 +158,7 @@ const handleClear = async () => {
               :key="loader.code"
               :loader="loader"
               :other-loaders="otherLoaders(loader)"
-              @edit="loaderTarget = { mode: 'edit', loader: $event }"
+              @edit="loaderTarget = { mode: 'edit', loader: $event, cluster: cluster.name }"
               @remove="handleRemoveLoader"
               @assign="pickLoader = $event"
               @breakdown="handleBreakdown"

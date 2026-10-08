@@ -43,14 +43,14 @@ watch(() => props.target, (target) => {
     <form @submit.prevent="handleSubmit">
       <div class="space-y-3 px-5 py-4">
         <FormInput v-if="isEdit" v-model="form.loader_code" label="LOADER" readonly />
-        <template v-else>
-          <FormSelect v-model="form.cluster_name" label="CLUSTER" required>
-            <option value="" disabled>Pilih cluster...</option>
-            <optgroup v-for="group in clusterGroups" :key="group.label" :label="group.label">
-              <option v-for="name in group.names" :key="name" :value="name">{{ name }}</option>
-            </optgroup>
-          </FormSelect>
-          <p v-if="!clusterGroups.length" class="text-xs text-amber-700">Belum ada cluster. Tambah cluster dulu.</p>
+        <FormSelect v-model="form.cluster_name" :label="isEdit ? 'CLUSTER (PINDAHKAN BESERTA HAULER-NYA)' : 'CLUSTER'" :required="!isEdit">
+          <option value="" disabled>Pilih cluster...</option>
+          <optgroup v-for="group in clusterGroups" :key="group.label" :label="group.label">
+            <option v-for="name in group.names" :key="name" :value="name">{{ name }}</option>
+          </optgroup>
+        </FormSelect>
+        <p v-if="!clusterGroups.length" class="text-xs text-amber-700">Belum ada cluster. Tambah cluster dulu.</p>
+        <template v-if="!isEdit">
           <FormSelect v-model="form.loader_code" label="LOADER (DARI MASTER UNIT)" required>
             <option value="" disabled>Pilih loader...</option>
             <option v-for="loader in availableLoaders" :key="loader.code" :value="loader.code">{{ loader.code }}{{ loader.category ? ` - ${loader.category}` : '' }}</option>

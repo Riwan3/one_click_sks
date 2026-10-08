@@ -72,7 +72,7 @@ class OneSettingFleetSettingController extends Controller
     public function updateLoader(FleetInputRequest $request): RedirectResponse
     {
         $this->guardPage(fn () => $this->setting->updateLoader(
-            $request->workDate(), $request->workShift(), $request->text('loader_code'), $request->loaderFields(),
+            $request->workDate(), $request->workShift(), $request->text('loader_code'), $request->loaderFields(), $request->text('cluster_name'),
         ));
 
         return back()->with('success', 'Loader diperbarui.');

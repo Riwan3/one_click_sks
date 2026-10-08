@@ -336,6 +336,27 @@ class FleetSettingTest extends TestCase
         $this->assertArrayHasKey('ZT OB', $this->clusters($admin));
     }
 
+    public function test_edit_loader_can_move_to_another_cluster_with_its_haulers(): void
+    {
+        $admin = $this->admin();
+        $this->seedLoader($admin, 'ZT-E1', 'ZT A');
+        $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => 'ZT B']));
+        $this->master('ZT-H1', 'hauler', ['parking_code' => 'M']);
+        $this->actingAs($admin)->post(self::BASE.'/settings/hauler', $this->day(['loader_code' => 'ZT-E1', 'hauler_code' => 'ZT-H1']));
+
+        $this->actingAs($admin)->put(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'cluster_name' => 'NO SUCH']))->assertSessionHasErrors('form');
+        $this->assertSame(['ZT A'], $this->rows()->where('loader_id', 'ZT-E1')->pluck('group_name')->unique()->values()->all());
+
+        $this->actingAs($admin)->put(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'cluster_name' => 'zt b', 'area' => 'DP 9']))->assertSessionHas('success');
+        $rows = $this->rows()->where('loader_id', 'ZT-E1');
+        $this->assertSame(['ZT B'], $rows->pluck('group_name')->unique()->values()->all());
+        $this->assertSame('ZT-H1', $rows->whereNotNull('unit_nrp')->first()->unit_nrp);
+        $this->assertSame(['DP 9'], $rows->pluck('area')->unique()->values()->all());
+
+        $this->actingAs($admin)->put(self::BASE.'/settings/loader', $this->day(['loader_code' => 'ZT-E1', 'area' => 'DP 10']))->assertSessionHas('success');
+        $this->assertSame(['ZT B'], $this->rows()->where('loader_id', 'ZT-E1')->pluck('group_name')->unique()->values()->all());
+    }
+
     public function test_rename_cluster_updates_loader_group_name_and_rejects_duplicate(): void
     {
         $admin = $this->admin();
