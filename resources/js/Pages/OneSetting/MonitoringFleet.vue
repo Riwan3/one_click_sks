@@ -162,7 +162,7 @@ const getStatusBadgeClass = (status) => {
 </script>
 
 <template>
-  <Head title="Monitoring Setting Fleet - One-Setting" />
+  <Head title="Monitoring Settingan Fleet (Lama) - One-Setting" />
 
   <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
     <div class="space-y-6">
@@ -173,7 +173,7 @@ const getStatusBadgeClass = (status) => {
             <Truck class="w-6 h-6 text-indigo-400" />
           </div>
           <div>
-            <h1 class="text-xl font-black tracking-wide">MONITORING SETTING FLEET ALAT BERAT</h1>
+            <h1 class="text-xl font-black tracking-wide">MONITORING SETTINGAN FLEET (LAMA) ALAT BERAT</h1>
             <p class="text-xs text-indigo-300/80">Pantau alokasi fleet loader, area kerja, dan status peralatan secara real-time</p>
           </div>
         </div>
