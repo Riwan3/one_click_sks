@@ -158,7 +158,7 @@ const deleteActiveBatch = (tanggal, shift) => {
             Input Setting Manpower
             <ArrowRight class="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
           </h3>
-          <p class="text-xs text-slate-500">Setting manpower langsung per tanggal &amp; shift, kehadiran diambil dari roster One-Roster, tanpa spreadsheet.</p>
+          <p class="text-xs text-slate-500">Setting Manpower Langsung Pada Tanggal &amp; Shift yang dituju diambil dari One-Roster</p>
         </a>
 
         <a href="/one-setting/monitoring-fleet" class="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-indigo-300 hover:shadow-md transition">
