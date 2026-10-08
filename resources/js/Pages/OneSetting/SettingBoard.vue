@@ -100,6 +100,9 @@ const openZoom = (board) => {
     zoomModal.y = 0;
 };
 
+const SHEET_VIEWPORT_RATIO = 0.82;
+const sheetMaxHeight = computed(() => Math.round(window.innerHeight * SHEET_VIEWPORT_RATIO));
+
 const openSheetZoom = () => {
     zoomModal.open = true;
     zoomModal.isSheet = true;
@@ -356,10 +359,10 @@ const onDoubleClickZoom = () => {
             >
                 <div
                     v-if="zoomModal.isSheet && manpowerPreview"
-                    class="w-[95vw] max-h-[85vh] overflow-hidden rounded-lg shadow-2xl transition-transform duration-100 ease-out"
+                    class="w-[95vw] rounded-lg shadow-2xl transition-transform duration-100 ease-out"
                     :style="{ transform: `translate(${zoomModal.x}px, ${zoomModal.y}px) scale(${zoomModal.scale})` }"
                 >
-                    <ManpowerBoardPreview :preview="manpowerPreview" />
+                    <ManpowerBoardPreview :preview="manpowerPreview" :contain-height="sheetMaxHeight" />
                 </div>
                 <img
                     v-else

@@ -4,6 +4,7 @@ import PreviewSheet from '../ManpowerV201/Partials/PreviewSheet.vue';
 
 const props = defineProps({
   preview: { type: Object, required: true }, // { view, checkPointPassword }
+  containHeight: { type: Number, default: null }, // bila diisi, lembar juga dikecilkan agar tinggi tidak melebihi nilai ini (px)
 });
 
 const MIN_FIT_SCALE = 0.1;
@@ -11,16 +12,25 @@ const MIN_FIT_SCALE = 0.1;
 const frameRef = ref(null);
 const sheetRef = ref(null);
 const scale = ref(1);
-const sheetHeight = ref(0);
+const sheetSize = ref({ width: 0, height: 0 });
 
 const setting = computed(() => props.preview.view.setting);
+const fittedSize = computed(() => ({
+  width: `${sheetSize.value.width * scale.value}px`,
+  height: `${sheetSize.value.height * scale.value}px`,
+}));
 
 const handleFit = () => {
   const frame = frameRef.value;
   const sheet = sheetRef.value;
   if (!frame || !sheet) return;
-  scale.value = Math.max(MIN_FIT_SCALE, Math.min(1, frame.clientWidth / sheet.offsetWidth));
-  sheetHeight.value = sheet.offsetHeight;
+
+  const { offsetWidth: width, offsetHeight: height } = sheet;
+  const widthScale = frame.clientWidth / width;
+  const heightScale = props.containHeight ? props.containHeight / height : Infinity;
+
+  sheetSize.value = { width, height };
+  scale.value = Math.max(MIN_FIT_SCALE, Math.min(1, widthScale, heightScale));
 };
 
 let observer = null;
@@ -34,19 +44,21 @@ onMounted(() => {
 
 onBeforeUnmount(() => observer?.disconnect());
 
-watch(() => props.preview, () => nextTick(handleFit));
+watch(() => [props.preview, props.containHeight], () => nextTick(handleFit));
 </script>
 
 <template>
-  <div ref="frameRef" class="w-full overflow-hidden bg-white" :style="{ height: `${sheetHeight * scale}px` }">
-    <div ref="sheetRef" class="w-max origin-top-left" :style="{ transform: `scale(${scale})` }">
-      <PreviewSheet
-        :setting="setting"
-        :tree="preview.view.tree"
-        :gl="preview.view.gl"
-        :lain="preview.view.lain"
-        :check-point-password="preview.checkPointPassword"
-      />
+  <div ref="frameRef" class="flex w-full justify-center">
+    <div class="shrink-0 overflow-hidden bg-white" :style="fittedSize">
+      <div ref="sheetRef" class="w-max origin-top-left" :style="{ transform: `scale(${scale})` }">
+        <PreviewSheet
+          :setting="setting"
+          :tree="preview.view.tree"
+          :gl="preview.view.gl"
+          :lain="preview.view.lain"
+          :check-point-password="preview.checkPointPassword"
+        />
+      </div>
     </div>
   </div>
 </template>
