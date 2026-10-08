@@ -3,17 +3,23 @@
 namespace App\Services;
 
 use App\Models\FleetAllocation;
+use App\Models\FleetCluster;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
-/** Baca-saja fleet_allocations: lembar Papan Fleet (Setting Board) dan ringkasan Monitoring Fleet per bulan. */
+/** Baca-saja fleet_allocations + fleet_clusters: lembar Papan Fleet (Setting Board) dan ringkasan Monitoring Fleet per bulan. */
 class FleetBoardService
 {
     public const STATUSES = ['belum', 'dobel', 'kosong', 'terisi'];
 
+    public const NO_AREA = 'TANPA AREA';
+
     private const SHIFT_NUMBER = ['D' => 1, 'N' => 2];
 
-    private const SIDE_GROUPS = ['ALL AREA', 'BREAKDOWN / SERVICE', 'STATUS / SUMMARY'];
+    private const BREAKDOWN_GROUP = 'BREAKDOWN / SERVICE';
+
+    /** Grup non-loader pada monitoring (panel Breakdown + grup pembantu hasil impor Sheets lama). */
+    private const SIDE_GROUPS = ['ALL AREA', self::BREAKDOWN_GROUP, 'STATUS / SUMMARY'];
 
     private const PAGE_DAYS = 7;
 
@@ -22,29 +28,35 @@ class FleetBoardService
         return Schema::hasTable('fleet_allocations');
     }
 
-    /** Lembar visual satu tanggal + shift (D/N); null bila input tidak valid atau belum ada data. */
+    /**
+     * Lembar visual satu tanggal + shift (D/N); null bila input tidak valid atau belum ada cluster/loader.
+     * Bentuk: ['date', 'shift', 'areas' => [['name', 'clusters' => [['name', 'loaders' => [...]]]]], 'breakdown' => ['units'] | null, 'total_hauler'].
+     * Area urut sesuai cluster pertama yang ditambahkan; TANPA AREA paling bawah.
+     */
     public function sheet(string $date, string $shift): ?array
     {
         if (! $this->ready()) return null;
         if (! ManpowerV201SettingService::validDate($date) || ! ManpowerV201SettingService::validShift($shift)) return null;
 
-        $rows = FleetAllocation::query()
-            ->whereDate('tanggal', $date)->where('shift', self::SHIFT_NUMBER[$shift])
-            ->orderBy('group_name')->orderBy('loader_id')->orderBy('unit_nrp')
-            ->get();
-        if ($rows->isEmpty()) return null;
+        $number = self::SHIFT_NUMBER[$shift];
+        $all = FleetAllocation::query()->whereDate('tanggal', $date)->where('shift', $number)
+            ->orderBy('loader_id')->orderBy('unit_nrp')->get();
+        $byGroup = $all->groupBy(fn ($r) => FleetAreaGrouping::key($r->group_name));
+        $groups = FleetAreaGrouping::group($this->storedClusters($date, $number), $all, true);
+        $breakdown = $byGroup->get(self::BREAKDOWN_GROUP);
+        if (! $groups && ! $breakdown) return null;
 
-        $groups = $rows->groupBy(fn ($r) => trim((string) $r->group_name) ?: 'LAINNYA')
-            ->map(fn (Collection $items, string $name) => $this->group($name, $items))
-            ->values();
-        $isSide = fn ($group) => in_array($group['name'], self::SIDE_GROUPS, true);
+        $areas = collect($groups)->map(fn ($area) => [
+            'name' => $area['name'] ? $this->areaLabel($area['name']) : self::NO_AREA,
+            'clusters' => array_map(fn ($c) => ['name' => $c['name'], 'loaders' => $this->loaders($byGroup->get(FleetAreaGrouping::key($c['name']), collect()))], $area['clusters']),
+        ]);
 
         return [
             'date' => $date,
             'shift' => $shift,
-            'main' => $groups->reject($isSide)->values()->all(),
-            'side' => $groups->filter($isSide)->values()->all(),
-            'total_hauler' => $groups->sum('hauler_total'),
+            'areas' => $areas->all(),
+            'breakdown' => $this->breakdown($breakdown),
+            'total_hauler' => $areas->sum(fn ($a) => collect($a['clusters'])->sum(fn ($c) => collect($c['loaders'])->sum(fn ($l) => count($l['units'])))),
         ];
     }
 
@@ -74,24 +86,46 @@ class FleetBoardService
         return compact('month', 'counts', 'pages', 'page') + ['rows' => $shown];
     }
 
-    private function group(string $name, Collection $items): array
+    private function storedClusters(string $date, int $shift): Collection
     {
-        $loaders = $items->groupBy(fn ($r) => trim((string) $r->loader_id))->map(function (Collection $lines, string $code) {
-            $first = $lines->first();
+        if (! Schema::hasTable('fleet_clusters')) return collect();
+
+        return FleetCluster::query()->whereDate('tanggal', $date)->where('shift', $shift)->get(['id', 'name', 'area', 'sort_order']);
+    }
+
+    private function areaLabel(string $area): string
+    {
+        $area = mb_strtoupper($area);
+
+        return str_starts_with($area, 'AREA ') ? $area : "AREA $area";
+    }
+
+    private function loaders(Collection $lines): array
+    {
+        return $lines->groupBy(fn ($r) => trim((string) $r->loader_id))->reject(fn ($l, $code) => $code === '')->map(function (Collection $items, string $code) {
+            $first = $items->first();
 
             return [
                 'code' => $code,
-                'area' => (string) $first->area,
-                'refueling' => (string) $first->refueling_time,
+                'dumping' => (string) $first->area,
                 'front' => (string) $first->front,
+                'refueling' => (string) $first->refueling_time,
                 'distance' => (int) $first->distance,
-                'units' => $lines->filter(fn ($r) => trim((string) $r->unit_nrp) !== '')
-                    ->map(fn ($r) => ['code' => trim($r->unit_nrp), 'status' => strtoupper(trim((string) $r->unit_status))])
-                    ->values()->all(),
+                'units' => $this->units($items),
             ];
-        })->values();
+        })->values()->all();
+    }
 
-        return ['name' => $name, 'loaders' => $loaders->all(), 'hauler_total' => $loaders->sum(fn ($l) => count($l['units']))];
+    private function units(Collection $lines): array
+    {
+        return $lines->filter(fn ($r) => trim((string) $r->unit_nrp) !== '')
+            ->map(fn ($r) => ['code' => trim($r->unit_nrp), 'status' => strtoupper(trim((string) $r->unit_status))])
+            ->values()->all();
+    }
+
+    private function breakdown(?Collection $lines): ?array
+    {
+        return $lines ? ['units' => $this->units($lines)] : null;
     }
 
     /** Satu baris per tanggal+shift yang punya data, ditambah 'belum' untuk hari ini & besok yang kosong. */

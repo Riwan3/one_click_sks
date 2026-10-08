@@ -4,6 +4,7 @@ namespace Tests\Feature\OneSetting;
 
 use App\Http\Middleware\CheckSessionSecurity;
 use App\Models\FleetAllocation;
+use App\Models\FleetCluster;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Inertia\Testing\AssertableInertia;
@@ -43,9 +44,17 @@ class FleetBoardTest extends TestCase
         $this->allocate($date, $shift, 'BREAKDOWN / SERVICE', 'BD', 'HD1003', 'J');
     }
 
+    private function seedClusters(string $date, int $shift): void
+    {
+        FleetCluster::create(['tanggal' => $date, 'shift' => $shift, 'name' => 'EWT', 'area' => 'Timur', 'sort_order' => 1]);
+        FleetCluster::create(['tanggal' => $date, 'shift' => $shift, 'name' => 'CLUSTER KOSONG', 'area' => null, 'sort_order' => 2]);
+        $this->allocate($date, $shift, 'COAL GETTING', 'E6103', 'HD1004');
+    }
+
     public function test_fleet_board_renders_sheet_for_same_date_and_shift(): void
     {
         $this->seedDay(self::DATE, 1);
+        $this->seedClusters(self::DATE, 1);
 
         $this->actingAs($this->admin())->get('/one-setting/setting-board?date='.self::DATE.'&shift=D')
             ->assertOk()
@@ -54,11 +63,17 @@ class FleetBoardTest extends TestCase
                 ->where('fleetPreview.sheet.date', self::DATE)
                 ->where('fleetPreview.sheet.shift', 'D')
                 ->where('fleetPreview.sheet.total_hauler', 3)
-                ->where('fleetPreview.sheet.main.0.name', 'EWT')
-                ->where('fleetPreview.sheet.main.0.loaders.0.code', 'E6101')
-                ->where('fleetPreview.sheet.main.0.loaders.0.units.1.status', 'G')
-                ->where('fleetPreview.sheet.main.0.loaders.1.units', [])
-                ->where('fleetPreview.sheet.side.0.name', 'BREAKDOWN / SERVICE'));
+                ->where('fleetPreview.sheet.areas.0.name', 'AREA TIMUR')
+                ->where('fleetPreview.sheet.areas.0.clusters.0.name', 'EWT')
+                ->where('fleetPreview.sheet.areas.0.clusters.0.loaders.0.code', 'E6101')
+                ->where('fleetPreview.sheet.areas.0.clusters.0.loaders.0.dumping', 'DISP A')
+                ->where('fleetPreview.sheet.areas.0.clusters.0.loaders.0.units.1.status', 'G')
+                ->where('fleetPreview.sheet.areas.0.clusters.0.loaders.1.units', [])
+                ->where('fleetPreview.sheet.areas.1.name', 'TANPA AREA')
+                ->where('fleetPreview.sheet.areas.1.clusters.1.name', 'CLUSTER KOSONG')
+                ->where('fleetPreview.sheet.areas.1.clusters.1.loaders', [])
+                ->where('fleetPreview.sheet.areas.1.clusters.0.name', 'COAL GETTING')
+                ->where('fleetPreview.sheet.breakdown.units.0.code', 'HD1003'));
     }
 
     public function test_fleet_board_is_empty_for_other_shift_or_invalid_input(): void

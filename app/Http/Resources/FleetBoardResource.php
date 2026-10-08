@@ -13,8 +13,8 @@ class FleetBoardResource extends JsonResource
         return [
             'date' => $this['date'],
             'shift' => $this['shift'],
-            'main' => $this['main'],
-            'side' => $this['side'],
+            'areas' => $this['areas'],
+            'breakdown' => $this['breakdown'],
             'total_hauler' => (int) $this['total_hauler'],
         ];
     }

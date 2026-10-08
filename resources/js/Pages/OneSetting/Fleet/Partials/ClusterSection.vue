@@ -9,11 +9,10 @@ const emit = defineEmits(['edit', 'remove', 'add-loader']);
 </script>
 
 <template>
-  <section class="space-y-2">
+  <section class="min-w-0 space-y-2 rounded-xl border border-slate-200/80 bg-slate-50 p-2">
     <div class="flex flex-wrap items-center gap-2 rounded-lg bg-slate-700 px-3 py-1.5 text-white">
       <h3 class="text-xs font-extrabold tracking-wide">
         {{ cluster.name }}
-        <span v-if="cluster.area" class="font-semibold text-slate-300">· Area {{ cluster.area }}</span>
         <span class="font-semibold text-slate-300">· {{ cluster.loaders.length }} loader</span>
       </h3>
       <div v-if="cluster.is_editable" class="ml-auto flex items-center gap-1">
@@ -24,7 +23,7 @@ const emit = defineEmits(['edit', 'remove', 'add-loader']);
     </div>
 
     <p v-if="!cluster.loaders.length" class="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-center text-xs italic text-slate-400">Cluster belum punya loader.</p>
-    <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+    <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(max(8.5rem,calc(20%-0.5rem)),1fr))] gap-2">
       <slot />
     </div>
   </section>

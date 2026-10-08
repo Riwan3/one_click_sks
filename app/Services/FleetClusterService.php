@@ -27,6 +27,12 @@ class FleetClusterService
             ->sortBy([['sort_order', 'asc'], ['name', 'asc']])->values();
     }
 
+    /** Baris fleet_clusters tanggal+shift untuk FleetAreaGrouping. */
+    public function storedRows(string $date, string $shift): array
+    {
+        return $this->query($date, $shift)->get(['id', 'name', 'area', 'sort_order'])->toArray();
+    }
+
     public function add(string $date, string $shift, string $name, ?string $area): void
     {
         $name = $this->cleanName($name);

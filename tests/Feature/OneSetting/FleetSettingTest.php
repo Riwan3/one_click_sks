@@ -57,7 +57,7 @@ class FleetSettingTest extends TestCase
 
         $this->actingAs($admin)->get(self::BASE.'?date=2026-09-28&shift=D')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
             ->component('OneSetting/Fleet/Index')->where('ready', true)->where('loadError', null)
-            ->has('view.groups')->where('menu', fn ($menu) => collect($menu)->contains('label', 'Setting Fleet')));
+            ->has('view.areas')->where('menu', fn ($menu) => collect($menu)->contains('label', 'Setting Fleet')));
 
         $this->actingAs($admin)->get(self::BASE.'/master')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
             ->component('OneSetting/Fleet/Master')->where('ready', true)->where('loadError', null)
@@ -255,8 +255,8 @@ class FleetSettingTest extends TestCase
 
         $view = $this->viewProps($admin);
         $this->assertCount(2, collect($view['breakdown'])->whereIn('code', ['ZT-H1', 'ZT-H2']));
-        $this->assertSame(['ZT GROUP'], collect($view['groups'])->pluck('name')->all());
-        $this->assertNotContains('BREAKDOWN / SERVICE', collect($view['groups'])->pluck('name')->all());
+        $this->assertSame(['ZT GROUP'], collect($view['areas'])->flatMap(fn ($a) => $a['clusters'])->pluck('name')->all());
+        $this->assertNotContains('BREAKDOWN / SERVICE', collect($view['areas'])->flatMap(fn ($a) => $a['clusters'])->pluck('name')->all());
         $this->assertSame(1, $view['summary']['loaders']);
         $this->assertSame(0, $view['summary']['haulers']);
 
@@ -304,7 +304,7 @@ class FleetSettingTest extends TestCase
 
     private function clusters(User $admin, string $shift = 'D'): array
     {
-        return collect($this->viewProps($admin, $shift)['groups'])->keyBy('name')->all();
+        return collect($this->viewProps($admin, $shift)['areas'])->flatMap(fn ($a) => $a['clusters'])->keyBy('name')->all();
     }
 
     public function test_create_cluster_with_area_then_add_loader_into_it_and_reject_duplicate_name(): void
@@ -377,5 +377,18 @@ class FleetSettingTest extends TestCase
         $this->actingAs($admin)->delete(self::BASE.'/settings/clear', $target)->assertSessionHas('success');
         $this->assertSame([], $this->clusters($admin, 'N'));
         $this->assertArrayHasKey('ZT EMPTY', $this->clusters($admin));
+    }
+
+    public function test_view_groups_clusters_into_areas_with_unassigned_band_last(): void
+    {
+        $admin = $this->admin();
+        foreach ([['ZT TM', 'Timur'], ['ZT BR', 'Barat'], ['ZT TM2', 'timur'], ['ZT NOAREA', '']] as [$name, $area]) {
+            $this->actingAs($admin)->post(self::BASE.'/settings/cluster', $this->day(['cluster_name' => $name, 'cluster_area' => $area]))->assertSessionHas('success');
+        }
+        FleetAllocation::create(['tanggal' => self::DATE, 'shift' => 1, 'group_name' => 'ZT LEGACY', 'loader_id' => 'ZT-OLD', 'distance' => 0]);
+
+        $areas = collect($this->viewProps($admin)['areas'])->map(fn ($a) => [$a['name'], collect($a['clusters'])->pluck('name')->all()])->all();
+
+        $this->assertSame([['Timur', ['ZT TM', 'ZT TM2']], ['Barat', ['ZT BR']], [null, ['ZT LEGACY', 'ZT NOAREA']]], $areas);
     }
 }

@@ -7,7 +7,8 @@ import { SHIFT_LABEL, formatDateLabel } from '@/utils/manpowerV201';
 import { useFleetSettingActions } from '@/composables/useFleet';
 import DateShiftFilter from '@/Pages/OneSetting/ManpowerV201/Partials/DateShiftFilter.vue';
 import FleetShell from './Partials/FleetShell.vue';
-import FleetLoaderCard from './Partials/FleetLoaderCard.vue';
+import AreaBand from './Partials/AreaBand.vue';
+import LoaderColumn from './Partials/LoaderColumn.vue';
 import ClusterFormModal from './Partials/ClusterFormModal.vue';
 import ClusterSection from './Partials/ClusterSection.vue';
 import LoaderFormModal from './Partials/LoaderFormModal.vue';
@@ -33,9 +34,10 @@ const pickLoader = ref(null);
 const isCopyOpen = ref(false);
 
 const title = computed(() => `${formatDateLabel(props.filters.date)} · ${SHIFT_LABEL[props.filters.shift]}`);
-const hasData = computed(() => (props.view?.groups.length ?? 0) + (props.view?.breakdown.length ?? 0) > 0);
-const clusterNames = computed(() => props.view.groups.filter((group) => group.is_editable).map((group) => group.name));
-const allLoaderCodes = computed(() => props.view.groups.flatMap((group) => group.loaders.map((loader) => loader.code)));
+const allClusters = computed(() => props.view.areas.flatMap((area) => area.clusters));
+const hasData = computed(() => (props.view?.areas.length ?? 0) + (props.view?.breakdown.length ?? 0) > 0);
+const clusterNames = computed(() => allClusters.value.filter((cluster) => cluster.is_editable).map((cluster) => cluster.name));
+const allLoaderCodes = computed(() => allClusters.value.flatMap((cluster) => cluster.loaders.map((loader) => loader.code)));
 const otherLoaders = (loader) => allLoaderCodes.value.filter((code) => code !== loader.code);
 
 const BADGES = computed(() => [
@@ -71,7 +73,7 @@ const handlePick = (hauler) => {
 };
 
 const handleBreakdown = async (unit) => {
-  const loader = props.view.groups.flatMap((group) => group.loaders).find((item) => item.code === unit.code);
+  const loader = allClusters.value.flatMap((cluster) => cluster.loaders).find((item) => item.code === unit.code);
   const hasHaulers = !!loader?.haulers.length;
   if (hasHaulers && !(await confirmDialog(`Loader ${unit.code} dilepas dari setting dan hauler-nya kembali ke Ready. Lanjutkan?`))) return;
   actions.sendBreakdown(unit.code);
@@ -132,20 +134,25 @@ const handleClear = async () => {
         Belum ada setting untuk {{ title }}. Tambah cluster atau salin dari tanggal / shift lain.
       </p>
 
-      <ClusterSection v-for="group in view.groups" :key="group.name" :cluster="group" @edit="clusterTarget = { mode: 'edit', cluster: $event }" @remove="handleRemoveCluster" @add-loader="handleAddLoaderToCluster">
-        <FleetLoaderCard
-          v-for="loader in group.loaders"
-          :key="loader.code"
-          :loader="loader"
-          :other-loaders="otherLoaders(loader)"
-          @edit="loaderTarget = { mode: 'edit', loader: $event }"
-          @remove="handleRemoveLoader"
-          @assign="pickLoader = $event"
-          @breakdown="handleBreakdown"
-          @move="(hauler, code) => actions.moveHauler(hauler.code, code)"
-          @release="(hauler) => actions.removeHauler(hauler.code)"
-        />
-      </ClusterSection>
+      <section v-for="area in view.areas" :key="area.name ?? 'tanpa-area'" class="space-y-3">
+        <AreaBand :name="area.name" />
+        <div class="grid items-start gap-3 xl:grid-cols-2">
+          <ClusterSection v-for="cluster in area.clusters" :key="cluster.name" :cluster="cluster" @edit="clusterTarget = { mode: 'edit', cluster: $event }" @remove="handleRemoveCluster" @add-loader="handleAddLoaderToCluster">
+            <LoaderColumn
+              v-for="loader in cluster.loaders"
+              :key="loader.code"
+              :loader="loader"
+              :other-loaders="otherLoaders(loader)"
+              @edit="loaderTarget = { mode: 'edit', loader: $event }"
+              @remove="handleRemoveLoader"
+              @assign="pickLoader = $event"
+              @breakdown="handleBreakdown"
+              @move="(hauler, code) => actions.moveHauler(hauler.code, code)"
+              @release="(hauler) => actions.removeHauler(hauler.code)"
+            />
+          </ClusterSection>
+        </div>
+      </section>
       </div>
       </div>
 

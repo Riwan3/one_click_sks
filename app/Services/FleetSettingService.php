@@ -58,15 +58,15 @@ class FleetSettingService
         ])->values()->all();
 
         $byCluster = $rows->groupBy(fn ($r) => Str::upper((string) $r->group_name));
-        $groups = $this->clusters->list($date, $shift)->map(fn ($cluster) => $cluster + [
-            'is_editable' => true,
-            'loaders' => $loaderCards($byCluster->get(Str::upper($cluster['name']), collect())),
-        ]);
-        if ($byCluster->has('')) {
-            $groups->push(['name' => 'TANPA CLUSTER', 'area' => null, 'sort_order' => 0, 'is_editable' => false, 'loaders' => $loaderCards($byCluster->get(''))]);
-        }
-        $groups = $groups->values()->all();
-
+        $areas = collect(FleetAreaGrouping::group($this->clusters->storedRows($date, $shift), $rows, true))->map(fn ($area) => [
+            'name' => $area['name'],
+            'clusters' => collect($area['clusters'])->map(fn ($cluster) => [
+                'name' => $cluster['name'] === '' ? 'TANPA CLUSTER' : $cluster['name'],
+                'area' => $cluster['area'],
+                'is_editable' => $cluster['name'] !== '',
+                'loaders' => $loaderCards($byCluster->get(Str::upper($cluster['name']), collect())),
+            ])->all(),
+        ])->all();
         $placedLoaders = $rows->pluck('loader_id')->map(fn ($c) => Str::upper($c))->flip();
         $placedHaulers = $rows->pluck('unit_nrp')->filter()->map(fn ($c) => Str::upper($c))->flip();
         $breakdown = $breakdownRows->whereNotNull('unit_nrp')->map(fn ($r) => [
@@ -77,12 +77,12 @@ class FleetSettingService
         $availableHaulers = $this->activeOfType(FleetMasterUnit::HAULER)->filter($isFree)->values();
 
         return [
-            'groups' => $groups,
+            'areas' => $areas,
             'available_loaders' => $this->activeOfType(FleetMasterUnit::LOADER)->reject(fn ($u) => $placedLoaders->has(Str::upper($u->code)) || $inBreakdown->has(Str::upper($u->code)))->values(),
             'breakdown' => $breakdown,
             'available_haulers' => $availableHaulers,
             'summary' => [
-                'clusters' => collect($groups)->where('is_editable', true)->count(),
+                'clusters' => collect($areas)->flatMap(fn ($area) => $area['clusters'])->where('is_editable', true)->count(),
                 'loaders' => $placedLoaders->count(),
                 'haulers' => $placedHaulers->count(),
                 'loaders_without_hauler' => $rows->groupBy('loader_id')->filter(fn ($r) => $r->whereNotNull('unit_nrp')->isEmpty())->count(),
