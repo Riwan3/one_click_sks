@@ -2,18 +2,27 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\MenuAccess;
-use Inertia\Inertia;
+use App\Http\Controllers\Concerns\RendersFleetPage;
+use App\Http\Requests\ManpowerV201Request;
+use App\Http\Resources\FleetDayViewResource;
+use App\Services\FleetMasterService;
+use App\Services\FleetSettingService;
 use Inertia\Response;
 
+/** One-Setting > Setting Fleet: halaman setting harian (per tanggal + shift). Aksi tulis di OneSettingFleetSettingController. */
 class OneSettingFleetController extends Controller
 {
-    public function index(): Response
+    use RendersFleetPage;
+
+    public function __construct(private FleetSettingService $setting, private FleetMasterService $master) {}
+
+    public function index(ManpowerV201Request $request): Response
     {
-        return Inertia::render('OneSetting/Fleet/Index', [
-            'user' => $this->currentUser(),
-            'notifCounts' => $this->notifCounts(),
-            'menu' => MenuAccess::forConfig('one_setting_menu'),
+        [$date, $shift] = [$request->workDate(), $request->workShift()];
+        $load = $this->guarded($this->master->tablesReady(), fn () => [
+            'view' => FleetDayViewResource::make($this->setting->view($date, $shift))->resolve(),
         ]);
+
+        return $this->fleetPage('OneSetting/Fleet/Index', $load, ['filters' => compact('date', 'shift')]);
     }
 }

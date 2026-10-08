@@ -54,6 +54,12 @@ class ManpowerV201Request extends FormRequest
         return ManpowerV201SettingService::validMonth($month) ? $month : date('Y-m');
     }
 
+    /** Jenis monitoring: manpower (default) | fleet. */
+    public function monitoringType(): string
+    {
+        return $this->text('type') === 'fleet' ? 'fleet' : 'manpower';
+    }
+
     /** Nomor halaman monitoring; null = otomatis (halaman yang memuat hari ini). */
     public function pageNumber(): ?int
     {

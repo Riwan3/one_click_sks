@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\HandlesMoncuErrors;
 use App\Http\Requests\ManpowerV201Request;
+use App\Http\Resources\FleetMonitoringRowResource;
 use App\Http\Resources\ManpowerV201MasterResource;
 use App\Http\Resources\ManpowerV201MonitoringRowResource;
 use App\Http\Resources\ManpowerV201ViewResource;
+use App\Services\FleetBoardService;
 use App\Services\ManpowerV201Service;
 use App\Services\ManpowerV201SettingService;
 use App\Support\MenuAccess;
@@ -23,6 +25,7 @@ class OneSettingManpowerV201Controller extends Controller
     public function __construct(
         private ManpowerV201SettingService $setting,
         private ManpowerV201Service $master,
+        private FleetBoardService $fleetBoard,
     ) {}
 
     public function index(ManpowerV201Request $request): Response
@@ -51,14 +54,18 @@ class OneSettingManpowerV201Controller extends Controller
 
     public function monitoring(ManpowerV201Request $request): Response
     {
+        $type = $request->monitoringType();
         $status = $request->text('status');
-        $load = $this->guarded(fn () => $this->setting->monitoring($request->month(), $status, $request->pageNumber()));
+        $load = $type === 'fleet'
+            ? $this->guardedFleet(fn () => $this->fleetBoard->monitoring($request->month(), $status, $request->pageNumber()))
+            : $this->guarded(fn () => $this->setting->monitoring($request->month(), $status, $request->pageNumber()));
         $mon = $load['data'];
+        $rowResource = $type === 'fleet' ? FleetMonitoringRowResource::class : ManpowerV201MonitoringRowResource::class;
 
         return $this->render('OneSetting/ManpowerV201/Monitoring', $load + [
-            'filters' => ['month' => $request->month(), 'status' => $status],
+            'filters' => ['type' => $type, 'month' => $request->month(), 'status' => $status],
             'monitoring' => $mon ? [
-                'rows' => ManpowerV201MonitoringRowResource::collection($mon['rows'])->resolve(),
+                'rows' => $rowResource::collection($mon['rows'])->resolve(),
                 'counts' => $mon['counts'], 'pages' => $mon['pages'], 'page' => $mon['page'],
             ] : null,
         ]);
@@ -89,6 +96,21 @@ class OneSettingManpowerV201Controller extends Controller
     private function guarded(callable $load): array
     {
         if (! $this->setting->tablesReady()) {
+            return ['ready' => false, 'loadError' => null, 'data' => null];
+        }
+        try {
+            return ['ready' => true, 'loadError' => null, 'data' => $load()];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['ready' => false, 'loadError' => $e->getMessage(), 'data' => null];
+        }
+    }
+
+    /** Seperti guarded(), tetapi untuk data fleet (hanya butuh tabel fleet_allocations). */
+    private function guardedFleet(callable $load): array
+    {
+        if (! $this->fleetBoard->ready()) {
             return ['ready' => false, 'loadError' => null, 'data' => null];
         }
         try {

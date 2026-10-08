@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\FleetBoardResource;
 use App\Http\Resources\ManpowerV201ViewResource;
 use App\Models\Employee;
 use App\Models\FleetAllocation;
@@ -9,6 +10,7 @@ use App\Models\RosterData;
 use App\Models\Setting;
 use App\Models\SettingBoard;
 use App\Models\Unit;
+use App\Services\FleetBoardService;
 use App\Services\ManpowerV201SettingService;
 use App\Support\MenuAccess;
 use Illuminate\Http\JsonResponse;
@@ -95,7 +97,7 @@ class OneSettingController extends Controller
     /**
      * Halaman Setting Board: papan gambar HD (Manpower & Fleet) per site/tanggal/shift.
      */
-    public function settingBoard(Request $request, ManpowerV201SettingService $manpowerSetting): Response
+    public function settingBoard(Request $request, ManpowerV201SettingService $manpowerSetting, FleetBoardService $fleetBoard): Response
     {
         $site = strtoupper($request->query('site', 'ADW'));
         $date = $request->query('date', date('Y-m-d'));
@@ -132,7 +134,20 @@ class OneSettingController extends Controller
             'filters' => ['site' => $site, 'date' => $date, 'shift' => $shift],
             'settingBoards' => $settingBoards,
             'manpowerPreview' => $this->manpowerPreview($manpowerSetting, $date, $shift),
+            'fleetPreview' => $this->fleetPreview($fleetBoard, $date, $shift),
         ]);
+    }
+
+    /** Papan Fleet = lembar dari fleet_allocations (tanggal + shift yang sama). Null bila belum ada data. */
+    private function fleetPreview(FleetBoardService $board, string $date, string $shift): ?array
+    {
+        try {
+            $sheet = $board->sheet($date, $shift);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $sheet ? ['sheet' => FleetBoardResource::make($sheet)->resolve()] : null;
     }
 
     /**
