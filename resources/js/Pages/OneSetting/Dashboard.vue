@@ -161,7 +161,7 @@ const deleteActiveBatch = (tanggal, shift) => {
           <p class="text-xs text-slate-500">Setting Manpower Langsung Pada Tanggal &amp; Shift yang dituju diambil dari One-Roster</p>
         </a>
 
-        <a href="/one-setting/monitoring-fleet" class="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-indigo-300 hover:shadow-md transition">
+        <a href="/one-setting/fleet" class="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-indigo-300 hover:shadow-md transition">
           <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
             <Truck class="w-5 h-5" />
           </div>
