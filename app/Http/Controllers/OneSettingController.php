@@ -13,6 +13,7 @@ use App\Models\SettingBoard;
 use App\Models\Unit;
 use App\Services\FleetBoardService;
 use App\Services\ManpowerV201SettingService;
+use App\Services\SettingBoardViewService;
 use App\Support\MenuAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -46,59 +47,37 @@ class OneSettingController extends Controller
     /**
      * Dashboard One-Setting
      */
-    public function dashboard(Request $request, ManpowerV201SettingService $manpowerSetting): Response
+    public function dashboard(Request $request, ManpowerV201SettingService $manpowerSetting, SettingBoardViewService $boardViews): Response
     {
         $date = $request->query('date', date('Y-m-d'));
         $shift = $request->query('shift', 'D');
-        $historyMonth = $request->query('history_month', date('Y-m'));
+        $month = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', (string) $request->query('month')) ? $request->query('month') : date('Y-m');
 
         $totalManpowerRoster = $manpowerSetting->operatorCountOn($date);
         $totalFleetUnits = FleetMasterUnit::query()->where('is_active', true)->count();
         $totalFleetAllocations = FleetAllocation::operatingUnitCount($date);
         $totalEmployees = Employee::count();
 
-        [$historyYear, $historyMonthNum] = array_pad(explode('-', $historyMonth), 2, null);
-
-        // Riwayat Import Fleet & Manpower: "batch" import disimpulkan dari (tanggal, shift)
-        // yang sama (padanan v1 settings/fleet.php — tidak ada tabel log import terpisah).
-        // Dibatasi per bulan (default bulan berjalan) supaya tabelnya tidak menumpuk semua histori.
-        $fleetImportHistory = FleetAllocation::selectRaw('tanggal, shift, COUNT(*) as jumlah_unit, MAX(created_at) as last_import')
-            ->whereYear('tanggal', $historyYear)
-            ->whereMonth('tanggal', $historyMonthNum)
-            ->groupBy('tanggal', 'shift')
-            ->orderByDesc('tanggal')
-            ->orderBy('shift')
-            ->get();
-
-        $manpowerImportHistory = RosterData::selectRaw('tanggal, kode as shift, COUNT(*) as jumlah_unit, MAX(created_at) as last_import')
-            ->whereYear('tanggal', $historyYear)
-            ->whereMonth('tanggal', $historyMonthNum)
-            ->groupBy('tanggal', 'kode')
-            ->orderByDesc('tanggal')
-            ->orderBy('kode')
-            ->get();
-
         return Inertia::render('OneSetting/Dashboard', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_setting_menu'),
             'filters' => ['date' => $date, 'shift' => $shift],
-            'historyMonth' => $historyMonth,
+            'month' => $month,
             'stats' => [
                 'totalManpowerRoster' => $totalManpowerRoster,
                 'totalFleetUnits' => $totalFleetUnits,
                 'totalFleetAllocations' => $totalFleetAllocations,
                 'totalEmployees' => $totalEmployees,
             ],
-            'fleetImportHistory' => $fleetImportHistory,
-            'manpowerImportHistory' => $manpowerImportHistory,
+            'viewStats' => $boardViews->monthlyStats($month),
         ]);
     }
 
     /**
      * Halaman Setting Board: papan gambar HD (Manpower & Fleet) per site/tanggal/shift.
      */
-    public function settingBoard(Request $request, ManpowerV201SettingService $manpowerSetting, FleetBoardService $fleetBoard): Response
+    public function settingBoard(Request $request, ManpowerV201SettingService $manpowerSetting, FleetBoardService $fleetBoard, SettingBoardViewService $boardViews): Response
     {
         $site = strtoupper($request->query('site', 'ADW'));
         $date = $request->query('date', date('Y-m-d'));
@@ -128,14 +107,19 @@ class OneSettingController extends Controller
             ];
         }
 
+        $manpowerPreview = $this->manpowerPreview($manpowerSetting, $date, $shift);
+        $fleetPreview = $this->fleetPreview($fleetBoard, $date, $shift);
+
+        $boardViews->record($request->user(), $date, $shift, ['manpower' => $manpowerPreview !== null, 'fleet' => $fleetPreview !== null]);
+
         return Inertia::render('OneSetting/SettingBoard', [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_setting_menu'),
             'filters' => ['site' => $site, 'date' => $date, 'shift' => $shift],
             'settingBoards' => $settingBoards,
-            'manpowerPreview' => $this->manpowerPreview($manpowerSetting, $date, $shift),
-            'fleetPreview' => $this->fleetPreview($fleetBoard, $date, $shift),
+            'manpowerPreview' => $manpowerPreview,
+            'fleetPreview' => $fleetPreview,
         ]);
     }
 

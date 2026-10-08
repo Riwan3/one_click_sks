@@ -1,6 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { confirmDialog } from '@/utils/confirm';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import {
@@ -10,23 +9,19 @@ import {
   Database,
   ArrowRight,
   ShieldCheck,
-  History,
-  RefreshCw,
-  Trash2,
 } from 'lucide-vue-next';
+import BoardViewsChart from './Partials/BoardViewsChart.vue';
 
 const props = defineProps({
   user: Object,
   notifCounts: Object,
   menu: Array,
   stats: Object,
-  fleetImportHistory: { type: Array, default: () => [] },
-  manpowerImportHistory: { type: Array, default: () => [] },
-  historyMonth: { type: String, default: () => new Date().toISOString().slice(0, 7) },
+  viewStats: { type: Object, required: true },
+  month: { type: String, default: () => new Date().toISOString().slice(0, 7) },
 });
 
-const activeHistoryTab = ref('fleet');
-const historyMonthInput = ref(props.historyMonth);
+const monthInput = ref(props.month);
 
 // Jam & shift berjalan untuk banner (shift 1 = 06:00-17:59, shift 2 = sisanya)
 const DAY_SHIFT_START_HOUR = 6;
@@ -52,59 +47,12 @@ onUnmounted(() => {
   if (clockTimer) clearInterval(clockTimer);
 });
 
-const applyHistoryMonth = () => {
-  router.get('/one-setting/dashboard', { history_month: historyMonthInput.value }, { preserveState: true, preserveScroll: true });
+const applyMonth = () => {
+  router.get('/one-setting/dashboard', { month: monthInput.value }, { preserveState: true, preserveScroll: true });
 };
 
-const HISTORY_TABS = [
-  { key: 'fleet', label: 'Riwayat Import Fleet' },
-  { key: 'manpower', label: 'Riwayat Import Setting Manpower' },
-];
-
-const activeRows = computed(() => (activeHistoryTab.value === 'fleet' ? props.fleetImportHistory : props.manpowerImportHistory));
-const activeUnitLabel = computed(() => (activeHistoryTab.value === 'fleet' ? 'Jumlah Unit' : 'Jumlah Data'));
-const activeEmptyMessage = computed(() => (
-  activeHistoryTab.value === 'fleet'
-    ? 'Belum ada riwayat import alokasi fleet'
-    : 'Belum ada riwayat import setting manpower'
-));
-
-// Fleet pakai kode shift angka (1/2), Manpower pakai kode huruf (D/N) — satu fungsi label
-// yang menangani keduanya biar tabelnya bisa dipakai bareng.
-const shiftLabel = (shift) => {
-  if (shift === 'N' || Number(shift) === 2) return 'Shift 2 (Malam)';
-  return 'Shift 1 (Siang)';
-};
-
-const isNightShift = (shift) => shift === 'N' || Number(shift) === 2;
-
-const formatLastImport = (value) => {
-  if (!value) return '-';
-  return new Date(value.replace(' ', 'T')).toLocaleString('id-ID', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-};
-
-const refreshHistory = () => {
-  router.reload({ only: ['fleetImportHistory', 'manpowerImportHistory'] });
-};
-
-const deleteFleetBatch = async (tanggal, shift) => {
-  if (await confirmDialog(`Hapus semua data alokasi fleet tanggal ${tanggal} shift ${shift}? Tindakan ini tidak bisa dibatalkan.`)) {
-    router.post('/one-setting/fleet/delete', { date: tanggal, shift }, { preserveScroll: true });
-  }
-};
-
-const deleteManpowerBatch = async (tanggal, shift) => {
-  if (await confirmDialog(`Hapus semua data roster manpower tanggal ${tanggal} shift ${shift}? Tindakan ini tidak bisa dibatalkan.`)) {
-    router.post('/one-setting/roster/clear', { date: tanggal, shift }, { preserveScroll: true });
-  }
-};
-
-const deleteActiveBatch = (tanggal, shift) => {
-  if (activeHistoryTab.value === 'fleet') deleteFleetBatch(tanggal, shift);
-  else deleteManpowerBatch(tanggal, shift);
+const refreshViews = () => {
+  router.reload({ only: ['viewStats'] });
 };
 </script>
 
@@ -223,78 +171,8 @@ const deleteActiveBatch = (tanggal, shift) => {
         </a>
       </div>
 
-      <!-- Riwayat Import (Fleet / Setting Manpower) -->
-      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div class="flex flex-wrap items-center gap-2">
-            <button
-              v-for="tab in HISTORY_TABS"
-              :key="tab.key"
-              type="button"
-              @click="activeHistoryTab = tab.key"
-              :class="[
-                'px-3 py-1.5 text-xs font-bold rounded-full transition flex items-center gap-1.5',
-                activeHistoryTab === tab.key ? 'bg-sky-600 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-50',
-              ]"
-            >
-              <History class="w-3.5 h-3.5" /> {{ tab.label }}
-            </button>
-          </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <input
-              type="month"
-              v-model="historyMonthInput"
-              @change="applyHistoryMonth"
-              class="px-2.5 py-1.5 text-xs font-semibold border border-slate-300 rounded-xl bg-white"
-            >
-            <button type="button" @click="refreshHistory" class="px-3 py-1.5 text-xs font-bold rounded-full bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 transition flex items-center gap-1.5">
-              <RefreshCw class="w-3.5 h-3.5" /> Refresh
-            </button>
-          </div>
-        </div>
-
-        <!-- Dibatasi ~10 baris kelihatan, sisanya scroll di dalam (header ikut nempel) -->
-        <div class="overflow-x-auto">
-          <div class="max-h-[420px] overflow-y-auto">
-            <table class="w-full text-left text-xs">
-              <thead class="sticky top-0 z-10 bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-100">
-                <tr>
-                  <th class="px-4 py-3">Tanggal</th>
-                  <th class="px-4 py-3">Shift</th>
-                  <th class="px-4 py-3">{{ activeUnitLabel }}</th>
-                  <th class="px-4 py-3">Terakhir Diimport</th>
-                  <th class="px-4 py-3 text-right w-24">Aksi</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100 text-slate-700">
-                <tr v-for="row in activeRows" :key="`${row.tanggal}-${row.shift}`" class="hover:bg-slate-50/60 transition">
-                  <td class="px-4 py-3 font-bold text-slate-800">{{ row.tanggal }}</td>
-                  <td class="px-4 py-3">
-                    <span :class="[
-                      'px-2 py-0.5 text-[10px] font-bold rounded-full',
-                      isNightShift(row.shift) ? 'bg-slate-800 text-white' : 'bg-amber-100 text-amber-800',
-                    ]">
-                      {{ shiftLabel(row.shift) }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 font-extrabold text-indigo-600">{{ row.jumlah_unit }}</td>
-                  <td class="px-4 py-3 font-medium text-slate-600">{{ formatLastImport(row.last_import) }}</td>
-                  <td class="px-4 py-3 text-right">
-                    <button type="button" @click="deleteActiveBatch(row.tanggal, row.shift)" class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition">
-                      <Trash2 class="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-                <tr v-if="!activeRows || activeRows.length === 0">
-                  <td colspan="5" class="px-4 py-8 text-center text-slate-400 text-xs">
-                    {{ activeEmptyMessage }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+      <!-- Grafik: setting manpower / fleet dibuka pengguna non-admin -->
+      <BoardViewsChart v-model:month="monthInput" :stats="viewStats" @change-month="applyMonth" @refresh="refreshViews" />
     </div>
   </AppLayout>
 </template>
