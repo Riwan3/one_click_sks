@@ -1,80 +1,94 @@
 <script setup>
 import { computed } from 'vue';
-import { buildShareDays } from '@/utils/rosterShare';
 
 const props = defineProps({
   share: { type: Object, required: true },
+  days: { type: Array, required: true },
   monthName: { type: String, required: true },
 });
 
-const days = computed(() => buildShareDays(props.share.tahun, props.share.bulan, props.monthName, props.share.cells));
-const periodLabel = computed(() => `PERIODE ${props.monthName.toUpperCase()} ${props.share.tahun}`);
-const signDate = computed(() => `Tanjung, ${String(new Date().getDate()).padStart(2, '0')} ${props.monthName} ${props.share.tahun}`);
-
 const INFO_ROWS = [['NAMA', 'nama'], ['NRP', 'nrp'], ['JABATAN', 'jabatan']];
-const HEADERS = ['NO', 'HARI', 'TANGGAL', 'ROSTER', 'KETERANGAN'];
+const HEADERS = [['NO', 'w-10'], ['HARI', 'w-24'], ['TANGGAL', 'w-40'], ['ROSTER', 'w-20'], ['KETERANGAN', '']];
+
+const periodLabel = computed(() => `PERIODE ${props.monthName.toUpperCase()} ${props.share.tahun}`);
+const signDate = computed(() => `Tanjung, ${new Date().getDate()} ${props.monthName} ${props.share.tahun}`);
 </script>
 
 <template>
-  <div class="mx-auto max-w-[700px] rounded-xl bg-white px-6 py-5 shadow-sm print:max-w-none print:rounded-none print:px-4 print:py-2 print:shadow-none">
-    <div class="mb-2.5 flex items-center justify-between">
-      <img src="/images/logo_ppa.png" alt="PPA" class="h-7 object-contain sm:h-11" />
-      <img src="/images/logo_synergy.png" alt="Synergy" class="h-7 object-contain sm:h-11" />
-      <img src="/images/logo_adaro.png" alt="Adaro" class="h-7 object-contain sm:h-11" />
-    </div>
-
-    <div class="mb-3 border-y-2 border-black py-1 text-center text-[11px] font-bold">ROSTER KARYAWAN DEPT. PRODUKSI - PPA JOBSITE ADARO INDONESIA</div>
-
-    <div class="mb-3 flex items-start justify-between">
-      <div class="flex-1 text-[10px]">
-        <div v-for="[label, key] in INFO_ROWS" :key="key" class="mb-0.5 flex">
-          <span class="w-[70px] font-bold">{{ label }}</span>
-          <span class="w-[15px] text-center">:</span>
-          <span>{{ share.employee?.[key] ?? '' }}</span>
+  <div class="mx-auto max-w-2xl rounded-xl border border-slate-300 bg-white p-6 shadow-sm print:max-w-none print:border-0 print:p-0 print:shadow-none">
+    <div class="mb-4 flex items-center justify-between gap-4 border-b pb-3">
+      <div class="flex items-center gap-2.5">
+        <img src="/images/images.png" alt="Safe & Strong" class="h-10 object-contain sm:h-11" />
+        <div class="leading-tight">
+          <div class="text-xs font-black tracking-tight text-slate-900 sm:text-sm">SAFE & STRONG</div>
+          <div class="text-[8px] font-bold tracking-wider text-slate-600 sm:text-[9px]">OPERATIONAL PERFORMANCE</div>
         </div>
       </div>
-      <div class="min-w-[140px] border-2 border-black text-center">
-        <div class="border-b-2 border-black px-4 py-0.5 text-[10px] font-bold">UNIT</div>
-        <div class="flex min-h-10 items-center justify-center px-4 py-2 text-[22px] font-bold">{{ share.employee?.unit ?? '' }}</div>
-      </div>
+      <img src="/images/logo_synergy.png" alt="Synergy" class="h-10 object-contain sm:h-12" />
     </div>
 
-    <div class="mb-3 border border-black py-1 text-center text-[11px] font-bold">{{ periodLabel }}</div>
-
-    <table class="mb-4 w-full border-collapse text-[10px]">
-      <thead>
-        <tr><th v-for="header in HEADERS" :key="header" class="border border-black bg-[#d9d9d9] px-1 py-0.5 text-center font-bold">{{ header }}</th></tr>
-      </thead>
-      <tbody>
-        <tr v-for="row in days" :key="row.day" :class="row.isSunday ? 'bg-[#fff3cd]' : ''">
-          <td class="w-[30px] border border-black px-1 py-0.5 text-center">{{ row.day }}</td>
-          <td class="w-[65px] border border-black px-1 py-0.5 text-center">{{ row.dayName }}</td>
-          <td class="w-[110px] border border-black px-1 py-0.5 text-center">{{ row.dateLabel }}</td>
-          <td class="w-[80px] border border-black px-1 py-0.5 text-center"><span :class="['font-bold', row.tone]">{{ row.kode }}</span></td>
-          <td class="border border-black px-1 py-0.5 text-center">{{ row.note }}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="mb-4 flex justify-between text-[10px]">
-      <div>
-        <div class="mb-0.5 font-bold text-red-600">**Note</div>
-        <div class="text-[9px]">- Update roster per hari harap menyesuaikan dengan SS6.</div>
-      </div>
-      <div class="text-right">Mengetahui,<br />{{ signDate }}</div>
+    <div class="mb-3 border-y-2 border-slate-900 py-1.5 text-center text-xs font-black uppercase tracking-wider text-slate-900">
+      ROSTER KARYAWAN DEPT. PRODUKSI - PPA JOBSITE ADARO INDONESIA
     </div>
 
-    <div class="flex items-end justify-between">
-      <div>
-        <div class="text-[10px] font-bold leading-snug">
-          <span class="text-green-600">Saya Sehat, Saya Selamat,</span><br />
-          <span class="text-red-600">Saya Semangat, Saya Manfaat!!!!!</span>
+    <div class="mb-3 flex items-start justify-between gap-4">
+      <div class="space-y-1 text-xs">
+        <div v-for="[label, key] in INFO_ROWS" :key="key" class="flex">
+          <span class="w-20 font-bold text-slate-800">{{ label }}</span>
+          <span class="w-4 font-bold text-slate-800">:</span>
+          <span class="font-bold text-slate-900">{{ share.employee?.[key] || '-' }}</span>
         </div>
-        <img src="/images/logo_safe_strong.png" alt="Safe & Strong" class="mt-2 h-10" />
       </div>
-      <div class="text-right text-[10px]">
-        <div class="font-bold">{{ share.pic.nama }}</div>
-        <div><i>{{ share.pic.jabatan }}</i></div>
+      <div class="min-w-36 overflow-hidden rounded-xs border-2 border-slate-900 text-center">
+        <div class="border-b-2 border-slate-900 bg-white px-4 py-0.5 text-xs font-black text-slate-900">UNIT</div>
+        <div class="flex min-h-10 items-center justify-center px-4 py-1 text-base font-black text-slate-900">{{ share.employee?.unit || '-' }}</div>
+      </div>
+    </div>
+
+    <div class="mb-3 border border-slate-900 bg-white py-1 text-center text-xs font-extrabold uppercase text-slate-900">{{ periodLabel }}</div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse border border-slate-900 text-xs">
+        <thead>
+          <tr class="bg-slate-200 text-slate-900">
+            <th v-for="[header, width] in HEADERS" :key="header" :class="['border border-slate-900 px-2 py-1 text-center font-bold', width]">{{ header }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in days" :key="row.day" :class="row.isSunday ? 'bg-[#fef9c3]' : 'bg-white'">
+            <td class="border border-slate-900 px-1 py-0.5 text-center font-medium">{{ row.day }}</td>
+            <td class="border border-slate-900 px-2 py-0.5 text-center font-medium">{{ row.dayName }}</td>
+            <td class="border border-slate-900 px-2 py-0.5 text-center font-medium">{{ row.dateLabel }}</td>
+            <td :class="['border border-slate-900 px-1 py-0.5 text-center font-extrabold', row.tone]">{{ row.kode }}</td>
+            <td class="border border-slate-900 px-2 py-0.5 text-center font-medium">{{ row.note }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mt-4 pt-2 text-xs">
+      <div class="flex items-start justify-between gap-4">
+        <div class="space-y-2">
+          <div>
+            <div class="font-extrabold text-red-600">**Note</div>
+            <div class="text-[11px] font-medium text-slate-800">- Update roster per hari harap menyesuaikan dengan SS6.</div>
+          </div>
+          <div class="pt-1 text-xs font-black leading-tight">
+            <div class="text-green-600">Saya Sehat, Saya Selamat,</div>
+            <div class="text-red-600">Saya Semangat, Saya Manfaat!!!!!</div>
+          </div>
+          <div class="pt-2">
+            <img src="/images/logo_safe_strong.png" alt="SAFE & STRONG" class="h-9 object-contain sm:h-10" />
+          </div>
+        </div>
+
+        <div class="min-w-[180px] shrink-0 text-right sm:min-w-[200px]">
+          <div class="font-medium text-slate-900">Mengetahui,</div>
+          <div class="mt-0.5 font-medium text-slate-900">{{ signDate }}</div>
+          <div class="h-14 sm:h-16"></div>
+          <div class="text-sm font-bold text-slate-900">{{ share.pic.nama }}</div>
+          <div class="italic text-slate-800">{{ share.pic.jabatan }}</div>
+        </div>
       </div>
     </div>
   </div>
