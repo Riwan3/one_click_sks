@@ -409,7 +409,7 @@ const captureAndSaveBoard = async () => {
 </script>
 
 <template>
-  <Head title="Monitoring Setting Manpower - One-Setting" />
+  <Head title="Monitoring Settingan Manpower (Lama) - One-Setting" />
 
   <AppLayout :user="user" :notif-counts="notifCounts" :menu="menu">
     <div class="space-y-6">
@@ -420,7 +420,7 @@ const captureAndSaveBoard = async () => {
             <Users class="w-6 h-6 text-sky-400" />
           </div>
           <div>
-            <h1 class="text-xl font-black tracking-wide">MONITORING SETTINGAN MANPOWER</h1>
+            <h1 class="text-xl font-black tracking-wide">MONITORING SETTINGAN MANPOWER (LAMA)</h1>
             <p class="text-xs text-sky-300/80">Pantau alokasi penugasan manpower &amp; operator unit per shift secara real-time</p>
           </div>
         </div>
