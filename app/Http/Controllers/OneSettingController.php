@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\ManpowerV201ViewResource;
 use App\Models\Employee;
 use App\Models\FleetAllocation;
 use App\Models\RosterData;
 use App\Models\Setting;
 use App\Models\SettingBoard;
 use App\Models\Unit;
+use App\Services\ManpowerV201SettingService;
 use App\Support\MenuAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -93,7 +95,7 @@ class OneSettingController extends Controller
     /**
      * Halaman Setting Board: papan gambar HD (Manpower & Fleet) per site/tanggal/shift.
      */
-    public function settingBoard(Request $request): Response
+    public function settingBoard(Request $request, ManpowerV201SettingService $manpowerSetting): Response
     {
         $site = strtoupper($request->query('site', 'ADW'));
         $date = $request->query('date', date('Y-m-d'));
@@ -129,7 +131,30 @@ class OneSettingController extends Controller
             'menu' => MenuAccess::forConfig('one_setting_menu'),
             'filters' => ['site' => $site, 'date' => $date, 'shift' => $shift],
             'settingBoards' => $settingBoards,
+            'manpowerPreview' => $this->manpowerPreview($manpowerSetting, $date, $shift),
         ]);
+    }
+
+    /**
+     * Papan Manpower = preview Setting Manpower (tanggal + shift yang sama). Null bila tabel belum ada,
+     * tanggal/shift tidak valid, atau setting belum dibuat.
+     */
+    private function manpowerPreview(ManpowerV201SettingService $setting, string $date, string $shift): ?array
+    {
+        try {
+            $view = $setting->view($date, $shift);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (! $view['setting']) {
+            return null;
+        }
+
+        return [
+            'view' => ManpowerV201ViewResource::make($view)->resolve(),
+            'checkPointPassword' => $setting->checkPointPassword($date, $shift),
+        ];
     }
 
     /**

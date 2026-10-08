@@ -1,7 +1,8 @@
 <script setup>
 import { ref, ref as vueRef, computed, reactive } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import ManpowerBoardPreview from './Partials/ManpowerBoardPreview.vue';
 import {
     Sliders, Image as ImageIcon, Users, Truck, Upload, Trash2, RefreshCw, X,
     ZoomIn,
@@ -13,6 +14,7 @@ const props = defineProps({
     menu: { type: Array, required: true },
     filters: { type: Object, required: true },
     settingBoards: { type: Object, required: true },
+    manpowerPreview: { type: Object, default: null },
 });
 
 const filterSite = props.filters?.site || 'ADW';
@@ -28,7 +30,7 @@ const applyFilter = () => {
 };
 
 const reload = () => {
-    router.reload({ only: ['settingBoards'] });
+    router.reload({ only: ['settingBoards', 'manpowerPreview'] });
 };
 
 const boardConfig = {
@@ -82,7 +84,7 @@ const deleteBoard = (board) => {
 const shiftLabel = computed(() => (filterShift.value === 'N' ? 'Shift 2 Malam' : 'Shift 1 Siang'));
 
 // HD Zoom modal
-const zoomModal = reactive({ open: false, imageUrl: '', title: '', scale: 1, x: 0, y: 0 });
+const zoomModal = reactive({ open: false, imageUrl: '', title: '', isSheet: false, scale: 1, x: 0, y: 0 });
 let pinchStartDistance = 0;
 let pinchStartScale = 1;
 let isPanning = false;
@@ -90,8 +92,19 @@ let panStart = { x: 0, y: 0 };
 
 const openZoom = (board) => {
     zoomModal.open = true;
+    zoomModal.isSheet = false;
     zoomModal.imageUrl = board.image_url;
     zoomModal.title = board.title;
+    zoomModal.scale = 1;
+    zoomModal.x = 0;
+    zoomModal.y = 0;
+};
+
+const openSheetZoom = () => {
+    zoomModal.open = true;
+    zoomModal.isSheet = true;
+    zoomModal.imageUrl = '';
+    zoomModal.title = boardConfig.manpower.label;
     zoomModal.scale = 1;
     zoomModal.x = 0;
     zoomModal.y = 0;
@@ -234,7 +247,7 @@ const onDoubleClickZoom = () => {
                             </h3>
                         </div>
 
-                        <div class="flex items-center gap-1.5 shrink-0">
+                        <div v-if="type === 'fleet'" class="flex items-center gap-1.5 shrink-0">
                             <button
                                 type="button"
                                 :disabled="uploading[type]"
@@ -264,8 +277,28 @@ const onDoubleClickZoom = () => {
                     </div>
 
                     <div class="relative min-h-[420px] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-950 to-black overflow-hidden">
+                        <button v-if="type === 'manpower' && manpowerPreview" type="button" class="block w-full cursor-zoom-in" @click="openSheetZoom">
+                            <ManpowerBoardPreview :preview="manpowerPreview" />
+                        </button>
+
+                        <div v-else-if="type === 'manpower'" class="text-center space-y-3 py-10">
+                            <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-800 text-slate-500 flex items-center justify-center">
+                                <ImageIcon class="w-7 h-7" />
+                            </div>
+                            <h4 class="text-sm font-bold text-slate-300">{{ cfg.placeholderLabel }}</h4>
+                            <p class="text-xs text-slate-500 max-w-xs mx-auto">
+                                Setting manpower tanggal <strong class="text-slate-300">{{ filterDate }}</strong> Shift <strong class="text-slate-300">{{ filterShift }}</strong> belum dibuat.
+                            </p>
+                            <Link
+                                :href="`/one-setting/manpower?date=${filterDate}&shift=${filterShift}`"
+                                class="px-4 py-2 text-xs font-bold rounded-xl bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition inline-flex items-center gap-1.5"
+                            >
+                                Buat di Setting Manpower
+                            </Link>
+                        </div>
+
                         <button
-                            v-if="settingBoards[type]"
+                            v-else-if="settingBoards[type]"
                             type="button"
                             class="block max-h-[600px] cursor-zoom-in p-6"
                             @click="openZoom(settingBoards[type])"
@@ -321,7 +354,15 @@ const onDoubleClickZoom = () => {
                 @mouseleave="onMouseUp"
                 @dblclick="onDoubleClickZoom"
             >
+                <div
+                    v-if="zoomModal.isSheet && manpowerPreview"
+                    class="w-[95vw] max-h-[85vh] overflow-hidden rounded-lg shadow-2xl transition-transform duration-100 ease-out"
+                    :style="{ transform: `translate(${zoomModal.x}px, ${zoomModal.y}px) scale(${zoomModal.scale})` }"
+                >
+                    <ManpowerBoardPreview :preview="manpowerPreview" />
+                </div>
                 <img
+                    v-else
                     :src="zoomModal.imageUrl"
                     :alt="zoomModal.title"
                     class="max-h-[85vh] max-w-[95vw] object-contain rounded-lg shadow-2xl transition-transform duration-100 ease-out"
