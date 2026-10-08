@@ -6,6 +6,7 @@ use App\Http\Middleware\CheckSessionSecurity;
 use App\Models\FleetAllocation;
 use App\Models\FleetArea;
 use App\Models\FleetCluster;
+use App\Models\FleetMasterUnit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Inertia\Testing\AssertableInertia;
@@ -79,6 +80,23 @@ class FleetBoardTest extends TestCase
                 ->where('fleetPreview.sheet.areas.2.clusters.1.loaders', [])
                 ->where('fleetPreview.sheet.areas.2.clusters.0.name', 'COAL GETTING')
                 ->where('fleetPreview.sheet.breakdown.units.0.code', 'HD1003'));
+    }
+
+    public function test_fleet_board_lists_ready_haulers_and_unit_summary(): void
+    {
+        $this->seedDay(self::DATE, 1);
+        $this->seedClusters(self::DATE, 1);
+        foreach ([['HD1001', 'M'], ['HD1003', 'M'], ['HD9001', 'M'], ['HD9002', 'G'], ['HD9003', 'J']] as [$code, $parking]) {
+            FleetMasterUnit::create(['code' => $code, 'unit_type' => 'hauler', 'parking_code' => $parking, 'is_active' => true]);
+        }
+        FleetMasterUnit::create(['code' => 'HD9004', 'unit_type' => 'hauler', 'parking_code' => 'M', 'is_active' => false]);
+
+        $this->actingAs($this->admin())->get('/one-setting/setting-board?date='.self::DATE.'&shift=D')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('fleetPreview.sheet.ready.monte', fn ($units) => collect($units)->pluck('code')->contains('HD9001')
+                    && ! collect($units)->pluck('code')->intersect(['HD1001', 'HD1003', 'HD9004'])->count())
+                ->where('fleetPreview.sheet.ready.gibson', fn ($units) => collect($units)->pluck('code')->intersect(['HD9002', 'HD9003'])->count() === 2)
+                ->where('fleetPreview.sheet.summary', ['ob' => 2, 'coal' => 1, 'breakdown' => 1, 'total' => 4]));
     }
 
     public function test_fleet_board_is_empty_for_other_shift_or_invalid_input(): void

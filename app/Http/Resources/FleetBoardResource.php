@@ -15,6 +15,8 @@ class FleetBoardResource extends JsonResource
             'shift' => $this['shift'],
             'areas' => $this['areas'],
             'breakdown' => $this['breakdown'],
+            'ready' => $this['ready'],
+            'summary' => $this['summary'],
             'total_hauler' => (int) $this['total_hauler'],
         ];
     }

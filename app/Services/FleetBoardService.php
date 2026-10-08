@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\FleetAllocation;
 use App\Models\FleetArea;
 use App\Models\FleetCluster;
+use App\Models\FleetMasterUnit;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
@@ -52,12 +53,17 @@ class FleetBoardService
             'clusters' => array_map(fn ($c) => ['name' => $c['name'], 'loaders' => $this->loaders($byGroup->get(FleetAreaGrouping::key($c['name']), collect()))], $area['clusters']),
         ]);
 
+        $breakdownSheet = $this->breakdown($breakdown);
+        $clusters = $areas->flatMap(fn ($a) => $a['clusters']);
+
         return [
             'date' => $date,
             'shift' => $shift,
             'areas' => $areas->all(),
-            'breakdown' => $this->breakdown($breakdown),
-            'total_hauler' => $areas->sum(fn ($a) => collect($a['clusters'])->sum(fn ($c) => collect($c['loaders'])->sum(fn ($l) => count($l['units'])))),
+            'breakdown' => $breakdownSheet,
+            'ready' => $this->readyUnits($all),
+            'summary' => $this->summary($clusters, $breakdownSheet),
+            'total_hauler' => $clusters->sum(fn ($c) => $this->haulerCount($c)),
         ];
     }
 
@@ -85,6 +91,37 @@ class FleetBoardService
             && (! $isFiltered || $r['status'] === $statusFilter)));
 
         return compact('month', 'counts', 'pages', 'page') + ['rows' => $shown];
+    }
+
+    private function haulerCount(array $cluster): int
+    {
+        return array_sum(array_map(fn ($loader) => count($loader['units']), $cluster['loaders']));
+    }
+
+    /** Ringkasan panel UNIT: COAL = hauler di cluster bernama COAL, OB = hauler cluster lain, STB/BD = unit breakdown. */
+    private function summary(Collection $clusters, ?array $breakdown): array
+    {
+        $coal = $clusters->filter(fn ($c) => str_contains(mb_strtoupper($c['name']), 'COAL'))->sum(fn ($c) => $this->haulerCount($c));
+        $ob = $clusters->sum(fn ($c) => $this->haulerCount($c)) - $coal;
+        $bd = count($breakdown['units'] ?? []);
+
+        return ['ob' => $ob, 'coal' => $coal, 'breakdown' => $bd, 'total' => $ob + $coal + $bd];
+    }
+
+    /** Hauler master aktif yang belum terpasang di loader mana pun maupun Breakdown: monte (parkiran M), gibson (G dan J), urut kode. */
+    private function readyUnits(Collection $allocations): array
+    {
+        if (! Schema::hasTable('fleet_master_units')) return ['monte' => [], 'gibson' => []];
+
+        $used = $allocations->pluck('unit_nrp')->map(fn ($code) => mb_strtoupper(trim((string) $code)))->filter()->flip();
+        $ready = FleetMasterUnit::query()->active()->ofType(FleetMasterUnit::HAULER)->orderBy('code')->get(['code', 'parking_code'])
+            ->reject(fn ($unit) => $used->has(mb_strtoupper(trim($unit->code))))
+            ->map(fn ($unit) => ['code' => $unit->code, 'status' => (string) $unit->parking_code]);
+
+        return [
+            'monte' => $ready->where('status', 'M')->values()->all(),
+            'gibson' => $ready->whereIn('status', ['G', 'J'])->values()->all(),
+        ];
     }
 
     private function storedClusters(string $date, int $shift): Collection
