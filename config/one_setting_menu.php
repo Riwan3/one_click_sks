@@ -24,6 +24,4 @@ return [
     ['menu_key' => 'setting-unit-support', 'label' => 'Lokasi Unit Support', 'icon' => 'MapPin', 'href' => '/one-setting/unit-support'],
     ['menu_key' => 'setting-dozer-pc', 'label' => 'Posisi Dozer & PC', 'icon' => 'Target', 'href' => '/one-setting/dozer-pc'],
     ['menu_key' => 'setting-pw-cp', 'label' => 'Password CP', 'icon' => 'KeyRound', 'href' => '/one-setting/pw-cp'],
-    ['menu_key' => 'monitoring-manpower', 'label' => 'Monitoring Settingan Manpower (Lama)', 'icon' => 'Users', 'href' => '/one-setting/monitoring-manpower'],
-    ['menu_key' => 'monitoring-fleet', 'label' => 'Monitoring Settingan Fleet (Lama)', 'icon' => 'Truck', 'href' => '/one-setting/monitoring-fleet'],
 ];
