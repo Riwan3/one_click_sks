@@ -10,17 +10,10 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed the application's database.
+     * Hanya data master (tanpa karyawan/user dummy). Akun admin dibuat lewat: php artisan auth:create-admin {nrp}
      */
     public function run(): void
     {
-        $this->call([
-            EmployeeSeeder::class,
-            RoleSeeder::class,
-            UserSeeder::class,
-            MasterSpdkSeeder::class,
-            RolePermissionSeeder::class,
-            MppUnitSeeder::class,
-        ]);
+        $this->call(ProductionSeeder::class);
     }
 }
