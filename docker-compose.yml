@@ -16,10 +16,10 @@ services:
     expose:
       - "80"
     volumes:
-      - ./.env:/app/.env:ro
+      - ./.env:/app/.env:ro,z
       - app_storage:/app/storage
       - app_uploads:/app/public/assets/uploads
-      - ./secrets:/app/secrets:ro
+      - ./secrets:/app/secrets:ro,z
     depends_on:
       mysql:
         condition: service_healthy
@@ -41,10 +41,10 @@ services:
       CONTAINER_ROLE: queue
     env_file: .env
     volumes:
-      - ./.env:/app/.env:ro
+      - ./.env:/app/.env:ro,z
       - app_storage:/app/storage
       - app_uploads:/app/public/assets/uploads
-      - ./secrets:/app/secrets:ro
+      - ./secrets:/app/secrets:ro,z
     depends_on:
       app:
         condition: service_started
@@ -61,10 +61,10 @@ services:
       CONTAINER_ROLE: scheduler
     env_file: .env
     volumes:
-      - ./.env:/app/.env:ro
+      - ./.env:/app/.env:ro,z
       - app_storage:/app/storage
       - app_uploads:/app/public/assets/uploads
-      - ./secrets:/app/secrets:ro
+      - ./secrets:/app/secrets:ro,z
     depends_on:
       app:
         condition: service_started
@@ -83,7 +83,7 @@ services:
       - "443:443"
       - "443:443/udp"
     volumes:
-      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro,z
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
