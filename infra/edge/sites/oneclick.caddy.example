@@ -1,0 +1,9 @@
+# OneClick. Salin ke oneclick.caddy dan ganti domainnya.
+# "oneclick_app" = nama container aplikasi di jaringan "edge" (port 80 di dalam container).
+oneclick.contoh.co.id {
+	encode zstd gzip
+	request_body {
+		max_size 50MB
+	}
+	reverse_proxy oneclick_app:80
+}

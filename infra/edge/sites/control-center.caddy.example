@@ -1,0 +1,9 @@
+# OneClick Control Center. Salin ke control-center.caddy dan ganti domainnya.
+# "oneclick_cc_app" = nama container aplikasi di jaringan "edge" (port 80 di dalam container).
+control.contoh.co.id {
+	encode zstd gzip
+	request_body {
+		max_size 20MB
+	}
+	reverse_proxy oneclick_cc_app:80
+}

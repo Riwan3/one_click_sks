@@ -1,0 +1,2 @@
+# Konfigurasi domain nyata ada di server saja; yang ikut git hanya contoh (*.example).
+*.caddy

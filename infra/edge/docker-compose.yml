@@ -1,0 +1,39 @@
+# Reverse proxy BERSAMA untuk semua aplikasi di VPS ini (OneClick, Control Center, dan aplikasi lain nanti).
+# Hanya container ini yang memakai port 80/443 server; HTTPS (Let's Encrypt) diurus otomatis oleh Caddy.
+# Tiap aplikasi cukup bergabung ke jaringan Docker "edge" dan mendaftarkan domainnya lewat satu file di sites/.
+#
+# Persiapan sekali per server :  docker network create edge
+# Jalankan                    :  docker compose up -d
+# Tambah/ubah domain          :  edit sites/*.caddy lalu  docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+# Panduan lengkap             :  infra/edge/README.md
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: edge_caddy
+    restart: unless-stopped
+    # Resolver publik IPv4: di sebagian VPS resolver bawaan IPv6 tidak terjangkau dari container
+    # sehingga pengambilan sertifikat Let's Encrypt gagal.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro,z
+      - ./sites:/etc/caddy/sites:ro,z
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+
+networks:
+  edge:
+    name: edge
+    external: true
+
+volumes:
+  caddy_data:
+  caddy_config:

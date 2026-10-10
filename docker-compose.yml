@@ -1,7 +1,12 @@
 # OneClick Laravel — produksi dengan Docker Compose.
-# Layanan: caddy (HTTPS otomatis), app (Nginx + PHP-FPM), queue, scheduler, mysql. Semua konfigurasi dibaca dari file .env.
+# Layanan: app (Nginx + PHP-FPM), queue, scheduler, mysql, dan caddy (opsional). Semua konfigurasi dibaca dari file .env.
 #
-# Pertama kali : cp .env.docker.example .env  (isi password & APP_URL)  ->  docker compose up -d --build
+# Pintu depan (HTTPS):
+#  - Server berisi BANYAK aplikasi (disarankan): satu Caddy bersama di infra/edge (lihat infra/edge/README.md);
+#    di .env kosongkan COMPOSE_PROFILES. Aplikasi ini bergabung ke jaringan Docker "edge".
+#  - Server hanya untuk aplikasi ini: COMPOSE_PROFILES=caddy memakai Caddy di compose ini (port 80/443 harus kosong).
+#
+# Pertama kali : docker network create edge ; cp .env.docker.example .env (isi password & APP_URL) ; docker compose up -d --build
 # Update kode  : ./deploy.sh
 
 # Resolver DNS publik IPv4. Tanpa ini container memakai resolver server apa adanya; di sebagian VPS resolver itu
@@ -40,6 +45,7 @@ services:
       start_period: 60s
     networks:
       - oneclick
+      - edge   # reverse proxy bersama (infra/edge) meneruskan domain ke container ini
 
   queue:
     image: oneclick-app:latest
@@ -132,6 +138,10 @@ services:
 networks:
   oneclick:
     driver: bridge
+  # Jaringan bersama dengan reverse proxy (infra/edge). Buat sekali per server: docker network create edge
+  edge:
+    name: edge
+    external: true
 
 volumes:
   mysql_data:
