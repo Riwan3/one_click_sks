@@ -1,0 +1,10 @@
+# Reverse proxy di depan container app.
+# APP_DOMAIN diisi (mis. oneclick.contoh.co.id) -> HTTPS otomatis (Let's Encrypt) + redirect HTTP->HTTPS.
+# APP_DOMAIN kosong -> HTTP biasa di port 80 (akses lewat IP server).
+{$APP_DOMAIN::80} {
+	encode zstd gzip
+	request_body {
+		max_size 50MB
+	}
+	reverse_proxy app:80
+}

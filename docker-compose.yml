@@ -1,5 +1,5 @@
 # OneClick Laravel — produksi dengan Docker Compose.
-# Layanan: app (Nginx + PHP-FPM), queue, scheduler, mysql. Semua konfigurasi dibaca dari file .env.
+# Layanan: caddy (HTTPS otomatis), app (Nginx + PHP-FPM), queue, scheduler, mysql. Semua konfigurasi dibaca dari file .env.
 #
 # Pertama kali : cp .env.docker.example .env  (isi password & APP_URL)  ->  docker compose up -d --build
 # Update kode  : ./deploy.sh
@@ -13,8 +13,8 @@ services:
     environment:
       CONTAINER_ROLE: app
     env_file: .env
-    ports:
-      - "${APP_PORT:-80}:80"
+    expose:
+      - "80"
     volumes:
       - ./.env:/app/.env:ro
       - app_storage:/app/storage
@@ -69,6 +69,25 @@ services:
     networks:
       - oneclick
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: oneclick_caddy
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    networks:
+      - oneclick
+
   mysql:
     image: mysql:8.4
     container_name: oneclick_mysql
@@ -101,3 +120,5 @@ volumes:
   mysql_data:
   app_storage:
   app_uploads:
+  caddy_data:
+  caddy_config:

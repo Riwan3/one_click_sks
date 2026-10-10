@@ -22,6 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
         ]);
 
+        // Di belakang reverse proxy (Caddy/Docker): percayai X-Forwarded-* agar URL & cookie memakai https.
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'admin' => IsAdmin::class,
             'validate-spdk' => ValidateSpDkForDocument::class,
