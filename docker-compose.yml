@@ -4,12 +4,20 @@
 # Pertama kali : cp .env.docker.example .env  (isi password & APP_URL)  ->  docker compose up -d --build
 # Update kode  : ./deploy.sh
 
+# Resolver DNS publik IPv4. Tanpa ini container memakai resolver server apa adanya; di sebagian VPS resolver itu
+# IPv6 yang tidak terjangkau dari container ("network is unreachable"), sehingga Caddy gagal meminta sertifikat
+# Let's Encrypt dan aplikasi gagal memanggil API luar (HO, FCM).
+x-dns: &public-dns
+  - 1.1.1.1
+  - 8.8.8.8
+
 services:
   app:
     build: .
     image: oneclick-app:latest
     container_name: oneclick_app
     restart: unless-stopped
+    dns: *public-dns
     environment:
       CONTAINER_ROLE: app
     env_file: .env
@@ -37,6 +45,7 @@ services:
     image: oneclick-app:latest
     container_name: oneclick_queue
     restart: unless-stopped
+    dns: *public-dns
     user: www-data
     environment:
       CONTAINER_ROLE: queue
@@ -57,6 +66,7 @@ services:
     image: oneclick-app:latest
     container_name: oneclick_scheduler
     restart: unless-stopped
+    dns: *public-dns
     user: www-data
     environment:
       CONTAINER_ROLE: scheduler
@@ -79,6 +89,7 @@ services:
     restart: unless-stopped
     # Aktif hanya bila COMPOSE_PROFILES=caddy di .env (port 80/443 server harus kosong).
     profiles: ["caddy"]
+    dns: *public-dns
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-}
     ports:
