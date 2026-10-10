@@ -13,6 +13,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="OneClick">
+    <link rel="icon" type="image/png" href="/images/logo-oneclick.png">
     <link rel="apple-touch-icon" href="/images/title.png">
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])

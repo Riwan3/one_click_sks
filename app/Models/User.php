@@ -11,6 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * Akun login. Data kepegawaian (jabatan, status, dst) ada di Employee —
@@ -37,7 +38,7 @@ class User extends Authenticatable
         'remember_token',
     ];
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected function casts(): array
     {
