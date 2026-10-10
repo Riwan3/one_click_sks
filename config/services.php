@@ -41,6 +41,12 @@ return [
         'timeout' => env('SPDK_TIMEOUT', 30),
     ],
 
+    // Notifikasi push (Firebase Cloud Messaging HTTP v1). Isi dengan path file JSON service account;
+    // kosong = notifikasi push dimatikan.
+    'fcm' => [
+        'credentials' => env('FCM_CREDENTIALS'),
+    ],
+
     'ho_api' => [
         'url' => env('HO_API_URL'),
         'token' => env('HO_API_TOKEN'),

@@ -102,6 +102,90 @@ class OneGmpController extends Controller
     ];
 
     /**
+     * API mobile (GL/admin): skor area GMP per tipe/tahun/minggu — isi sama dengan halaman AreaIndex web
+     * (?type=MHR|MFOB|MFCO|DISPOSAL|DEWATERING&year=&week=). Hanya penilaian berstatus approved.
+     */
+    public function areaApi(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $this->ensureGmpMobileAccess($request);
+
+        return response()->json(\Illuminate\Support\Arr::except(
+            $this->buildGmpEvaluationData($request, 'MHR'),
+            ['user', 'notifCounts', 'menu']
+        ));
+    }
+
+    /** API mobile: soal, rubrik, dan lokasi master untuk mengisi penilaian satu tipe GMP. */
+    public function penilaianFormApi(Request $request, string $type): \Illuminate\Http\JsonResponse
+    {
+        $this->ensureGmpMobileAccess($request);
+
+        $type = $this->resolveGmpType($type);
+
+        return response()->json([
+            'type' => $type,
+            'type_name' => self::TYPE_META[$type]['name'],
+            'questions' => collect(self::QUESTION_MAPS[$type])->map(fn ($q, $no) => ['no' => $no] + $q)->values(),
+            'rubrics' => config("gmp_rubrics.{$type}", []),
+            'master_locations' => DB::table('gmp_master_lokasi')->where('tipe_gmp', $type)->pluck('nama_lokasi')->values(),
+        ]);
+    }
+
+    /**
+     * API mobile: kirim penilaian GMP (status pending, menunggu approval). Aturan hitung sama dengan
+     * storePenilaian web; penilai & NRP diambil dari akun yang login, bukan dari kiriman klien.
+     */
+    public function storePenilaianApi(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $this->ensureGmpMobileAccess($request);
+
+        $user = $request->user();
+        $type = $this->resolveGmpType($request->input('tipe_gmp'));
+        $questions = self::QUESTION_MAPS[$type];
+        $request->validate([
+            'lokasi' => ['required', 'string', 'max:150'],
+            'tanggal_gmp' => ['required', 'date'],
+            'keterangan' => ['nullable', 'string', 'max:2000'],
+            'foto_area' => ['nullable', 'image', 'max:10240'],
+            'answers' => ['required', 'array'],
+            'question_photos.*' => ['nullable', 'image', 'max:10240'],
+        ]);
+
+        // Setiap soal wajib dijawab dengan skor yang diizinkan untuk soal itu.
+        $answers = (array) $request->input('answers');
+        foreach ($questions as $no => $meta) {
+            if (! array_key_exists($no, $answers) || ! in_array((int) $answers[$no], $meta['allowed_scores'], true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'answers' => "Jawaban soal {$no} ({$meta['name']}) belum diisi atau tidak valid.",
+                ]);
+            }
+        }
+
+        $request->merge([
+            'tipe_gmp' => $type,
+            'penilai' => $user->name,
+            'nrp' => $user->username,
+            'answers' => array_intersect_key($answers, $questions),
+        ]);
+
+        $this->storePenilaian($request);
+
+        $form = DB::table('gmp_penilaian_form')->where('created_by', $user->username)->latest('id')->first();
+
+        return response()->json([
+            'message' => 'Penilaian GMP berhasil dikirim dan menunggu approval.',
+            'id' => $form?->id,
+            'total_percent' => $form ? round((float) $form->total_percent, 1) : null,
+        ]);
+    }
+
+    private function ensureGmpMobileAccess(Request $request): void
+    {
+        $user = $request->user();
+        abort_unless($user && ($user->isGroupLeader() || $user->isAdmin()), 403, 'Menu ini hanya untuk Group Leader.');
+    }
+
+    /**
      * Dashboard GMP — alur & perhitungan sama dengan index.php?type=gmp v1
      * (Group Leader tetap melihat dashboard; operator/helper/trafficman tidak melihat grafik).
      */

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\HandlesMoncuErrors;
 use App\Http\Requests\ManpowerV201InputRequest;
 use App\Http\Requests\ManpowerV201Request;
+use App\Services\ManpowerFinalNotifier;
 use App\Services\ManpowerV201SettingService;
 use Illuminate\Http\RedirectResponse;
 
@@ -33,8 +34,24 @@ class OneSettingManpowerV201SettingController extends Controller
     public function finalize(ManpowerV201Request $request, int $setting): RedirectResponse
     {
         $this->guardPage(fn () => $this->setting->finalize($setting));
+        $this->notifyOperators($setting);
 
         return back()->with('success', 'Setting difinalkan.');
+    }
+
+    /**
+     * Kirim notifikasi push penempatan ke operator setelah respons terkirim (tidak menahan klik
+     * "Finalkan"; galat pengiriman hanya dilaporkan ke log, tidak menggagalkan finalisasi).
+     */
+    private function notifyOperators(int $settingId): void
+    {
+        dispatch(function () use ($settingId) {
+            try {
+                app(ManpowerFinalNotifier::class)->notify($settingId);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        })->afterResponse();
     }
 
     public function reopen(ManpowerV201Request $request, int $setting): RedirectResponse

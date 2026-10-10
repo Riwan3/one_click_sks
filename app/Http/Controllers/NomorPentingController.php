@@ -32,6 +32,32 @@ class NomorPentingController extends Controller
     }
 
     /**
+     * API mobile: hanya nomor yang aktif (admin pun melihat yang aktif saja, karena
+     * pengelolaan data ada di web), dikelompokkan per kategori sesuai urutan.
+     */
+    public function apiMobile(): JsonResponse
+    {
+        $groups = NomorPenting::query()
+            ->where('aktif', true)
+            ->orderBy('kategori')
+            ->orderBy('urutan')
+            ->orderBy('nama')
+            ->get(['nama', 'jabatan', 'no_telepon', 'kategori'])
+            ->groupBy('kategori')
+            ->map(fn ($items, $kategori) => [
+                'kategori' => $kategori,
+                'items' => $items->map(fn ($n) => [
+                    'nama' => $n->nama,
+                    'jabatan' => $n->jabatan,
+                    'no_telepon' => $n->no_telepon,
+                ])->values(),
+            ])
+            ->values();
+
+        return response()->json(['groups' => $groups]);
+    }
+
+    /**
      * API untuk mengambil daftar nomor penting untuk Modal & Quick Access.
      */
     public function apiList(Request $request): JsonResponse

@@ -305,6 +305,44 @@ class EmployeeController extends Controller
         return redirect()->back()->with('success', 'Karyawan berhasil dilepas dari daftar anak asuh.');
     }
 
+    /**
+     * API mobile: daftar anak asuh milik Group Leader yang login (?search= nama/NRP).
+     * Hanya GL; data diambil lewat EmployeeService::getAnakAsuh seperti halaman web.
+     */
+    public function anakAsuhApi(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user && ($user->isGroupLeader() || $user->isAdmin()), 403, 'Menu ini hanya untuk Group Leader.');
+
+        $gl = $user->getEmployeeRecord();
+        if (! $gl) {
+            return response()->json(['gl' => null, 'employees' => []]);
+        }
+
+        $search = trim((string) $request->string('search'));
+
+        return response()->json([
+            'gl' => [
+                'nama' => $gl->name,
+                'nrp' => $gl->nrp,
+                'jabatan' => $gl->jabatan_ss6 ?: $gl->jabatan_roster,
+            ],
+            'employees' => $this->employeeService->getAnakAsuh($gl, $search ?: null)
+                ->map(fn (Employee $e) => [
+                    'nrp' => $e->nrp,
+                    'nama' => $e->name,
+                    'jabatan' => $e->jabatan_ss6 ?: $e->jabatan_roster,
+                    'unit' => $e->unit,
+                    'lokasi' => $e->lokasi_kerja,
+                    'status' => $e->status_karyawan->value,
+                    'telepon' => $e->no_telepon ? ('0' . ltrim($e->no_telepon, '0')) : null,
+                    'masa_kerja' => $e->tenureLabel(),
+                    'foto' => $e->foto ? asset('storage/' . $e->foto) : null,
+                ])
+                ->values(),
+        ]);
+    }
+
     private function resolveGlEmployee(?\App\Models\User $user): ?Employee
     {
         if (! $user) {

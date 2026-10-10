@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\MorRanking;
 use App\Models\QorDpr;
 use App\Models\QorPdty;
 use App\Models\QorPerforma;
+use App\Services\Mor\MorEngine;
+use App\Services\Mor\MorInputBuilder;
+use App\Services\Mor\PdtyEngine;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -13,14 +15,15 @@ use Illuminate\Support\Facades\DB;
 class QorService
 {
     public function __construct(
-        private QorPdtyService $pdtyService,
-        private MorRankingService $morService,
+        private PdtyEngine $pdtyEngine,
+        private MorEngine $morEngine,
+        private MorInputBuilder $morInputBuilder,
         private QorImportService $importService
     ) {}
 
     public static function quartalRange(int $year, int $quarter): array
     {
-        return QorPdtyService::quarterRange($year, $quarter);
+        return PdtyEngine::periodRange($year, $quarter);
     }
 
     public function getOperatorReport(int $year, int $quarter, ?string $search = null, string $kategori = 'ALL', int $perPage = 50)
@@ -32,10 +35,14 @@ class QorService
                 $join->on('employees.id', '=', 'qor_dpr.employee_id')
                      ->orOn('employees.nrp', '=', 'qor_dpr.nrp');
             })
+            // Hanya baris agregat quartal kategori OB (tempat achievement COAL+OB disimpan);
+            // join ke semua baris (COAL, OB, per bulan) menggandakan SUM rit/BCM/ton.
             ->leftJoin('qor_pdty', function ($join) use ($year, $quarter) {
                 $join->on('qor_pdty.nrp', '=', 'qor_dpr.nrp')
                      ->where('qor_pdty.tahun', '=', $year)
-                     ->where('qor_pdty.quartal', '=', $quarter);
+                     ->where('qor_pdty.quartal', '=', $quarter)
+                     ->where('qor_pdty.bulan', '=', 0)
+                     ->where('qor_pdty.kategori', '=', 'OB');
             })
             ->whereBetween('qor_dpr.tanggal', [$start, $end])
             ->selectRaw('
@@ -48,7 +55,7 @@ class QorService
                 SUM(qor_dpr.rit) as total_rit,
                 SUM(qor_dpr.total_bcm) as total_bcm,
                 SUM(qor_dpr.total_ton) as total_ton,
-                MAX(qor_pdty.achievement_combined) as achievement_pct
+                MAX(qor_pdty.achievement_combined) * 100 as achievement_pct
             ')
             ->groupBy('qor_dpr.nrp');
 
@@ -106,34 +113,54 @@ class QorService
         return $query->orderBy('qor_dpr.nrp')->orderBy('bulan')->get();
     }
 
+    /**
+     * Ranking MOR quartal dari snapshot mesin MOR (mor_raport_bulanan periode Q),
+     * ranking per sheet jabatan seperti file MOR. Dipetakan ke kolom tabel Quartal Report.
+     */
     public function getQuartalRanking(int $year, int $quarter, ?string $search = null, int $perPage = 50)
     {
-        $query = MorRanking::query()
-            ->period($year, $quarter);
+        $kategoriLabel = ['IS' => 'Istimewa', 'BS' => 'Baik Sekali'];
+        $query = DB::table('mor_raport_bulanan')
+            ->where(['tahun' => $year, 'periode' => 'Q', 'bulan' => $quarter]);
 
-        if (!empty($search)) {
+        if (! empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('nrp', 'like', "%{$search}%")
                   ->orWhere('nama', 'like', "%{$search}%")
                   ->orWhere('jabatan', 'like', "%{$search}%")
-                  ->orWhere('kategori', 'like', "%{$search}%");
+                  ->orWhere('sheet', 'like', "%{$search}%");
             });
         }
 
-        $results = $query->orderBy('ranking')->paginate($perPage);
+        return $query->orderBy('sheet')->orderBy('ranking')->paginate($perPage)
+            ->through(function ($r) use ($kategoriLabel) {
+                $detail = json_decode($r->detail, true) ?: [];
+                $poin = $detail['poin'] ?? [];
+                $produksi = $detail['produksi'] ?? [];
+                $row = [
+                    'id' => $r->id,
+                    'nrp' => $r->nrp,
+                    'nama' => $r->nama,
+                    'ranking' => (int) $r->ranking,
+                    'jumlah' => (int) $r->jumlah,
+                    'kategori' => $kategoriLabel[$r->kategori] ?? ($r->prasyarat === 'OK' ? null : 'Belum lolos prasyarat'),
+                    'jabatan' => $r->jabatan,
+                    'grup' => $r->sheet,
+                    'total_poin' => (float) $r->total_poin,
+                    'atr_persen' => $produksi['atr_persen'] ?? null,
+                    'ts_persen' => isset($produksi['timesheet_persen']) ? round((float) $produksi['timesheet_persen'], 1) : null,
+                    'hm_persen' => $produksi['hm_ach'] ?? null,
+                    'pdty_persen' => $produksi['pdty_combined'] ?? null,
+                ];
+                // Komponen yang tidak dinilai di sheet ini tidak dikirim (tabel menampilkan "-").
+                foreach (['atr_point' => 'POIN ATR', 'ts_point' => 'POIN TS', 'hm_point' => 'POIN HM', 'pdty_point' => 'POIN PDTY'] as $col => $key) {
+                    if (array_key_exists($key, $poin)) {
+                        $row[$col] = (float) $poin[$key];
+                    }
+                }
 
-        // If no MOR ranking yet, fallback to QorPerforma or calculate
-        if ($results->isEmpty()) {
-            $bcmRank = QorPerforma::query()
-                ->with('employee')
-                ->period($year, $quarter)
-                ->orderBy('ranking')
-                ->paginate($perPage);
-
-            return $bcmRank;
-        }
-
-        return $results;
+                return $row;
+            });
     }
 
     public function getDprDaily(string $nrp, int $year, int $quarter): Collection
@@ -148,22 +175,31 @@ class QorService
             ->get();
     }
 
+    /**
+     * Hitung ulang satu quartal: agregat BCM, PDTY (mesin V1, quartal + per bulan),
+     * lalu snapshot Raport MOR bulan/quartal/tahun yang terdampak (sekitar 15-20 detik).
+     */
     public function runRecalculation(int $year, int $quarter): array
     {
-        // 1. Calculate BCM basic aggregates
         $this->calculateQuarterlyPerforma($year, $quarter);
-
-        // 2. Calculate PDTY (OB + COAL)
-        $pdtyRes = $this->pdtyService->calculateForPeriod($year, $quarter);
-
-        // 3. Calculate MOR Ranking
-        $morRes = $this->morService->calculateForPeriod($year, $quarter);
+        $pdty = $this->pdtyEngine->recalcQuarter($year, $quarter);
+        $periodeRaport = $this->morInputBuilder->refreshDirty();
 
         return [
             'success' => true,
-            'pdty' => $pdtyRes,
-            'mor' => $morRes,
+            'pdty' => $pdty,
+            'periode_raport' => $periodeRaport,
         ];
+    }
+
+    /** Tandai bulan-bulan yang datanya berubah supaya Raport MOR ikut dihitung ulang. */
+    private function markDirtyBetween(string $start, string $end): void
+    {
+        $months = [];
+        for ($d = strtotime(date('Y-m-01', strtotime($start))); $d <= strtotime($end); $d = strtotime('+1 month', $d)) {
+            $months[] = date('Y-m', $d);
+        }
+        $this->morEngine->markSnapshotDirty($months);
     }
 
     public function resetPeriod(int $year, int $quarter, bool $resetAll = false): void
@@ -175,6 +211,7 @@ class QorService
             DB::table('qor_pdty')->truncate();
             DB::table('mor_ranking')->truncate();
             DB::table('qor_performa')->truncate();
+            DB::table('mor_raport_bulanan')->truncate();
             return;
         }
 
@@ -186,17 +223,41 @@ class QorService
         DB::table('qor_pdty')->where('tahun', $year)->where('quartal', $quarter)->delete();
         DB::table('mor_ranking')->where('tahun', $year)->where('quartal', $quarter)->delete();
         DB::table('qor_performa')->where('tahun', $year)->where('quartal', $quarter)->delete();
+
+        // Raport bulan & quartal ini tidak lagi punya data; raport tahunan dihitung ulang.
+        DB::table('mor_raport_bulanan')->where('tahun', $year)->where(function ($q) use ($quarter) {
+            $q->where(fn ($m) => $m->where('periode', 'M')->whereIn('bulan', PdtyEngine::monthsOfQuarter($quarter)))
+              ->orWhere(fn ($m) => $m->where('periode', 'Q')->where('bulan', $quarter));
+        })->delete();
+        $this->markDirtyBetween($start, $end);
     }
 
+    /** Import satu file lalu tandai bulan yang datanya berubah untuk dihitung ulang di Raport MOR. */
     public function importFile(UploadedFile $file, string $type): array
     {
-        return match ($type) {
+        $table = match ($type) {
+            'sap_hm' => 'qor_sap_hm',
+            'atr' => 'qor_atr_attendance',
+            default => 'qor_dpr',
+        };
+        $mulai = now()->subSecond();
+
+        $result = match ($type) {
             'dpr_ob' => $this->importService->importDpr($file, 'OB'),
             'dpr_coal' => $this->importService->importDpr($file, 'COAL'),
             'sap_hm' => $this->importService->importSapHm($file),
             'atr' => $this->importService->importAtr($file),
             default => $this->importService->importDpr($file, 'OB'),
         };
+
+        $range = DB::table($table)
+            ->where(fn ($q) => $q->where('created_at', '>=', $mulai)->orWhere('updated_at', '>=', $mulai))
+            ->selectRaw('MIN(tanggal) mn, MAX(tanggal) mx')->first();
+        if ($range?->mn) {
+            $this->markDirtyBetween($range->mn, $range->mx);
+        }
+
+        return $result;
     }
 
     public function calculateQuarterlyPerforma(int $year, int $quarter): void
@@ -211,17 +272,20 @@ class QorService
                 MAX(loader) as loader,
                 ROUND(AVG(jarak), 1) as jarak,
                 MAX(kode_unit) as kode_unit,
-                SUM(rit) as rit_total,
-                SUM(total_bcm) as bcm_total
+                COALESCE(SUM(rit), 0) as rit_total,
+                COALESCE(SUM(total_bcm), 0) as bcm_total
             ')
             ->whereBetween('tanggal', [$start, $end])
+            // qor_performa disusun per karyawan; NRP DPR yang belum ada di employees
+            // dilewati di sini (PDTY & Raport MOR tetap menghitungnya per NRP).
+            ->whereNotNull('employee_id')
             ->groupBy('nrp', 'employee_id')
             ->get();
 
         foreach ($aggregates as $row) {
             QorPerforma::updateOrCreate(
                 [
-                    'employee_id' => $row->employee_id ?: 0,
+                    'employee_id' => $row->employee_id,
                     'tahun' => $year,
                     'quartal' => $quarter
                 ],

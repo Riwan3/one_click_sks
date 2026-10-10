@@ -19,6 +19,42 @@ class OdrDailyComplianceController extends Controller
 {
     public function __construct(private OdrAssignmentService $assignmentService) {}
 
+    /**
+     * API mobile: Daily Compliance (?tanggal=Y-m-d&shift=&area=&status=). Isi dan aturan akses sama
+     * dengan halaman web; can_manage menentukan apakah checklist boleh diubah.
+     */
+    public function apiDaily(Request $request): \Illuminate\Http\JsonResponse
+    {
+        Gate::authorize('access-compliance-report');
+
+        $filters = $this->assignmentService->normalizeFilters($request->query());
+        $this->assignmentService->syncStatuses($filters['tanggal']);
+
+        return response()->json([
+            'filters' => $filters,
+            'kpi' => $this->assignmentService->kpi($filters['tanggal'], $filters['shift']),
+            'rows' => OdrAssignmentResource::collection($this->assignmentService->list([...$filters, 'pengawas' => '']))->resolve(),
+            'area_options' => $this->assignmentService->usedAreas(),
+            'shift_options' => OdrAssignment::SHIFTS,
+            'aktivitas_docs' => (object) $this->assignmentService->aktivitasDocuments(),
+            'can_manage' => Gate::allows('manage-compliance-assignment'),
+        ]);
+    }
+
+    /** API mobile: centang/lepas satu task checklist (hak akses sama dengan toggleTask web). */
+    public function apiToggleTask(Request $request, OdrAssignment $assignment): \Illuminate\Http\JsonResponse
+    {
+        Gate::authorize('manage-compliance-assignment');
+        $data = $request->validate(['task_index' => ['required', 'integer', 'min:0'], 'value' => ['required', 'boolean']]);
+
+        $compliance = $this->assignmentService->toggleTask($assignment, $data['task_index'], filter_var($data['value'], FILTER_VALIDATE_BOOLEAN));
+
+        return response()->json([
+            'row' => OdrAssignmentResource::make($assignment->fresh())->resolve(),
+            'compliance' => $compliance,
+        ]);
+    }
+
     public function daily(Request $request): Response
     {
         Gate::authorize('access-compliance-report');

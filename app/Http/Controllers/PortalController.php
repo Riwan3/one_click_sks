@@ -78,14 +78,27 @@ class PortalController extends Controller
      */
     private function mobileHome(string $jabatan, string $role): Response
     {
+        return Inertia::render('GroupLeader/Home', $this->mobileHomeProps($jabatan, $role));
+    }
+
+    /**
+     * Data Beranda mobile (dipakai halaman Inertia dan API mobile).
+     *
+     * @return array<string, mixed>
+     */
+    private function mobileHomeProps(string $jabatan, string $role): array
+    {
         $user = Auth::user();
         $isOperator = strtolower($role) === 'operator'
             || str_contains(strtoupper($jabatan ?? ''), 'OPERATOR')
             || str_contains(strtoupper(Auth::user()->role ?? ''), 'OPERATOR');
 
         $employee = Employee::where('nrp', $user?->username)->first();
-        $today = now()->format('Y-m-d');
-        $shiftNum = (now()->hour >= 6 && now()->hour < 18) ? '1' : '2';
+        // Hari & shift mengikuti jam lokal site (config app.timezone = UTC, sehingga now() baru ganti
+        // hari pukul 08.00 WITA).
+        $localNow = now(config('app.local_timezone'));
+        $today = $localNow->format('Y-m-d');
+        $shiftNum = ($localNow->hour >= 6 && $localNow->hour < 18) ? '1' : '2';
         $authUnit = $this->authUnit();
 
         $buildDayData = function (\Carbon\Carbon $date, bool $isYesterday = false) use ($user, $employee, $isOperator, $authUnit, $shiftNum) {
@@ -279,9 +292,9 @@ class PortalController extends Controller
         };
 
         $daysData = [
-            'kemarin' => $buildDayData(now()->subDay(), true),
-            'hari-ini' => $buildDayData(now(), false),
-            'besok' => $buildDayData(now()->addDay(), false),
+            'kemarin' => $buildDayData($localNow->copy()->subDay(), true),
+            'hari-ini' => $buildDayData($localNow->copy(), false),
+            'besok' => $buildDayData($localNow->copy()->addDay(), false),
         ];
 
         $current = $daysData['hari-ini'];
@@ -292,10 +305,10 @@ class PortalController extends Controller
         $fleet = $current['fleet'];
         $diggerFleet = $current['diggerFleet'];
 
-        return Inertia::render('GroupLeader/Home', [
+        return [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
-            'tanggal' => now()->format('d M Y'),
+            'tanggal' => $localNow->format('d M Y'),
             'roster' => $rosterCode,
             'shift' => $isOperator ? 'N' : null,
             'unitKerja' => $unitKerja,
@@ -314,10 +327,137 @@ class PortalController extends Controller
             ])->values(),
             'navItems' => $this->navItemsFor($jabatan),
             'accentClass' => $isOperator ? 'text-[#7B112C]' : 'text-blue-500',
+        ];
+    }
+
+    /**
+     * API mobile: data Beranda per hari (kemarin, hari-ini, besok) untuk user yang login.
+     */
+    public function homeApi(): \Illuminate\Http\JsonResponse
+    {
+        $role = Auth::user()->role;
+        $props = $this->mobileHomeProps($this->authJabatan() ?? $role, $role);
+
+        return response()->json([
+            'tanggal' => $props['tanggal'],
+            'days' => $props['daysData'],
         ]);
     }
 
+    /**
+     * API mobile: data profil user yang login (tab Profil); isinya sama dengan props 'profile' di web.
+     * ?tahun= memilih tahun riwayat (ATR, HM, pembinaan, SK, SP, fatigue).
+     */
+    public function profilApi(Request $request): \Illuminate\Http\JsonResponse
+    {
+        return response()->json($this->profileProps($request, false)['profile']);
+    }
+
+    /**
+     * API mobile: ganti foto profil (aturan sama dengan updateFoto web).
+     */
+    public function updateFotoApi(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $this->updateFoto($request);
+
+        return response()->json(['message' => 'Foto profil berhasil diperbarui.']);
+    }
+
+    public function destroyFotoApi(): \Illuminate\Http\JsonResponse
+    {
+        $this->destroyFoto();
+
+        return response()->json(['message' => 'Foto profil berhasil dihapus.']);
+    }
+
+    /**
+     * API mobile: ubah no. HP / email (aturan sama dengan updateKontak web).
+     */
+    public function updateKontakApi(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'no_telepon' => 'nullable|string|max:25',
+            'email' => 'nullable|email|max:100',
+        ]);
+
+        $user = Auth::user();
+        $employee = Employee::where('nrp', $user->username)->first();
+
+        if ($request->filled('email')) {
+            $user->email = $request->email;
+            $user->save();
+        }
+
+        if ($employee) {
+            if ($request->filled('no_telepon')) {
+                $employee->no_telepon = $request->no_telepon;
+            }
+            if ($request->filled('email')) {
+                $employee->email = $request->email;
+            }
+            $employee->save();
+        }
+
+        return response()->json(['message' => 'Data kontak berhasil diperbarui.']);
+    }
+
+    /**
+     * API mobile: ganti password akun (aturan sama dengan updatePassword web).
+     */
+    public function updatePasswordApi(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'current_password' => 'required',
+            'password' => 'required|min:6|confirmed',
+        ], [
+            'current_password.required' => 'Password saat ini harus diisi.',
+            'password.required' => 'Password baru harus diisi.',
+            'password.min' => 'Password minimal 6 karakter.',
+            'password.confirmed' => 'Konfirmasi password baru tidak cocok.',
+        ]);
+
+        $user = Auth::user();
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'message' => 'Password lama yang Anda masukkan salah.',
+                'errors' => ['current_password' => ['Password lama yang Anda masukkan salah.']],
+            ], 422);
+        }
+
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        return response()->json(['message' => 'Password berhasil diubah.']);
+    }
+
     public function mobileData(): Response
+    {
+        return Inertia::render('GroupLeader/Data', $this->mobileDataProps());
+    }
+
+    /**
+     * API mobile: isi tab Data (ATR, compliance, menu, atasan) untuk user yang login.
+     */
+    public function dataApi(): \Illuminate\Http\JsonResponse
+    {
+        $props = $this->mobileDataProps();
+
+        return response()->json([
+            'is_operator' => $props['isOperator'],
+            'atr' => $props['atr'],
+            'compliance' => $props['compliance'],
+            'menu_items' => $props['menuItems'],
+            'atasan' => $props['atasan'],
+        ]);
+    }
+
+    /**
+     * Data tab Data mobile (dipakai halaman Inertia dan API mobile).
+     *
+     * @return array<string, mixed>
+     */
+    private function mobileDataProps(): array
     {
         $isOperator = $this->isOperator();
         $user = Auth::user();
@@ -334,7 +474,7 @@ class PortalController extends Controller
             }
         }
 
-        return Inertia::render('GroupLeader/Data', [
+        return [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'isOperator' => $isOperator,
@@ -365,7 +505,7 @@ class PortalController extends Controller
             'footerNote' => $isOperator ? ['title' => 'Oneclick Beta', 'subtitle' => 'Un. Released'] : null,
             'navItems' => $this->navItemsFor($this->authJabatan()),
             'accentClass' => $isOperator ? 'text-[#7B112C]' : 'text-blue-500',
-        ]);
+        ];
     }
 
     private function getAtrData(?Employee $employee): array
@@ -524,6 +664,27 @@ class PortalController extends Controller
 
     public function aktivity(): Response
     {
+        return Inertia::render('GroupLeader/Aktivity', $this->aktivityProps());
+    }
+
+    /** API mobile: daftar dokumen SOP & aktivitas operasional beserta kategorinya. */
+    public function aktivityApi(): \Illuminate\Http\JsonResponse
+    {
+        $props = $this->aktivityProps();
+
+        return response()->json([
+            'categories' => $props['categories'],
+            'activities' => $props['activities'],
+        ]);
+    }
+
+    /**
+     * Data tab Aktivity mobile (dipakai halaman Inertia dan API mobile).
+     *
+     * @return array<string, mixed>
+     */
+    private function aktivityProps(): array
+    {
         $jabatan = $this->authJabatan();
         $isOperator = $this->isOperator();
 
@@ -582,7 +743,7 @@ class PortalController extends Controller
             $mergedCategories = $primaryCategories;
         }
 
-        return Inertia::render('GroupLeader/Aktivity', [
+        return [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'category' => 'Aktivitas Operasional',
@@ -591,13 +752,22 @@ class PortalController extends Controller
             'isOperator' => $isOperator,
             'navItems' => $this->navItemsFor($jabatan),
             'accentClass' => $isOperator ? 'text-[#7B112C]' : 'text-blue-500',
-        ]);
+        ];
     }
 
     /**
      * Profil Karyawan Lengkap Parity V1
      */
     public function profil(Request $request): Response
+    {
+        return Inertia::render('GroupLeader/Profil', $this->profileProps($request));
+    }
+
+    /**
+     * Props halaman profil (dipakai Inertia dan GET /api/profil). Fallback tabel ATR contoh
+     * hanya untuk web; API tidak boleh mengirim data rekaan.
+     */
+    private function profileProps(Request $request, bool $demoFallback = true): array
     {
         $jabatan = $this->authJabatan();
         $isOperator = $this->isOperator();
@@ -608,7 +778,7 @@ class PortalController extends Controller
         $tahun = max(2020, min(2030, (int) $request->input('tahun', 2026)));
 
         // 1. Data Atasan (Group Leader)
-        $atasan = $this->getGroupLeaderFor($employee);
+        $atasan = $this->getGroupLeaderFor($employee, $demoFallback);
         $atasanName = $atasan['name'];
         $atasanJabatan = $atasan['role'];
         $atasanTelepon = $atasan['phone'];
@@ -759,7 +929,7 @@ class PortalController extends Controller
             }
         }
 
-        if (empty($atrDetailTable) && $tahun === 2026) {
+        if ($demoFallback && empty($atrDetailTable) && $tahun === 2026) {
             $atrDetailTable = [
                 ['bulan' => 'Februari', 'atr' => '100%', 'd' => 15, 'n' => 6, 's' => 0, 'i' => 0, 'a' => 0],
                 ['bulan' => 'Maret', 'atr' => '100%', 'd' => 13, 'n' => 4, 's' => 0, 'i' => 0, 'a' => 0],
@@ -943,7 +1113,7 @@ class PortalController extends Controller
 
         $printUrl = $employee ? route('one-power.employees.print', ['employee' => $employee->id, 'tahun' => $tahun]) : null;
 
-        return Inertia::render('GroupLeader/Profil', [
+        return [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'isOperator' => $isOperator,
@@ -1004,7 +1174,7 @@ class PortalController extends Controller
             ],
             'navItems' => $this->navItemsFor($jabatan),
             'accentClass' => $isOperator ? 'text-[#7B112C]' : 'text-blue-500',
-        ]);
+        ];
     }
 
     /**
@@ -1197,7 +1367,12 @@ class PortalController extends Controller
         return Auth::user()->loadMissing('employee')->employee?->unit ?? Auth::user()->unit;
     }
 
-    private function getGroupLeaderFor(?Employee $employee): array
+    /**
+     * Atasan (Group Leader) karyawan. $fallback=true (halaman web) memakai data contoh bila GL tidak
+     * ditemukan; $fallback=false (API mobile) mengembalikan '-' supaya aplikasi tidak menampilkan
+     * atasan rekaan.
+     */
+    private function getGroupLeaderFor(?Employee $employee, bool $fallback = true): array
     {
         $gl = $employee?->groupLeader;
         if (!$gl && $employee?->lokasi_kerja) {
@@ -1207,6 +1382,10 @@ class PortalController extends Controller
                 ?? Employee::where('lokasi_kerja', $employee->lokasi_kerja)
                 ->where('jabatan_ss6', 'like', '%GROUP LEADER%')
                 ->first();
+        }
+
+        if (! $gl && ! $fallback) {
+            return ['name' => '-', 'role' => '-', 'phone' => '-'];
         }
 
         $name = $gl?->name ?? 'INORA SIPAYUNG';

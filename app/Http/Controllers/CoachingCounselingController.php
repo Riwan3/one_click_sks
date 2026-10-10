@@ -25,6 +25,53 @@ class CoachingCounselingController extends Controller
 
     public function __construct(private CoachingCounselingService $coachingCounselingService) {}
 
+    /**
+     * API mobile: daftar coaching & counseling (hanya baca) untuk GL/admin. Aturan cakupan data
+     * sama dengan halaman web (GL hanya melihat milik/anak asuhnya). Tanda tangan (base64)
+     * tidak dikirim; hanya penanda ada/tidaknya.
+     */
+    public function apiIndex(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user && ($user->isGroupLeader() || $user->isAdmin()), 403, 'Menu ini hanya untuk Group Leader.');
+
+        $search = trim((string) $request->string('search'));
+        $dateFrom = trim((string) $request->string('date_from', now()->startOfMonth()->toDateString()));
+        $dateTo = trim((string) $request->string('date_to', now()->toDateString()));
+        $page = max(1, (int) $request->integer('page', 1));
+
+        $gl = $user->isGroupLeader() && ! $user->isAdmin() ? $user->getEmployeeRecord() : null;
+
+        $items = $this->coachingCounselingService->paginate(
+            $search,
+            $dateFrom ?: null,
+            $dateTo ?: null,
+            $page,
+            self::PER_PAGE,
+            $gl,
+            $user
+        );
+
+        return response()->json([
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'items' => collect(CoachingCounselingResource::collection($items->items())->resolve())
+                ->map(function (array $row) {
+                    $row['hasTtdAnakAsuh'] = ! empty($row['ttdAnakAsuh']);
+                    $row['hasTtdBapaAsuh'] = ! empty($row['ttdBapaAsuh']);
+                    unset($row['ttdAnakAsuh'], $row['ttdBapaAsuh']);
+
+                    return $row;
+                })
+                ->values(),
+            'pagination' => [
+                'current_page' => $items->currentPage(),
+                'last_page' => $items->lastPage(),
+                'total' => $items->total(),
+            ],
+        ]);
+    }
+
     public function index(Request $request): Response
     {
         $search = trim((string) $request->string('search'));

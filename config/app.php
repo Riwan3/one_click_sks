@@ -68,6 +68,12 @@ return [
     'timezone' => 'UTC',
 
     /*
+    | Zona waktu lokal site (WITA) untuk tampilan "hari ini"/shift di Beranda mobile. Terpisah dari
+    | 'timezone' di atas supaya penyimpanan waktu di seluruh aplikasi tidak berubah.
+    */
+    'local_timezone' => env('APP_LOCAL_TIMEZONE', 'Asia/Makassar'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------

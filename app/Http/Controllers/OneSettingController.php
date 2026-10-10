@@ -75,6 +75,37 @@ class OneSettingController extends Controller
     }
 
     /**
+     * API mobile: data papan Setting Manpower & Fleet per tanggal/shift, sama dengan props
+     * manpowerPreview/fleetPreview halaman web setting-board (aplikasi menggambar papannya sendiri).
+     * Pencatatan "dilihat" juga sama dengan halaman web.
+     */
+    public function settingBoardApi(Request $request, ManpowerV201SettingService $manpowerSetting, FleetBoardService $fleetBoard, SettingBoardViewService $boardViews): JsonResponse
+    {
+        $request->validate([
+            'site' => 'nullable|string|max:20',
+            'date' => 'nullable|date_format:Y-m-d',
+            'shift' => 'nullable|in:D,N',
+        ]);
+
+        $site = strtoupper($request->query('site', 'ADW'));
+        $date = $request->query('date', date('Y-m-d'));
+        $shift = $request->query('shift', 'D');
+
+        $manpower = $this->manpowerPreview($manpowerSetting, $date, $shift);
+        $fleet = $this->fleetPreview($fleetBoard, $date, $shift);
+
+        $boardViews->record($request->user(), $date, $shift, ['manpower' => $manpower !== null, 'fleet' => $fleet !== null]);
+
+        return response()->json([
+            'site' => $site,
+            'date' => $date,
+            'shift' => $shift,
+            'manpower' => $manpower,
+            'fleet' => $fleet,
+        ]);
+    }
+
+    /**
      * Halaman Setting Board: papan gambar HD (Manpower & Fleet) per site/tanggal/shift.
      */
     public function settingBoard(Request $request, ManpowerV201SettingService $manpowerSetting, FleetBoardService $fleetBoard, SettingBoardViewService $boardViews): Response

@@ -57,6 +57,47 @@ class HmDataController extends Controller
         ]);
     }
 
+    /**
+     * API mobile "HM Saya": selalu HM milik karyawan yang login, per bulan (?bulan=&tahun=&page=).
+     * Akun tanpa data karyawan mendapat daftar kosong (bukan HM semua karyawan).
+     */
+    public function api(Request $request): JsonResponse
+    {
+        $employee = $request->user()?->loadMissing('employee')->employee;
+
+        $month = (int) $request->integer('bulan', now()->month);
+        $month = $month >= 1 && $month <= 12 ? $month : now()->month;
+        $year = (int) $request->integer('tahun', now()->year);
+        $start = now()->setDate($year, $month, 1)->startOfDay();
+        $dateFrom = $start->format('Y-m-d');
+        $dateTo = $start->copy()->endOfMonth()->format('Y-m-d');
+        $page = max(1, (int) $request->integer('page', 1));
+
+        if (! $employee) {
+            return response()->json([
+                'bulan' => $month,
+                'tahun' => $year,
+                'summary' => ['totalHm' => 0, 'avgHm' => 0, 'totalRecords' => 0],
+                'items' => [],
+                'pagination' => ['currentPage' => 1, 'lastPage' => 1, 'total' => 0],
+            ]);
+        }
+
+        $hmData = $this->hmDataService->paginate(null, $dateFrom, $dateTo, $employee->id, $page, 20);
+
+        return response()->json([
+            'bulan' => $month,
+            'tahun' => $year,
+            'summary' => $this->hmDataService->summary(null, $dateFrom, $dateTo, $employee->id),
+            'items' => HmDataResource::collection($hmData->items())->resolve(),
+            'pagination' => [
+                'currentPage' => $hmData->currentPage(),
+                'lastPage' => $hmData->lastPage(),
+                'total' => $hmData->total(),
+            ],
+        ]);
+    }
+
     public function store(StoreHmDataRequest $request): RedirectResponse
     {
         $this->hmDataService->create($request->validated(), $request->user()?->id);

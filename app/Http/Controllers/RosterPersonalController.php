@@ -28,6 +28,34 @@ class RosterPersonalController extends Controller
      */
     public function index(Request $request): Response
     {
+        return Inertia::render('OnePower/Roster/Personal', $this->personalProps($request));
+    }
+
+    /**
+     * API mobile: roster kalender milik user yang login (?bulan=&tahun=).
+     * Pilih karyawan lain (khusus admin) belum tersedia di mobile.
+     */
+    public function api(Request $request): JsonResponse
+    {
+        $request->query->remove('nrp');
+        $props = $this->personalProps($request, withEmployeeOptions: false);
+
+        return response()->json([
+            'bulan' => $props['filters']['bulan'],
+            'tahun' => $props['filters']['tahun'],
+            'month_names' => $props['filters']['monthNames'],
+            'years' => $props['filters']['years'],
+            'employee' => $props['employee'],
+            'days' => $props['days'],
+            'penanggung_jawab' => $props['penanggungJawab'],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function personalProps(Request $request, bool $withEmployeeOptions = true): array
+    {
         $user = $request->user();
         $canViewAll = (bool) $user?->canViewAllRosters();
         $isAdmin = $canViewAll;
@@ -84,7 +112,7 @@ class RosterPersonalController extends Controller
             : ['employee' => null, 'days' => []];
 
         $employeeOptions = [];
-        if ($canViewAll) {
+        if ($canViewAll && $withEmployeeOptions) {
             $masterList = DB::table('roster_monthly_master as r')
                 ->join('employees as e', 'r.nrp', '=', 'e.nrp')
                 ->whereMonth('r.tanggal', $month)
@@ -105,7 +133,7 @@ class RosterPersonalController extends Controller
             }
         }
 
-        return Inertia::render('OnePower/Roster/Personal', [
+        return [
             'user' => $this->currentUser(),
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
@@ -124,7 +152,7 @@ class RosterPersonalController extends Controller
             'employee' => $calendar['employee'],
             'days' => $calendar['days'],
             'penanggungJawab' => $this->resolvePenanggungJawab($selectedNrp),
-        ]);
+        ];
     }
 
     /**

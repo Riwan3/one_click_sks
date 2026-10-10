@@ -2,21 +2,34 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Mor\MorInputBuilder;
 use App\Services\QorService;
 use App\Support\MenuAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class QuartalOperatorReportController extends Controller
 {
-    public function __construct(private QorService $qorService) {}
+    public function __construct(
+        private QorService $qorService,
+        private MorInputBuilder $morInputBuilder,
+    ) {}
 
     public function index(Request $request): Response
     {
+        // Sama seperti V1: bulan yang ditandai berubah (import/reset) dihitung ulang
+        // raportnya saat halaman dibuka -- beberapa detik per periode.
+        try {
+            $this->morInputBuilder->refreshDirty();
+        } catch (\Throwable $e) {
+            Log::warning('[MOR] Refresh snapshot raport gagal: '.$e->getMessage());
+        }
+
         $quartal = (int) $request->integer('quartal', (int) ceil(now()->month / 3));
         $quartal = ($quartal >= 1 && $quartal <= 4) ? $quartal : 1;
         $tahun = (int) $request->integer('tahun', now()->year);
@@ -109,11 +122,13 @@ class QuartalOperatorReportController extends Controller
         $tahun = (int) $request->integer('tahun', now()->year);
         $quartal = (int) $request->integer('quartal', (int) ceil(now()->month / 3));
 
+        // PDTY + Raport MOR satu quartal sekitar 15-20 detik; batas waktu dilonggarkan untuk data besar.
+        @set_time_limit(600);
         $res = $this->qorService->runRecalculation($tahun, $quartal);
 
         return redirect()->back()->with(
             'success',
-            "Kalkulasi berhasil: {$res['pdty']['processed']} data PDTY & {$res['mor']['total']} ranking MOR berhasil diperbarui untuk Kuartal {$quartal} Tahun {$tahun}."
+            "Kalkulasi berhasil: PDTY {$res['pdty']['operator']} operator & {$res['periode_raport']} periode Raport MOR diperbarui untuk Kuartal {$quartal} Tahun {$tahun}."
         );
     }
 

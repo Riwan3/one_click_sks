@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\OdrOutstandingResource;
+use App\Models\FleetMasterUnit;
 use App\Models\MppUnitPhoto;
 use App\Models\OdrAssignment;
-use App\Models\OdrMasterUnit;
+use App\Models\User;
 use App\Services\OdrComplianceDashboardService;
 use App\Support\MenuAccess;
 use Illuminate\Http\Request;
@@ -59,9 +60,32 @@ class OneReportingController extends Controller
         $tanggal = $request->input('tanggal', date('Y-m-d'));
         $shift = $request->input('shift', 'D');
 
-        $defaultUnits = ['HD785-012', 'PC2000-004', 'D375-007', 'WA500-009', 'GD675-002', 'HD785-018', 'PC2000-011', 'D375-014', 'DT-101', 'DT-102'];
-        $masterUnits = OdrMasterUnit::where('aktif', true)->pluck('nama')->toArray();
-        $allUnits = array_values(array_unique(array_merge($defaultUnits, $masterUnits)));
+        ['unitGrid' => $unitGrid, 'metrics' => $metrics] = $this->ojkBoard($tanggal, $shift);
+
+        return Inertia::render('OneReporting/OjkMonitoring', array_merge($this->commonProps(), [
+            'filters' => [
+                'tanggal' => $tanggal,
+                'shift' => $shift,
+            ],
+            'unitGrid' => $unitGrid,
+            'metrics' => $metrics,
+        ]));
+    }
+
+    /**
+     * Grid unit + foto OJK untuk satu tanggal/shift (dipakai halaman web dan API mobile).
+     */
+    private function ojkBoard(string $tanggal, string $shift, ?User $viewer = null): array
+    {
+        // Unit OJK = hauler aktif di master fleet (bukan daftar contoh/odr_master_units).
+        $allUnits = FleetMasterUnit::where('is_active', true)
+            ->where('unit_type', 'hauler')
+            ->orderBy('sort_order')
+            ->orderBy('code')
+            ->pluck('code')
+            ->unique()
+            ->values()
+            ->all();
 
         $photos = MppUnitPhoto::where('jenis', 'OJK')
             ->where('tanggal', $tanggal)
@@ -69,7 +93,7 @@ class OneReportingController extends Controller
             ->get()
             ->keyBy(fn($p) => strtoupper(trim($p->unit_code)));
 
-        $unitGrid = collect($allUnits)->map(function ($unitCode) use ($photos) {
+        $unitGrid = collect($allUnits)->map(function ($unitCode) use ($photos, $viewer) {
             $p = $photos->get(strtoupper(trim($unitCode)));
             return [
                 'unit_code' => $unitCode,
@@ -79,25 +103,72 @@ class OneReportingController extends Controller
                     'url' => str_starts_with($p->url, 'http') ? $p->url : asset('storage/' . $p->url),
                     'operator_nama' => $p->nama ?? 'Operator Unit',
                     'created_at' => $p->created_at->format('H:i'),
-                ] : null,
+                ] + ($viewer ? ['can_delete' => $viewer->isAdmin() || $p->created_by === $viewer->id] : []) : null,
             ];
         })->sortByDesc(fn($u) => $u['has_photo'])->values();
 
-        $uploadedCount = $photos->count();
+        // Hanya foto milik unit yang tampil di daftar (foto kode lama tidak ikut terhitung).
+        $uploadedCount = $unitGrid->where('has_photo', true)->count();
         $totalUnits = count($allUnits);
 
-        return Inertia::render('OneReporting/OjkMonitoring', array_merge($this->commonProps(), [
-            'filters' => [
-                'tanggal' => $tanggal,
-                'shift' => $shift,
-            ],
+        return [
             'unitGrid' => $unitGrid,
             'metrics' => [
                 'totalUploaded' => $uploadedCount,
                 'totalRemaining' => $totalUnits - $uploadedCount,
                 'totalUnits' => $totalUnits,
             ],
-        ]));
+        ];
+    }
+
+    private function ensureOjkAccess(Request $request): void
+    {
+        $user = $request->user();
+        abort_unless($user && ($user->isGroupLeader() || $user->isAdmin()), 403, 'Menu ini hanya untuk Group Leader.');
+    }
+
+    /**
+     * API mobile: monitoring foto OJK per tanggal/shift (?tanggal=Y-m-d&shift=D|N).
+     */
+    public function ojkApi(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $this->ensureOjkAccess($request);
+        $request->validate([
+            'tanggal' => 'nullable|date_format:Y-m-d',
+            'shift' => 'nullable|in:D,N',
+        ]);
+
+        $tanggal = $request->input('tanggal', date('Y-m-d'));
+        $shift = $request->input('shift', 'D');
+
+        return response()->json(['tanggal' => $tanggal, 'shift' => $shift] + $this->ojkBoard($tanggal, $shift, $request->user()));
+    }
+
+    /**
+     * API mobile: unggah foto OJK (aturan sama dengan uploadOjk web).
+     */
+    public function ojkUploadApi(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $this->ensureOjkAccess($request);
+
+        $this->uploadOjk($request);
+
+        return response()->json(['message' => 'Foto OJK berhasil diunggah.']);
+    }
+
+    /**
+     * API mobile: hapus foto OJK. Berbeda dari web, hanya pengunggahnya (atau admin) yang boleh menghapus.
+     */
+    public function ojkDestroyApi(Request $request, int $id): \Illuminate\Http\JsonResponse
+    {
+        $this->ensureOjkAccess($request);
+
+        $photo = MppUnitPhoto::where('jenis', 'OJK')->findOrFail($id);
+        abort_unless($request->user()->isAdmin() || $photo->created_by === $request->user()->id, 403, 'Anda hanya dapat menghapus foto yang Anda unggah.');
+
+        $this->deleteOjk($id);
+
+        return response()->json(['message' => 'Foto OJK berhasil dihapus.']);
     }
 
     public function uploadOjk(Request $request)

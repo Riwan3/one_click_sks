@@ -457,7 +457,6 @@ Route::middleware('auth')->group(function () {
     Route::delete('/one-core/roles/{role}', [OneCoreController::class, 'destroyRole'])->name('one-core.roles.destroy');
     Route::get('/one-core/roles/{role}', [OneCoreController::class, 'roleDetail'])->name('one-core.roles.detail');
     Route::put('/one-core/roles/{role}/menu/{module}', [OneCoreController::class, 'updateRoleMenuAccess'])->name('one-core.roles.menu.update');
-
     // Unit Produksi
     Route::get('/one-core/units', [UnitController::class, 'index'])->name('one-core.units.index');
     Route::post('/one-core/units', [UnitController::class, 'store'])->name('one-core.units.store');

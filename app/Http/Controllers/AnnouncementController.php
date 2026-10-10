@@ -100,7 +100,7 @@ class AnnouncementController extends Controller
 
     public function markSeen(Announcement $announcement): \Illuminate\Http\JsonResponse
     {
-        $userId = Auth::id();
+        $userId = request()->user('sanctum')?->id ?? Auth::id();
         if ($userId) {
             \App\Models\AnnouncementRead::firstOrCreate([
                 'announcement_id' => $announcement->id,
@@ -126,7 +126,7 @@ class AnnouncementController extends Controller
 
     public function active(): \Illuminate\Http\JsonResponse
     {
-        $userId = Auth::id();
+        $userId = request()->user('sanctum')?->id ?? Auth::id();
 
         $announcements = Announcement::with('user:id,name,username')
             ->where(function ($query) use ($userId) {
@@ -162,7 +162,7 @@ class AnnouncementController extends Controller
             });
 
         return response()->json([
-            'session_id' => request()->session()->getId(),
+            'session_id' => request()->hasSession() ? request()->session()->getId() : null,
             'announcements' => $announcements,
         ]);
     }

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceDetail;
+use App\Models\Setting;
 use App\Services\AttendanceService;
 use App\Support\MenuAccess;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,6 +18,59 @@ class AttendanceController extends Controller
     private const PER_PAGE = 10;
 
     public function __construct(private AttendanceService $attendanceService) {}
+
+    /**
+     * API mobile "Absensi Saya": selalu absensi milik user yang login, per bulan
+     * (?bulan=&tahun=&page=&category=). User tanpa NRP mendapat daftar kosong.
+     */
+    public function api(Request $request): JsonResponse
+    {
+        $user = $request->user()?->loadMissing('employee');
+        $nrp = trim((string) ($user?->employee?->nrp ?: $user?->username));
+
+        $month = (int) $request->integer('bulan', now()->month);
+        $month = $month >= 1 && $month <= 12 ? $month : now()->month;
+        $year = (int) $request->integer('tahun', now()->year);
+        $start = now()->setDate($year, $month, 1)->startOfDay();
+        $dateFrom = $start->format('Y-m-d');
+        $dateTo = $start->copy()->endOfMonth()->format('Y-m-d');
+        $category = trim((string) $request->string('category'));
+        $page = max(1, (int) $request->integer('page', 1));
+
+        if ($nrp === '') {
+            return response()->json([
+                'bulan' => $month,
+                'tahun' => $year,
+                'summary' => $this->attendanceService->summary(null, '1900-01-01', '1900-01-01', '__none__'),
+                'items' => [],
+                'pagination' => ['currentPage' => 1, 'lastPage' => 1, 'total' => 0],
+            ]);
+        }
+
+        $rows = $this->attendanceService->paginate(null, $dateFrom, $dateTo, $category, $page, 20, $nrp);
+
+        return response()->json([
+            'bulan' => $month,
+            'tahun' => $year,
+            'atr_threshold' => (float) (Setting::getValue('atr_threshold', '90') ?? 90),
+            'summary' => $this->attendanceService->summary(null, $dateFrom, $dateTo, $nrp),
+            'items' => collect($rows->items())->map(fn ($row) => [
+                'id' => $row->id,
+                'tanggal' => $row->tanggal instanceof \DateTimeInterface ? $row->tanggal->format('Y-m-d') : (string) $row->tanggal,
+                'jamIn' => $row->jam_in ?: null,
+                'jamOut' => $row->jam_out ?: null,
+                'code' => $row->code ?: null,
+                'siaCategory' => $row->sia_category,
+                'job' => $row->job ?: null,
+                'device' => $row->device ?: null,
+            ])->values()->all(),
+            'pagination' => [
+                'currentPage' => $rows->currentPage(),
+                'lastPage' => $rows->lastPage(),
+                'total' => $rows->total(),
+            ],
+        ]);
+    }
 
     public function index(Request $request): Response
     {

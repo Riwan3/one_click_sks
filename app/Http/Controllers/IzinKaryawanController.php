@@ -8,11 +8,13 @@ use App\Http\Requests\UpdateIzinKaryawanRequest;
 use App\Http\Resources\IzinKaryawanResource;
 use App\Models\IzinKaryawan;
 use App\Services\IzinKaryawanService;
+use App\Support\IzinKaryawanAccess;
 use App\Support\MenuAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -105,7 +107,7 @@ class IzinKaryawanController extends Controller
 
     public function store(StoreIzinKaryawanRequest $request): RedirectResponse
     {
-        $data = $request->safe()->except('file_bukti');
+        $data = $this->lockIdentity($request, $request->safe()->except('file_bukti'));
 
         // Medic hanya boleh input data jenis "sakit" (setara AuthMiddleware::isMedic()
         // di V1's IzinKaryawanController::add()) — dipaksa di server terlepas dari
@@ -121,9 +123,8 @@ class IzinKaryawanController extends Controller
 
     public function edit(Request $request, IzinKaryawan $izin): Response
     {
-        // Medic hanya boleh mengakses data jenis "sakit" (setara V1's
-        // IzinKaryawanController::edit()).
-        abort_if($request->user()?->isMedic() && $izin->jenis_izin !== IzinJenis::Sakit, 403);
+        // Medic hanya boleh mengakses data jenis "sakit"; user biasa hanya izin miliknya.
+        abort_unless(IzinKaryawanAccess::canView($request->user(), $izin), 403);
 
         $user = $request->user()?->loadMissing('employee');
         $isAdmin = (bool) $user?->isAdmin();
@@ -146,9 +147,10 @@ class IzinKaryawanController extends Controller
 
     public function update(UpdateIzinKaryawanRequest $request, IzinKaryawan $izin): RedirectResponse
     {
-        abort_if($request->user()?->isMedic() && $izin->jenis_izin !== IzinJenis::Sakit, 403);
+        // Sama seperti V1: form hanya bisa disimpan selama masih menunggu persetujuan.
+        abort_unless(IzinKaryawanAccess::canUpdate($request->user(), $izin), 403);
 
-        $data = $request->safe()->except('file_bukti');
+        $data = $this->lockIdentity($request, $request->safe()->except('file_bukti'));
 
         if ($request->user()?->isMedic()) {
             $data['jenis_izin'] = 'sakit';
@@ -161,7 +163,8 @@ class IzinKaryawanController extends Controller
 
     public function destroy(Request $request, IzinKaryawan $izin): RedirectResponse
     {
-        abort_if($request->user()?->isMedic() && $izin->jenis_izin !== IzinJenis::Sakit, 403);
+        // Sama seperti V1: hanya data yang sudah dibatalkan, oleh pembuat atau admin.
+        abort_unless(IzinKaryawanAccess::canDelete($request->user(), $izin), 403);
 
         $this->izinKaryawanService->delete($izin);
 
@@ -197,12 +200,104 @@ class IzinKaryawanController extends Controller
 
     public function cancel(Request $request, IzinKaryawan $izin): RedirectResponse
     {
-        $isOwner = $izin->created_by === $request->user()?->id;
-        abort_unless($isOwner || $request->user()?->isAdmin(), 403);
+        abort_unless(IzinKaryawanAccess::canCancel($request->user(), $izin), 403);
 
         $this->izinKaryawanService->cancel($izin);
 
         return redirect()->back()->with('success', 'Pengajuan izin dibatalkan.');
+    }
+
+    // ── API mobile ("Izin Karyawan" di tab Data): selalu data milik akun yang login ──
+
+    /** Satu izin + hak aksi yang berlaku untuk user ini. */
+    private function izinPayload(Request $request, IzinKaryawan $izin): array
+    {
+        return (new IzinKaryawanResource($izin))->resolve($request) + [
+            'canCancel' => IzinKaryawanAccess::canCancel($request->user(), $izin),
+            'canDelete' => IzinKaryawanAccess::canDelete($request->user(), $izin),
+        ];
+    }
+
+    /** Riwayat izin milik sendiri (dibuat sendiri atau atas NRP sendiri), ?jenis_izin=&status=&page=. */
+    public function apiIndex(Request $request): JsonResponse
+    {
+        $user = $request->user()?->loadMissing('employee');
+        $izins = $this->izinKaryawanService->paginate([
+            'jenis_izin' => trim((string) $request->string('jenis_izin')),
+            'status' => trim((string) $request->string('status')),
+            'created_by' => $user?->id,
+            'nrp' => IzinKaryawanAccess::ownIdentity($user)['nrp'],
+        ], max(1, (int) $request->integer('page', 1)), 20);
+
+        return response()->json([
+            'items' => collect($izins->items())->map(fn (IzinKaryawan $i) => $this->izinPayload($request, $i))->values(),
+            'pagination' => [
+                'currentPage' => $izins->currentPage(),
+                'lastPage' => $izins->lastPage(),
+                'total' => $izins->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Ajukan Izin/Emergency untuk diri sendiri (multipart, boleh melampirkan foto/PDF).
+     * Form Sakit berisi isian medis dan tetap dikerjakan lewat web.
+     */
+    public function apiStore(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'jenis_izin' => ['required', Rule::in([IzinJenis::Izin->value, IzinJenis::Emergency->value])],
+            'alasan' => ['required', 'string', 'max:1000'],
+            'tujuan' => ['nullable', 'string', 'max:150'],
+            'alamat' => ['nullable', 'string', 'max:255'],
+            'tgl_berangkat' => ['required', 'date'],
+            'tgl_kembali' => ['required', 'date', 'after_or_equal:tgl_berangkat'],
+            'file_bukti' => ['required', 'file', 'mimes:jpg,jpeg,png,gif,webp,pdf', 'max:10240'],
+        ], [
+            'file_bukti.required' => 'Bukti wajib dilampirkan.',
+            'file_bukti.mimes' => 'Bukti harus berupa foto (JPG, PNG, WEBP) atau PDF.',
+            'file_bukti.max' => 'Ukuran bukti maksimal 10 MB.',
+        ]);
+
+        $user = $request->user()?->loadMissing('employee');
+        $data = array_merge($data, IzinKaryawanAccess::ownIdentity($user), [
+            'jabatan' => $user?->employee?->jabatan_ss6 ?? $user?->jabatan,
+            'departemen' => $user?->employee?->unit,
+        ]);
+
+        $izin = $this->izinKaryawanService->create($data, $request->file('file_bukti'), $user?->id);
+
+        return response()->json($this->izinPayload($request, $izin->refresh()->loadMissing('approver')), 201);
+    }
+
+    public function apiCancel(Request $request, IzinKaryawan $izin): JsonResponse
+    {
+        abort_unless(IzinKaryawanAccess::canCancel($request->user(), $izin), 403);
+
+        return response()->json($this->izinPayload($request, $this->izinKaryawanService->cancel($izin)->loadMissing('approver')));
+    }
+
+    public function apiDestroy(Request $request, IzinKaryawan $izin): JsonResponse
+    {
+        abort_unless(IzinKaryawanAccess::canDelete($request->user(), $izin), 403);
+
+        $this->izinKaryawanService->delete($izin);
+
+        return response()->json(['message' => 'Data izin berhasil dihapus.']);
+    }
+
+    /**
+     * User biasa hanya boleh mengajukan untuk dirinya sendiri: di V1 kolom NRP & nama
+     * terkunci (readonly) di form; di sini dipaksa di server, bukan hanya di tampilan.
+     */
+    private function lockIdentity(Request $request, array $data): array
+    {
+        $user = $request->user()?->loadMissing('employee');
+        if (IzinKaryawanAccess::isAdminOrManpower($user)) {
+            return $data;
+        }
+
+        return array_merge($data, IzinKaryawanAccess::ownIdentity($user));
     }
 
     public function searchEmployee(Request $request): JsonResponse
