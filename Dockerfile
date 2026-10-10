@@ -26,6 +26,16 @@ RUN apk add --no-cache nginx supervisor tzdata icu-libs libzip libpng libjpeg-tu
     && docker-php-ext-install -j"$(nproc)" pdo_mysql gd zip bcmath intl exif pcntl opcache \
     && apk del .build-deps
 
+# Cetak PDF (spatie/browsershot): Chromium + Node + Puppeteer (pakai Chromium sistem, tanpa unduh browser).
+ENV PUPPETEER_SKIP_DOWNLOAD=1 \
+    NODE_PATH=/usr/local/lib/node_modules \
+    BROWSERSHOT_CHROME_PATH=/usr/bin/chromium-browser \
+    BROWSERSHOT_NODE_BINARY=/usr/bin/node \
+    BROWSERSHOT_NPM_BINARY=/usr/bin/npm
+RUN apk add --no-cache chromium nss harfbuzz ttf-freefont font-noto nodejs npm \
+    && npm install -g puppeteer@24 \
+    && npm cache clean --force
+
 COPY docker/php.ini /usr/local/etc/php/conf.d/zz-app.ini
 COPY docker/php-fpm.conf /usr/local/etc/php-fpm.d/zz-app.conf
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf
