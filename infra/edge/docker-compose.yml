@@ -6,6 +6,10 @@
 # Jalankan                    :  docker compose up -d
 # Tambah/ubah domain          :  edit sites/*.caddy lalu  docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
 # Panduan lengkap             :  infra/edge/README.md
+#
+# Opsional — Cloudflare Tunnel (tanpa membuka port 80/443, HTTPS diurus Cloudflare):
+#   isi CLOUDFLARE_TUNNEL_TOKEN di infra/edge/.env, lalu  docker compose --profile tunnel up -d cloudflared
+#   (server yang HANYA memakai tunnel tidak perlu Caddy: jalankan perintah itu saja, bukan "docker compose up -d").
 
 services:
   caddy:
@@ -26,6 +30,22 @@ services:
       - ./sites:/etc/caddy/sites:ro,z
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      - edge
+
+  # Cloudflare Tunnel: koneksi KELUAR ke Cloudflare, jadi server tidak perlu membuka port apa pun.
+  # Domain -> aplikasi diatur di dashboard Cloudflare (Public Hostname -> http://oneclick_app:80, dst).
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: edge_cloudflared
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     networks:
       - edge
 

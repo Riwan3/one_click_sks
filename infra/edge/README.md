@@ -58,6 +58,40 @@ docker compose logs --tail=50 caddy
 
 Sertifikat diterbitkan ulang oleh Caddy bersama (butuh sekitar setengah menit).
 
+## Opsional: Cloudflare Tunnel (tanpa membuka port, HTTPS oleh Cloudflare)
+
+Cocok bila port 80/443 server tidak bisa dibuka, atau Anda ingin proteksi Cloudflare (DDoS/WAF) di depan aplikasi.
+`cloudflared` membuat koneksi KELUAR ke Cloudflare, lalu meneruskan trafik ke container aplikasi lewat jaringan `edge`.
+
+```
+Internet ─▶ Cloudflare (HTTPS) ─▶ tunnel ─▶ edge_cloudflared ─▶ oneclick_app:80 / oneclick_cc_app:80
+```
+
+**Syarat:** domain harus memakai nameserver Cloudflare (tambahkan domain di dashboard Cloudflare lalu ganti nameserver
+di registrar, mis. Rumahweb). Selama nameserver belum berpindah, tunnel tidak bisa dipakai.
+
+1. Dashboard Cloudflare > **Zero Trust > Networks > Tunnels > Create a tunnel** > pilih *Cloudflared* > beri nama > salin **token**.
+2. Di tunnel itu tambahkan **Public Hostname** satu per aplikasi (Type `HTTP`):
+
+   | Hostname | URL (service) |
+   |---|---|
+   | `oneclick.domainanda.co.id` | `oneclick_app:80` |
+   | `control.domainanda.co.id` | `oneclick_cc_app:80` |
+
+   Cloudflare otomatis membuat DNS CNAME-nya. Hapus A record lama untuk hostname yang sama bila ada.
+3. Di server:
+   ```bash
+   cd ~/oneclick/infra/edge
+   cp .env.example .env && nano .env          # tempel CLOUDFLARE_TUNNEL_TOKEN=
+   docker compose --profile tunnel up -d cloudflared
+   docker compose logs --tail=30 cloudflared  # cari: "Registered tunnel connection"
+   ```
+4. Server yang **hanya** memakai tunnel tidak perlu Caddy; jalankan perintah di atas saja (bukan `docker compose up -d`).
+   Jangan melayani hostname yang sama lewat Caddy dan tunnel sekaligus; pilih satu per hostname.
+
+Pada mode ini aplikasi tetap memakai `APP_URL=https://hostname-anda` dan `SESSION_SECURE_COOKIE=true`. IP pengunjung
+dibaca dari header `X-Forwarded-For` (aplikasi sudah mempercayai proxy).
+
 ## Catatan
 
 - Minimal satu file `sites/*.caddy` harus ada sebelum `docker compose up -d`, kalau tidak Caddy tidak punya situs yang dilayani.
