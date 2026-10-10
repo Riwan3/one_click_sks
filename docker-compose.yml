@@ -13,8 +13,9 @@ services:
     environment:
       CONTAINER_ROLE: app
     env_file: .env
-    expose:
-      - "80"
+    # Hanya bisa diakses dari server itu sendiri; dari luar lewat Caddy atau web server yang sudah ada (reverse proxy).
+    ports:
+      - "127.0.0.1:${APP_FORWARD_PORT:-8080}:80"
     volumes:
       - ./.env:/app/.env:ro,z
       - app_storage:/app/storage
@@ -76,6 +77,8 @@ services:
     image: caddy:2-alpine
     container_name: oneclick_caddy
     restart: unless-stopped
+    # Aktif hanya bila COMPOSE_PROFILES=caddy di .env (port 80/443 server harus kosong).
+    profiles: ["caddy"]
     environment:
       APP_DOMAIN: ${APP_DOMAIN:-}
     ports:
@@ -103,7 +106,7 @@ services:
       TZ: UTC
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     ports:
-      - "127.0.0.1:${DB_FORWARD_PORT:-3306}:3306"
+      - "127.0.0.1:${DB_FORWARD_PORT:-3307}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
