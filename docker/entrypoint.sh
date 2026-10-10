@@ -1,44 +1,35 @@
 #!/bin/sh
-
-# Production Entrypoint Script for OneClick Laravel Container
-
+# Entrypoint container OneClick Laravel.
+# CONTAINER_ROLE: app (web; menjalankan migrate & cache) | queue | scheduler.
 set -e
 
-echo "🚀 Starting OneClick Laravel Container..."
+cd /app
+ROLE="${CONTAINER_ROLE:-app}"
 
-# Wait for PostgreSQL to be ready
-echo "⏳ Waiting for PostgreSQL..."
-until PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USERNAME" -d "$DB_DATABASE" -c "\q"; do
-  sleep 1
+echo "[entrypoint] role=$ROLE — menunggu MySQL di ${DB_HOST}:${DB_PORT:-3306}..."
+until php -r '
+    try {
+        new PDO("mysql:host=".getenv("DB_HOST").";port=".(getenv("DB_PORT") ?: 3306).";dbname=".getenv("DB_DATABASE"), getenv("DB_USERNAME"), getenv("DB_PASSWORD"));
+    } catch (Throwable $e) {
+        exit(1);
+    }
+' 2>/dev/null; do
+    sleep 2
 done
-echo "✅ PostgreSQL is ready"
+echo "[entrypoint] MySQL siap."
 
-# Wait for Redis to be ready
-echo "⏳ Waiting for Redis..."
-until redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping > /dev/null 2>&1; do
-  sleep 1
-done
-echo "✅ Redis is ready"
-
-# Run migrations (only on app container, not queue/scheduler)
-if [ "$APP_ENV" = "production" ]; then
-  if ! [ -f /app/storage/.migrated ]; then
-    echo "🔄 Running database migrations..."
-    php /app/artisan migrate --force
-    touch /app/storage/.migrated
-    echo "✅ Migrations completed"
-  fi
-
-  # Clear and cache config/routes/views for performance
-  echo "⚡ Optimizing for production..."
-  php /app/artisan config:cache
-  php /app/artisan route:cache
-  php /app/artisan view:cache
-  php /app/artisan cache:clear
-  echo "✅ Production optimization complete"
+if [ "$(id -u)" = "0" ]; then
+    chown -R www-data:www-data storage bootstrap/cache public/assets/uploads
 fi
 
-echo "🎯 Container ready to serve requests"
+if [ "$ROLE" = "app" ]; then
+    # Migrate di setiap start supaya migration baru dari git pull langsung terpasang (idempotent).
+    php artisan migrate --force
+    php artisan config:cache
+    php artisan route:cache
+    php artisan view:cache
+    php artisan event:cache
+    echo "[entrypoint] Migrasi & cache selesai."
+fi
 
-# Execute the command passed to the container
 exec "$@"

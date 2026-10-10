@@ -1,149 +1,49 @@
-# Production-Ready Dockerfile for OneClick Laravel 13 System
-# Multi-stage build for optimized image size
+# OneClick Laravel — image produksi (PHP-FPM + Nginx dalam satu container, dijalankan supervisord).
+# Aset frontend dibuild di dalam image, jadi server tidak perlu Node.js.
 
-FROM php:8.3-fpm-alpine AS builder
-
-# Install system dependencies
-RUN apk add --no-cache \
-    curl \
-    git \
-    unzip \
-    postgresql-dev \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    zip \
-    gettext
-
-# Install PHP extensions required for Laravel 13
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg
-RUN docker-php-ext-install -j$(nproc) \
-    pdo \
-    pdo_pgsql \
-    pdo_mysql \
-    pgsql \
-    bcmath \
-    ctype \
-    curl \
-    dom \
-    fileinfo \
-    filter \
-    gd \
-    hash \
-    json \
-    mbstring \
-    openssl \
-    pcntl \
-    pdo \
-    reflection \
-    session \
-    simplexml \
-    tokenizer \
-    xml \
-    xmlwriter
-
-# Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Set working directory
+# ===== 1. Build aset frontend (Vite) =====
+FROM node:22-alpine AS assets
 WORKDIR /app
-
-# Copy only composer files first (for better layer caching)
-COPY composer.json composer.lock ./
-
-# Install PHP dependencies (production only)
-RUN composer install --no-interaction --no-dev --optimize-autoloader --no-scripts
-
-# Copy application code
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
 COPY . .
+RUN npm run build
 
-# Generate optimized autoloader
-RUN composer dump-autoload --optimize
+# ===== 2. Dependensi PHP (Composer) =====
+FROM composer:2 AS vendor
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --no-scripts --no-autoloader --prefer-dist --ignore-platform-reqs
+COPY . .
+RUN composer dump-autoload --optimize --no-dev --no-scripts
 
-# Run Laravel installation commands (migrations will run at container startup)
-RUN php artisan config:cache
-RUN php artisan route:cache
-RUN php artisan view:cache
-
-# ===== Production Image =====
+# ===== 3. Image akhir =====
 FROM php:8.3-fpm-alpine
 
-# Install runtime dependencies only (smaller image)
-RUN apk add --no-cache \
-    postgresql-libs \
-    mysql-client \
-    curl \
-    supervisor \
-    gettext \
-    libpng \
-    libjpeg-turbo \
-    freetype
+RUN apk add --no-cache nginx supervisor tzdata icu-libs libzip libpng libjpeg-turbo freetype \
+    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev libzip-dev libpng-dev libjpeg-turbo-dev freetype-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" pdo_mysql gd zip bcmath intl exif pcntl opcache \
+    && apk del .build-deps
 
-# Install PHP extensions
-RUN docker-php-ext-install -j$(nproc) \
-    pdo \
-    pdo_pgsql \
-    pdo_mysql \
-    pgsql \
-    bcmath \
-    ctype \
-    curl \
-    dom \
-    fileinfo \
-    filter \
-    gd \
-    hash \
-    json \
-    mbstring \
-    openssl \
-    pcntl \
-    pdo \
-    reflection \
-    session \
-    simplexml \
-    tokenizer \
-    xml \
-    xmlwriter
-
-# Install Redis extension
-RUN apk add --no-cache redis
-RUN pecl install redis && docker-php-ext-enable redis
-
-# Copy PHP configuration for production
-COPY docker/php.ini /usr/local/etc/php/conf.d/app.ini
-COPY docker/php-fpm.conf /usr/local/etc/php-fpm.conf
-
-# Create app user
-RUN addgroup -g 1000 laravel && adduser -D -u 1000 -G laravel laravel
-
-# Set working directory
-WORKDIR /app
-
-# Copy application and vendor from builder stage
-COPY --from=builder --chown=laravel:laravel /app .
-
-# Create necessary directories
-RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views
-RUN chown -R laravel:laravel storage bootstrap/cache
-
-# Copy startup script
-COPY docker/entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-# Copy supervisor configuration for queue workers
+COPY docker/php.ini /usr/local/etc/php/conf.d/zz-app.ini
+COPY docker/php-fpm.conf /usr/local/etc/php-fpm.d/zz-app.conf
+COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# Switch to laravel user
-USER laravel
+WORKDIR /app
+COPY --chown=www-data:www-data . .
+COPY --chown=www-data:www-data --from=vendor /app/vendor ./vendor
+COPY --chown=www-data:www-data --from=assets /app/public/build ./public/build
 
-# Expose port
-EXPOSE 9000
+RUN chmod +x /usr/local/bin/entrypoint.sh \
+    && rm -f bootstrap/cache/*.php \
+    && mkdir -p storage/app/public storage/framework/cache storage/framework/sessions storage/framework/views storage/logs public/assets/uploads \
+    && ln -sfn ../storage/app/public public/storage \
+    && chown -R www-data:www-data storage bootstrap/cache public/assets/uploads
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost/health || exit 1
+EXPOSE 80
 
-# Run entrypoint script
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-
-CMD ["php-fpm"]
+ENTRYPOINT ["entrypoint.sh"]
+CMD ["supervisord", "-c", "/etc/supervisord.conf"]
