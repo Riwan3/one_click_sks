@@ -58,6 +58,8 @@ return [
         'token' => env('CONTROL_CENTER_TOKEN'),
         'version' => env('APP_RELEASE', 'unknown'),
         'deployed_at' => env('APP_DEPLOYED_AT'),
+        'url' => env('CONTROL_CENTER_URL'),
+        'site_code' => env('CONTROL_CENTER_SITE_CODE'),
     ],
 
     'browsershot' => [

@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -28,3 +29,7 @@ Artisan::command('mor:refresh', function () {
     $n = app(\App\Services\Mor\MorInputBuilder::class)->refreshDirty();
     $this->info("Raport MOR dihitung ulang untuk {$n} periode yang datanya berubah.");
 })->purpose('Hitung ulang Raport MOR untuk bulan yang ditandai berubah (setelah import/reset)');
+
+// Mode push ke OneClick Control Center: hanya berjalan bila URL-nya diisi di .env.
+Schedule::command('cc:push')->everyFiveMinutes()->withoutOverlapping()
+    ->when(fn () => filled(config('services.control_center.url')));
