@@ -53,6 +53,13 @@ return [
         'timeout' => env('HO_API_TIMEOUT', 60),
     ],
 
+    // Koneksi ke OneClick Control Center (pull): CC memanggil /api/cc/status dengan bearer token ini.
+    'control_center' => [
+        'token' => env('CONTROL_CENTER_TOKEN'),
+        'version' => env('APP_RELEASE', 'unknown'),
+        'deployed_at' => env('APP_DEPLOYED_AT'),
+    ],
+
     'browsershot' => [
         'chrome_path' => env('BROWSERSHOT_CHROME_PATH'),
         'node_binary' => env('BROWSERSHOT_NODE_BINARY'),

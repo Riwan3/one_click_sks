@@ -3,6 +3,7 @@
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\Api\AssessmentApiController;
 use App\Http\Controllers\Api\AuthApiController;
+use App\Http\Controllers\Api\ControlCenterController;
 use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\MorRaportController;
 use App\Http\Controllers\Api\QorApiController;
@@ -21,6 +22,13 @@ use App\Http\Controllers\RosterPersonalController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthApiController::class, 'login']);
+
+// Dipanggil OneClick Control Center (bearer token CONTROL_CENTER_TOKEN)
+Route::middleware(['cc.token', 'throttle:60,1'])->prefix('cc')->group(function () {
+    Route::get('/status', [ControlCenterController::class, 'status']);
+    Route::get('/activity', [ControlCenterController::class, 'activity']);
+    Route::get('/menus', [ControlCenterController::class, 'menus']);
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthApiController::class, 'me']);

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CheckSessionSecurity;
+use App\Http\Middleware\ControlCenterToken;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IsAdmin;
 use App\Http\Middleware\ValidateSpDkForDocument;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => IsAdmin::class,
+            'cc.token' => ControlCenterToken::class,
             'validate-spdk' => ValidateSpDkForDocument::class,
         ]);
     })
