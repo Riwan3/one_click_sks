@@ -449,6 +449,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/one-core/unlock', [OneCoreController::class, 'unlock'])->name('one-core.unlock');
     Route::post('/one-core/lock', [OneCoreController::class, 'lock'])->name('one-core.lock');
     Route::put('/one-core/users/{user}/role', [OneCoreController::class, 'updateUserRole'])->name('one-core.users.role');
+    Route::delete('/one-core/users/{user}', [OneCoreController::class, 'destroyUser'])->name('one-core.users.destroy');
     Route::post('/one-core/users/{user}/reset-password', [OneCoreController::class, 'resetPassword'])->name('one-core.users.reset-password');
 
     Route::get('/one-core/roles', [OneCoreController::class, 'roles'])->name('one-core.roles.index');

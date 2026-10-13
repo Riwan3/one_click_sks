@@ -6,6 +6,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import Pagination from '@/Components/ui/Pagination.vue';
 import UserTable from './Partials/UserTable.vue';
 import PasswordInfoModal from './Partials/PasswordInfoModal.vue';
+import { confirmDialog } from '@/utils/confirm';
 
 const props = defineProps({
     user: { type: Object, required: true },
@@ -40,6 +41,12 @@ const handleLock = () => {
 const resetPassword = (row) => {
     router.post(`/one-core/users/${row.id}/reset-password`, {}, { preserveScroll: true });
     passwordRow.value = null;
+};
+
+const deleteUser = async (row) => {
+    if (! await confirmDialog(`Hapus user "${row.username}" (${row.name})? Akun tidak bisa login lagi dan tindakan ini tidak bisa dibatalkan.`)) return;
+
+    router.delete(`/one-core/users/${row.id}`, { preserveScroll: true });
 };
 
 const submitNewUser = () => {
@@ -89,7 +96,7 @@ const submitNewUser = () => {
             <button type="submit" class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white hover:bg-blue-600">Cari User</button>
         </form>
 
-        <UserTable :users="users" :roles="roles" @show-password="(row) => (passwordRow = row)" />
+        <UserTable :users="users" :roles="roles" @show-password="(row) => (passwordRow = row)" @delete-user="deleteUser" />
 
         <div class="mt-4">
             <Pagination

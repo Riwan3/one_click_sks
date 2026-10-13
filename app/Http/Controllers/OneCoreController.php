@@ -91,6 +91,17 @@ class OneCoreController extends Controller
         return redirect('/one-core')->with('success', 'User baru berhasil ditambahkan.');
     }
 
+    public function destroyUser(Request $request, User $user): RedirectResponse
+    {
+        if ($user->is($request->user())) {
+            return redirect('/one-core')->with('error', 'Akun yang sedang dipakai login tidak bisa dihapus.');
+        }
+
+        $user->delete();
+
+        return redirect('/one-core')->with('success', "User {$user->username} berhasil dihapus.");
+    }
+
     public function resetPassword(User $user): RedirectResponse
     {
         $this->userService->resetPasswordToDefault($user);

@@ -1,13 +1,13 @@
 <script setup>
 import { router } from '@inertiajs/vue3';
-import { KeyRound } from '@lucide/vue';
+import { KeyRound, Trash2 } from '@lucide/vue';
 
 defineProps({
     users: { type: Array, required: true },
     roles: { type: Array, required: true },
 });
 
-const emit = defineEmits(['show-password']);
+const emit = defineEmits(['show-password', 'delete-user']);
 
 const changeRole = (row, event) => {
     router.put(`/one-core/users/${row.id}/role`, { role: event.target.value }, { preserveScroll: true });
@@ -25,11 +25,12 @@ const changeRole = (row, event) => {
                     <th class="px-4 py-3 font-semibold">Unit / Lokasi</th>
                     <th class="px-4 py-3 font-semibold">Role Akses</th>
                     <th class="px-4 py-3 font-semibold">Password</th>
+                    <th class="px-4 py-3 font-semibold">Aksi</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-if="users.length === 0">
-                    <td colspan="6" class="px-4 py-8 text-center text-slate-400">Tidak ada user yang cocok dengan pencarian.</td>
+                    <td colspan="7"class="px-4 py-8 text-center text-slate-400">Tidak ada user yang cocok dengan pencarian.</td>
                 </tr>
                 <tr v-for="row in users" :key="row.id" class="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
                     <td class="px-4 py-3 align-middle font-semibold text-slate-700">{{ row.username }}</td>
@@ -59,6 +60,16 @@ const changeRole = (row, event) => {
                         >
                             <KeyRound class="h-3.5 w-3.5" />
                             {{ row.passwordStatus === 'custom' ? 'Custom' : 'Default' }}
+                        </button>
+                    </td>
+                    <td class="px-4 py-3 align-middle">
+                        <button
+                            type="button"
+                            title="Hapus user"
+                            class="rounded-lg border border-red-200 p-1.5 text-red-500 hover:bg-red-50"
+                            @click="emit('delete-user', row)"
+                        >
+                            <Trash2 class="h-4 w-4" />
                         </button>
                     </td>
                 </tr>
