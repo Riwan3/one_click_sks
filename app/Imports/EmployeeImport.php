@@ -13,6 +13,8 @@ class EmployeeImport implements ToCollection
 
     private int $updated = 0;
 
+    public function __construct(private readonly EmployeeService $employeeService = new EmployeeService) {}
+
     /**
      * Maps recognized header labels (uppercased) to the Employee column they feed.
      * Mirrors V1's mapImportColumns()/extractImportRow() so the same template works here.
@@ -147,7 +149,7 @@ class EmployeeImport implements ToCollection
 
         if ($employee) {
             $employee->update($data);
-            $this->syncUser($employee, $password, $existingUsers->get($nrp));
+            $this->employeeService->syncUser($employee, $password, $existingUsers->get($nrp));
             $this->updated++;
 
             return;
@@ -168,31 +170,8 @@ class EmployeeImport implements ToCollection
 
         $employee = Employee::create(array_merge($defaults, $data, ['nrp' => $nrp]));
         $existingEmployees->put($nrp, $employee);
-        $this->syncUser($employee, $password, null);
+        $this->employeeService->syncUser($employee, $password, null);
         $this->created++;
-    }
-
-    private function syncUser(Employee $employee, string $password, ?\App\Models\User $existingUser): void
-    {
-        static $passwordHashCache = [];
-
-        $user = $existingUser ?: new \App\Models\User(['username' => $employee->nrp]);
-
-        $user->name = $employee->name;
-        $user->email = $employee->email;
-        $user->jabatan = $employee->jabatan_ss6;
-        $user->unit = $employee->unit;
-        $user->lokasi = $employee->lokasi_kerja;
-        $user->employee_id = $employee->id;
-
-        if (! $user->exists) {
-            $user->role = \App\Enums\UserRole::fromJabatan($employee->jabatan_ss6)->value;
-            $rawPass = $password ?: $employee->nrp;
-            // Cache hashing & gunakan rounds=8 untuk mempercepat proses bulk import
-            $user->password = $passwordHashCache[$rawPass] ??= \Illuminate\Support\Facades\Hash::make($rawPass, ['rounds' => 8]);
-        }
-
-        $user->save();
     }
 
     /**

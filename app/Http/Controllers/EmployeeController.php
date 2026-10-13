@@ -42,6 +42,7 @@ class EmployeeController extends Controller
             'notifCounts' => $this->notifCounts(),
             'menu' => MenuAccess::forConfig('one_power_menu'),
             'statuses' => $this->statusOptions(),
+            'roles' => $this->employeeService->roleOptions(),
         ]);
     }
 

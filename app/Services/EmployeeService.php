@@ -2,9 +2,15 @@
 
 namespace App\Services;
 
+use App\Enums\UserRole;
 use App\Models\Employee;
+use App\Models\Role;
+use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class EmployeeService
 {
@@ -30,7 +36,55 @@ class EmployeeService
 
     public function create(array $data): Employee
     {
-        return Employee::create($data);
+        $role = Arr::pull($data, 'role');
+
+        return DB::transaction(function () use ($data, $role) {
+            $employee = Employee::create($data);
+            $this->syncUser($employee, role: $role);
+
+            return $employee;
+        });
+    }
+
+    public function roleOptions(): array
+    {
+        return Role::query()->orderBy('label')->get(['code', 'label'])
+            ->map(fn (Role $role) => ['value' => $role->code, 'label' => $role->label])
+            ->all();
+    }
+
+    /**
+     * Buat/perbarui akun login karyawan (username = NRP). Akun baru: role dari jabatan, password awal = NRP.
+     */
+    public function syncUser(Employee $employee, ?string $password = null, ?User $existingUser = null, ?string $role = null): User
+    {
+        static $passwordHashCache = [];
+
+        $user = $existingUser ?: User::firstOrNew(['username' => $employee->nrp]);
+
+        $user->name = $employee->name;
+        $user->email = $this->isEmailTakenByOtherUser($employee) ? null : $employee->email;
+        $user->jabatan = $employee->jabatan_ss6;
+        $user->unit = $employee->unit;
+        $user->lokasi = $employee->lokasi_kerja;
+        $user->employee_id = $employee->id;
+
+        if (! $user->exists) {
+            $rawPass = $password ?: $employee->nrp;
+            // Cache hashing & rounds=8 untuk mempercepat bulk import
+            $user->role = $role ?: UserRole::fromJabatan($employee->jabatan_ss6)->value;
+            $user->password = $passwordHashCache[$rawPass] ??= Hash::make($rawPass, ['rounds' => 8]);
+        }
+
+        $user->save();
+
+        return $user;
+    }
+
+    private function isEmailTakenByOtherUser(Employee $employee): bool
+    {
+        return filled($employee->email)
+            && User::where('email', $employee->email)->where('username', '!=', $employee->nrp)->exists();
     }
 
     public function update(Employee $employee, array $data): Employee
@@ -42,7 +96,10 @@ class EmployeeService
 
     public function delete(Employee $employee): void
     {
-        $employee->delete();
+        DB::transaction(function () use ($employee) {
+            User::where('employee_id', $employee->id)->delete();
+            $employee->delete();
+        });
     }
 
     public function setStatus(Employee $employee, string $status): Employee
@@ -54,15 +111,20 @@ class EmployeeService
 
     public function deleteAllInactive(): int
     {
-        return Employee::query()->inactiveOnly()->delete();
+        return DB::transaction(function () {
+            User::whereIn('employee_id', Employee::query()->inactiveOnly()->select('id'))->delete();
+
+            return Employee::query()->inactiveOnly()->delete();
+        });
     }
 
     public function deleteAll(): int
     {
-        // Delete all users associated with employees first
-        \App\Models\User::whereNotNull('employee_id')->delete();
-        // Then delete all employees
-        return Employee::query()->delete();
+        return DB::transaction(function () {
+            User::whereNotNull('employee_id')->delete();
+
+            return Employee::query()->delete();
+        });
     }
 
     /**

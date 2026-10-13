@@ -2,8 +2,11 @@
 defineProps({
     form: { type: Object, required: true },
     statuses: { type: Array, required: true },
+    roles: { type: Array, default: () => [] },
     onSubmit: { type: Function, required: true },
 });
+
+defineEmits(['role-changed']);
 </script>
 
 <template>
@@ -23,6 +26,18 @@ defineProps({
             <div>
                 <label class="mb-1 block text-sm font-semibold text-slate-700">Jabatan (SS6)</label>
                 <input v-model="form.jabatan_ss6" type="text" placeholder="Contoh: OPERATOR" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500">
+            </div>
+            <div v-if="roles.length">
+                <label class="mb-1 block text-sm font-semibold text-slate-700">Role Akun Login</label>
+                <select
+                    v-model="form.role"
+                    class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                    @change="$emit('role-changed')"
+                >
+                    <option v-for="role in roles" :key="role.value" :value="role.value">{{ role.label }}</option>
+                </select>
+                <p v-if="form.errors.role" class="mt-1 text-xs text-red-600">{{ form.errors.role }}</p>
+                <p class="mt-1 text-xs text-slate-400">Terisi otomatis dari Jabatan (SS6), tetap bisa diubah.</p>
             </div>
             <div>
                 <label class="mb-1 block text-sm font-semibold text-slate-700">Jabatan (Roster)</label>

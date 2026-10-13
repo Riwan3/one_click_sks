@@ -27,6 +27,7 @@ class StoreEmployeeRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:100'],
             'efektif_bekerja' => ['nullable', 'date'],
             'input_here' => ['nullable', 'string'],
+            'role' => ['nullable', 'string', 'exists:roles,code'],
         ];
     }
 
