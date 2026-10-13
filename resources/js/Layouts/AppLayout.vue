@@ -19,7 +19,7 @@ const props = defineProps({
 const isAdmin = computed(() => {
     const role = String(props.user?.role || '').toLowerCase();
     const jabatan = String(props.user?.jabatan || '').toLowerCase();
-    return role === 'admin' || role === 'admin_produksi' || role === 'management' || jabatan.includes('admin');
+    return ['admin', 'superadmin', 'admin_produksi', 'management'].includes(role) || jabatan.includes('admin');
 });
 
 const page = usePage();
