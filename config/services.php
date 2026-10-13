@@ -60,6 +60,8 @@ return [
         'deployed_at' => env('APP_DEPLOYED_AT'),
         'url' => env('CONTROL_CENTER_URL'),
         'site_code' => env('CONTROL_CENTER_SITE_CODE'),
+        // Terapkan konfigurasi dari Control Center (sembunyikan modul/menu yang dinonaktifkan). Default mati.
+        'apply_config' => env('CONTROL_CENTER_APPLY_CONFIG', false),
     ],
 
     'browsershot' => [

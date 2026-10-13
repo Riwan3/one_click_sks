@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\LoginLog;
 use App\Models\User;
+use App\Support\ControlCenterPolicy;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -59,6 +60,7 @@ class ControlCenterReport
             'users' => $databaseOk ? User::count() : null,
             'modules' => collect(config('modules.list'))->pluck('key')->all(),
             'health' => $this->health->snapshot(),
+            'config_sync' => ControlCenterPolicy::syncInfo(),
             'checked_at' => now()->toIso8601String(),
         ];
     }

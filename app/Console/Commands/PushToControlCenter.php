@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\ControlCenterReport;
+use App\Support\ControlCenterPolicy;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Throwable;
@@ -57,6 +58,18 @@ class PushToControlCenter extends Command
         }
 
         $this->info("Laporan terkirim ke {$url} sebagai {$code}.");
+
+        // Balasan membawa konfigurasi dari Control Center (modul/menu nonaktif, versi target).
+        $config = $response->json('config');
+        if (is_array($config)) {
+            ControlCenterPolicy::store($config);
+            $this->line(sprintf(
+                'Konfigurasi diterima: %d modul & %d menu dinonaktifkan%s.',
+                count($config['disabled_modules'] ?? []),
+                array_sum(array_map('count', $config['disabled_menus'] ?? [])),
+                ControlCenterPolicy::applying() ? '' : ' (belum diterapkan: CONTROL_CENTER_APPLY_CONFIG=false)'
+            ));
+        }
 
         return self::SUCCESS;
     }

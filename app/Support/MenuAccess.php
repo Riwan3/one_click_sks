@@ -28,6 +28,15 @@ class MenuAccess
      */
     public static function forConfig(string $configKey): array
     {
+        $menu = self::filteredForRole($configKey);
+        $moduleKey = self::CONFIG_TO_MODULE_KEY[$configKey] ?? null;
+
+        // Lapisan terakhir: menu yang dinonaktifkan dari Control Center (bila diaktifkan di .env).
+        return $moduleKey ? ControlCenterPolicy::filterMenus($moduleKey, $menu) : $menu;
+    }
+
+    private static function filteredForRole(string $configKey): array
+    {
         $menuTree = config($configKey, []);
 
         $user = Auth::user();

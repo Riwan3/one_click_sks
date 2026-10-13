@@ -1343,7 +1343,11 @@ class PortalController extends Controller
     {
         $allowedKeys = RoleModuleAccess::allowedModuleKeys($role);
 
-        return collect(config('modules.list'))->filter(fn(array $module) => $allowedKeys->contains($module['key']))->values();
+        return collect(config('modules.list'))
+            ->filter(fn(array $module) => $allowedKeys->contains($module['key']))
+            // Modul yang dinonaktifkan dari Control Center (bila diaktifkan di .env) tidak tampil di portal.
+            ->filter(fn(array $module) => \App\Support\ControlCenterPolicy::moduleEnabled($module['key']))
+            ->values();
     }
 
     private function authJabatan(): ?string
