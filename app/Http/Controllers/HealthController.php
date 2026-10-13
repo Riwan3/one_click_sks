@@ -225,19 +225,16 @@ class HealthController extends Controller
     private function getUptime(): int
     {
         try {
-            if (php_uname('s') === 'Linux') {
-                $uptime = exec('uptime -s');
-                if ($uptime) {
-                    $uptimeTime = strtotime($uptime);
-                    return time() - $uptimeTime;
-                }
+            // exec() is disabled in production (docker/php.ini): read /proc/uptime instead.
+            if (is_readable('/proc/uptime')) {
+                return (int) explode(' ', (string) file_get_contents('/proc/uptime'))[0];
             }
-        } catch (\Exception) {
-            // Fallback for non-Linux systems
+        } catch (\Throwable) {
+            // Fall through to the fallback below.
         }
 
         // Fallback: return PHP process uptime (less accurate)
-        return intval(microtime(true) - $_SERVER['REQUEST_TIME'] ?? 0);
+        return (int) (microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true)));
     }
 
     /**
@@ -253,7 +250,15 @@ class HealthController extends Controller
             return 0; // Unlimited
         }
 
-        return intval($limit) / 1024 / 1024;
+        $bytes = (int) $limit;
+        $bytes *= match (strtoupper(substr((string) $limit, -1))) {
+            'G' => 1024 ** 3,
+            'M' => 1024 ** 2,
+            'K' => 1024,
+            default => 1,
+        };
+
+        return (int) round($bytes / 1024 / 1024);
     }
 
     /**
