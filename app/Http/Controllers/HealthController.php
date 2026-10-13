@@ -204,14 +204,15 @@ class HealthController extends Controller
             $driver = config('queue.default');
 
             if ($driver === 'database') {
-                return \Illuminate\Queue\Jobs\DatabaseJob::query()->count();
+                // DatabaseJob is not an Eloquent model: count the queue table directly.
+                return DB::table(config('queue.connections.database.table', 'jobs'))->count();
             } elseif ($driver === 'redis') {
                 // Redis queue count (approximate)
                 return Redis::llen(config('queue.connections.redis.queue', 'default')) ?? 0;
             }
 
             return 0;
-        } catch (\Exception) {
+        } catch (\Throwable) {
             return 0;
         }
     }
