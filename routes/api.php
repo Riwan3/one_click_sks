@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthApiController;
 use App\Http\Controllers\Api\ControlCenterController;
 use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\MorRaportController;
+use App\Http\Controllers\Api\PengajuanGradeController;
 use App\Http\Controllers\Api\QorApiController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\CoachingCounselingController;
@@ -29,6 +30,13 @@ Route::middleware(['cc.token', 'throttle:60,1'])->prefix('cc')->group(function (
     Route::get('/activity', [ControlCenterController::class, 'activity']);
     Route::get('/menus', [ControlCenterController::class, 'menus']);
 });
+
+// Dipanggil OneClick HO untuk mengintip Pengajuan Grade & mengisi Remark (token PENGAJUAN_API_TOKEN).
+// Alias .php menjaga kompatibilitas dengan alamat lama (api/pengajuan-grade.php) yang dipakai HO.
+Route::middleware(['pengajuan.token', 'throttle:120,1'])
+    ->match(['get', 'post'], '/pengajuan-grade{legacy?}', PengajuanGradeController::class)
+    ->where('legacy', '(\.php)?')
+    ->name('api.pengajuan-grade');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthApiController::class, 'me']);

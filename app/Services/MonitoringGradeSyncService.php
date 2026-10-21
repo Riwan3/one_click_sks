@@ -194,7 +194,7 @@ class MonitoringGradeSyncService
     }
 
     /** @return array{0: array<int, array<int, string>>, 1: ?string} [csv rows, error] */
-    private function fetchCsvRows(string $url): array
+    public function fetchCsvRows(string $url): array
     {
         if (! preg_match('/\/d\/([a-zA-Z0-9-_]+)/', $url, $matches)) {
             return [[], 'URL tidak valid.'];

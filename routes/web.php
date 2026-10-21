@@ -30,6 +30,9 @@ use App\Http\Controllers\MppPhotoController;
 use App\Http\Controllers\MppReportController;
 use App\Http\Controllers\OneAcademyController;
 use App\Http\Controllers\MonitoringGradeController;
+use App\Http\Controllers\OpdBerandaController;
+use App\Http\Controllers\OpdMinimalGradeController;
+use App\Http\Controllers\OpdPengajuanGradeController;
 use App\Http\Controllers\AcademyAssessmentController;
 use App\Http\Controllers\AcademyMonitoringController;
 use App\Http\Controllers\EvaluasiKompetensiController;
@@ -394,6 +397,32 @@ Route::middleware('auth')->group(function () {
     Route::post('/one-academy/monitoring-grade/store-versatility', [MonitoringGradeController::class, 'storeVersatility'])->name('one-academy.monitoring-grade.store-versatility');
     Route::post('/one-academy/monitoring-grade/sync-grade', [MonitoringGradeController::class, 'syncGrade'])->name('one-academy.monitoring-grade.sync-grade');
     Route::post('/one-academy/monitoring-grade/sync-versatility', [MonitoringGradeController::class, 'syncVersatility'])->name('one-academy.monitoring-grade.sync-versatility');
+
+    Route::prefix('one-academy/opd')->name('one-academy.opd.')->group(function () {
+        Route::get('beranda', [OpdBerandaController::class, 'index'])->name('beranda');
+
+        Route::controller(OpdPengajuanGradeController::class)->prefix('pengajuan-grade')->name('pengajuan.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('unlock', 'unlock')->middleware('throttle:10,1')->name('unlock');
+            Route::post('lock', 'lock')->name('lock');
+            Route::post('ajukan', 'ajukan')->name('ajukan');
+
+            Route::middleware('opd.unlocked')->group(function () {
+                Route::get('search-employee', 'searchEmployee')->name('search-employee');
+                Route::post('/', 'store')->name('store');
+                Route::patch('{pengajuan}', 'update')->name('update');
+                Route::delete('{pengajuan}', 'destroy')->name('destroy');
+            });
+        });
+
+        Route::controller(OpdMinimalGradeController::class)->prefix('master-grade/minimal-grade')->name('minimal-grade.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::post('import', 'import')->name('import');
+            Route::put('{minimalGrade}', 'update')->name('update');
+            Route::delete('{minimalGrade}', 'destroy')->name('destroy');
+        });
+    });
 
     Route::get('/one-academy/evaluasi-kompetensi', [EvaluasiKompetensiController::class, 'index'])->name('one-academy.evaluasi-kompetensi.index');
     Route::get('/one-academy/evaluasi-kompetensi/materi/view/{materi}', [EvaluasiKompetensiController::class, 'viewMateri'])->name('one-academy.evaluasi-kompetensi.materi.view');

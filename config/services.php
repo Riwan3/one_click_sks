@@ -64,6 +64,11 @@ return [
         'apply_config' => env('CONTROL_CENTER_APPLY_CONFIG', false),
     ],
 
+    // Token bersama untuk OneClick HO memanggil /api/pengajuan-grade (kosong = API ditolak).
+    'pengajuan_api' => [
+        'token' => env('PENGAJUAN_API_TOKEN'),
+    ],
+
     'browsershot' => [
         'chrome_path' => env('BROWSERSHOT_CHROME_PATH'),
         'node_binary' => env('BROWSERSHOT_NODE_BINARY'),
