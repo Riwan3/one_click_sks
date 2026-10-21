@@ -48,9 +48,9 @@ const goBack = () => {
             <span class="hidden xs:inline">Kembali</span>
         </button>
 
-        <!-- Toggle Sidebar (Burger Bar) - Hanya muncul untuk role Admin -->
-        <button 
-            v-if="!hideSidebar && isAdmin"
+        <!-- Ciutkan / lebarkan sidebar - muncul untuk semua yang punya sidebar -->
+        <button
+            v-if="!hideSidebar"
             type="button" 
             class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 shrink-0" 
             @click="$emit('toggle-sidebar')"

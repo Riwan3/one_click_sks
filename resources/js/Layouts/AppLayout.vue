@@ -27,14 +27,30 @@ const isRosterViewer = computed(() => !!props.user?.canViewRosterV2 && page.url.
 
 const effectiveHideSidebar = computed(() => props.hideSidebar || !(isAdmin.value || isRosterViewer.value));
 
-const collapsed = ref(false);
+const STORAGE_KEY = 'sidebar-collapsed';
+
+const readStoredCollapsed = () => {
+    try {
+        return localStorage.getItem(STORAGE_KEY) === '1';
+    } catch {
+        return false;
+    }
+};
+
+const collapsed = ref(readStoredCollapsed());
 const mobileOpen = ref(false);
 
 const toggleSidebar = () => {
-    if (window.matchMedia('(min-width: 1024px)').matches) {
-        collapsed.value = !collapsed.value;
-    } else {
+    if (! window.matchMedia('(min-width: 1024px)').matches) {
         mobileOpen.value = !mobileOpen.value;
+        return;
+    }
+
+    collapsed.value = !collapsed.value;
+    try {
+        localStorage.setItem(STORAGE_KEY, collapsed.value ? '1' : '0');
+    } catch {
+        // penyimpanan browser diblokir: pilihan hanya berlaku selama halaman terbuka
     }
 };
 </script>
